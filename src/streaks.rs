@@ -1,9 +1,10 @@
+use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 
-use chrono::{Local, NaiveDate, TimeDelta};
+use chrono::{Local, NaiveDate};
 use clap::ValueEnum;
 
-#[derive(Clone, Debug, PartialEq, ValueEnum)]
+#[derive(Clone, Debug, PartialEq, ValueEnum, Serialize, Deserialize)]
 pub enum Frequency {
     Daily,
     Weekly,
@@ -18,7 +19,7 @@ impl Display for Frequency {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Streak {
     pub task: String,
     pub frequency: Frequency,
@@ -28,11 +29,15 @@ pub struct Streak {
 impl Streak {
     pub fn new_daily(name: String) -> Self {
         let date = Local::now();
-        Self {
+        let mut streaks: Vec<Streak> = load_streaks();
+        let streak = Self {
             task: name,
             frequency: Frequency::Daily,
             last_checkin: date.date_naive(),
-        }
+        };
+        streaks.push(streak.clone());
+        save_streaks(streaks);
+        streak
     }
 
     pub fn new_weekly(name: String) -> Self {
@@ -59,9 +64,22 @@ impl Streak {
     }
 }
 
+fn save_streaks(streaks: Vec<Streak>) {
+    let ronned = ron::ser::to_string(&streaks).unwrap();
+    std::fs::write("streaks.ron", ronned).unwrap();
+}
+
+fn load_streaks() -> Vec<Streak> {
+    let ronned = std::fs::read_to_string("streaks.ron").unwrap();
+    let ronned: Vec<Streak> = ron::de::from_str(&ronned).unwrap();
+    dbg!(&ronned);
+    ronned
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::TimeDelta;
 
     #[test]
     fn new_daily_streak() {

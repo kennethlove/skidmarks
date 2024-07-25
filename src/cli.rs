@@ -2,7 +2,7 @@ use crate::streaks::{Frequency, Streak};
 use clap::{Parser, Subcommand};
 
 #[derive(Debug, Parser)]
-#[command(about, long_about = None)]
+#[command(version, about, long_about = None)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -12,14 +12,12 @@ struct Cli {
 enum Commands {
     #[command(about = "Create a new streak", long_about = None)]
     Add {
-        #[clap(short, long)]
-        name: String,
-
         #[clap(short, long, value_enum)]
         frequency: Frequency,
+
+        #[clap(short, long)]
+        name: String,
     },
-    #[command(version)]
-    Version,
 }
 
 fn new_daily(name: String) -> String {
@@ -39,19 +37,12 @@ pub fn parse() -> String {
             Frequency::Daily => new_daily(name.to_string()),
             Frequency::Weekly => new_weekly(name.to_string()),
         },
-        Commands::Version => "Skidmarks v0.1.0".to_string(),
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_version_command() {
-        let cli = Cli::parse_from(&["skidmarks", "--version"]);
-        assert!(matches!(cli.command, Commands::Version));
-    }
 
     #[test]
     fn test_new_daily_command() {
