@@ -1,6 +1,12 @@
+cargo-features = ["codegen-backend"]
 [package]
 name = "skidmarks"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+chrono = "0.4.38"
+
+[profile.dev]
+debug = 0
+codegen-backend = "cranelift"
