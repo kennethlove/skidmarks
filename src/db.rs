@@ -50,6 +50,12 @@ impl Database {
         Ok(())
     }
 
+    pub fn add(&mut self, streak: Streak) -> Result<(), std::io::Error> {
+        let mut streaks = self.streaks.lock().unwrap();
+        streaks.push(streak);
+        Ok(())
+    }
+
     pub fn update(&mut self, idx: u32, streak: Streak) -> Result<(), std::io::Error> {
         let mut streaks = self.streaks.lock().unwrap();
         streaks[idx as usize] = streak;
@@ -79,5 +85,67 @@ impl Default for Database {
             streaks: Mutex::new(Vec::new()),
             filename: DB_FILENAME.to_string(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use assert_fs::prelude::*;
+    use chrono::Local;
+
+    #[test]
+    fn test_create_if_missing() {
+        let temp = assert_fs::TempDir::new().unwrap();
+        let db_file = temp.child("test_create_if_missing.ron");
+
+        let result = Database::create_if_missing(db_file.to_str().unwrap());
+        assert!(result.is_ok());
+
+        let result = Database::create_if_missing(db_file.to_str().unwrap());
+        assert!(result.is_ok());
+
+        let _ = std::fs::remove_file(db_file.path());
+    }
+
+    #[test]
+    fn test_load_database() {
+        let temp = assert_fs::TempDir::new().unwrap();
+        let db_file = temp.child("test_load_database.ron");
+        let _ = Database::new(db_file.to_str().unwrap()).unwrap();
+
+        db_file
+            .write_str(r#"[(task:"brush teeth",frequency:Daily,last_checkin:"2024-07-26")]"#)
+            .unwrap();
+
+        let result = Database::load_database(db_file.to_str().unwrap());
+        assert!(result.is_ok());
+        assert!(result.unwrap().len() == 1);
+
+        let _ = std::fs::remove_file(db_file.path());
+        temp.close().unwrap();
+    }
+
+    #[test]
+    fn test_save_database() {
+        let temp = assert_fs::TempDir::new().unwrap();
+        let db_file = temp.child("test_save_database.ron");
+        let file_path = db_file.to_str().unwrap();
+
+        let mut db = Database::new(file_path).unwrap();
+        let streak = Streak::new_daily("brush teeth".to_string());
+        db.add(streak).unwrap();
+        db.save().unwrap();
+
+        let expected_content = r#"[(task:"brush teeth",frequency:Daily,last_checkin:""#;
+        let date = Local::now().date_naive();
+        let end = r#"")]"#;
+        let expected_content = format!("{}{}{}", expected_content, date, end);
+
+        let result = std::fs::read_to_string(file_path);
+        assert_eq!(result.unwrap(), expected_content);
+
+        let _ = std::fs::remove_file(db_file.path());
+        temp.close().unwrap();
     }
 }

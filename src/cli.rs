@@ -68,6 +68,12 @@ fn checkin(db: &mut Database, idx: u32) -> Result<(), Box<dyn std::error::Error>
     Ok(())
 }
 
+fn delete(db: &mut Database, idx: u32) -> Result<(), Box<dyn std::error::Error>> {
+    db.streaks.lock().unwrap().remove(idx as usize);
+    db.save()?;
+    Ok(())
+}
+
 pub fn parse(db: &mut Database) {
     let cli = Cli::parse();
     match &cli.command {
@@ -103,8 +109,7 @@ pub fn parse(db: &mut Database) {
             Err(e) => eprintln!("Error checking in: {}", e),
         },
         Commands::Remove { idx } => {
-            db.delete(*idx - 1).unwrap();
-            db.save().unwrap();
+            let _ = delete(db, *idx - 1);
             println!("Removed streak at index {}", idx)
         }
     }
