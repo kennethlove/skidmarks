@@ -16,7 +16,7 @@ You can install Rust using [rustup](https://rustup.rs/).
 
 ```sh
 # Clone the repository
-git clone https://github.com/yourusername/skidmarks.git
+git clone https://github.com/kennethlove/skidmarks.git
 
 # Navigate to the project directory
 cd skidmarks
