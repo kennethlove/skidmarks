@@ -13,6 +13,7 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Commands {
+    ListAll,
     #[command(about = "Create a new streak", long_about = None)]
     Add {
         #[clap(short, long, value_enum)]
@@ -21,7 +22,15 @@ enum Commands {
         #[clap(short, long)]
         name: String,
     },
-    ListAll,
+    Get {
+        idx: u32,
+    },
+    CheckIn {
+        idx: u32,
+    },
+    Remove {
+        idx: u32,
+    },
 }
 
 fn new_daily(name: String, db: &mut Database) -> Result<Streak, Box<dyn std::error::Error>> {
@@ -38,8 +47,25 @@ fn new_weekly(name: String, db: &mut Database) -> Result<Streak, Box<dyn std::er
     Ok(streak)
 }
 
-fn list_all(db: &mut Database) -> Vec<Streak> {
+fn get_all(db: &mut Database) -> Vec<Streak> {
     db.streaks.lock().unwrap().clone()
+}
+
+fn get_one(db: &mut Database, idx: u32) -> Streak {
+    db.streaks
+        .lock()
+        .unwrap()
+        .get(idx as usize)
+        .unwrap()
+        .clone()
+}
+
+fn checkin(db: &mut Database, idx: u32) -> Result<(), Box<dyn std::error::Error>> {
+    let mut streak = get_one(db, idx);
+    streak.checkin();
+    db.update(idx, streak)?;
+    db.save()?;
+    Ok(())
 }
 
 pub fn parse(db: &mut Database) {
@@ -56,7 +82,7 @@ pub fn parse(db: &mut Database) {
             }
         },
         Commands::ListAll => {
-            let list: Vec<Streak> = list_all(db);
+            let list: Vec<Streak> = get_all(db);
             let output: String = list
                 .into_iter()
                 .enumerate()
@@ -64,6 +90,22 @@ pub fn parse(db: &mut Database) {
                 .collect();
 
             println!("{}", output);
+        }
+        Commands::Get { idx } => {
+            let streak = get_one(db, *idx - 1);
+            println!("{}: {}\n{}", idx, streak.task, streak.frequency);
+        }
+        Commands::CheckIn { idx } => match checkin(db, *idx - 1) {
+            Ok(_) => {
+                let streak = get_one(db, *idx - 1);
+                println!("Checked in streak: {}", streak.task)
+            }
+            Err(e) => eprintln!("Error checking in: {}", e),
+        },
+        Commands::Remove { idx } => {
+            db.delete(*idx - 1).unwrap();
+            db.save().unwrap();
+            println!("Removed streak at index {}", idx)
         }
     }
 }

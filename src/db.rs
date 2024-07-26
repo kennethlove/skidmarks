@@ -45,8 +45,20 @@ impl Database {
         std::fs::write(filename, ronned).unwrap();
     }
 
-    pub fn save(&mut self) -> Result<(), std::io::Error> {
+    pub fn save(&self) -> Result<(), std::io::Error> {
         self.save_database(self.filename.as_str());
+        Ok(())
+    }
+
+    pub fn update(&mut self, idx: u32, streak: Streak) -> Result<(), std::io::Error> {
+        let mut streaks = self.streaks.lock().unwrap();
+        streaks[idx as usize] = streak;
+        Ok(())
+    }
+
+    pub fn delete(&mut self, idx: u32) -> Result<(), std::io::Error> {
+        let mut streaks = self.streaks.lock().unwrap();
+        streaks.remove(idx as usize);
         Ok(())
     }
 
