@@ -1,4 +1,7 @@
-use crate::streaks::{Frequency, Streak};
+use crate::{
+    db::Database,
+    streaks::{Frequency, Streak},
+};
 use clap::{Parser, Subcommand};
 
 #[derive(Debug, Parser)]
@@ -18,25 +21,50 @@ enum Commands {
         #[clap(short, long)]
         name: String,
     },
+    ListAll,
 }
 
-fn new_daily(name: String) -> String {
+fn new_daily(name: String, db: &mut Database) -> Result<Streak, Box<dyn std::error::Error>> {
     let streak = Streak::new_daily(name);
-    format!("Created {} streak: {}", streak.frequency, streak.task)
+    db.streaks.lock().unwrap().push(streak.clone());
+    db.save()?;
+    Ok(streak)
 }
 
-fn new_weekly(name: String) -> String {
+fn new_weekly(name: String, db: &mut Database) -> Result<Streak, Box<dyn std::error::Error>> {
     let streak = Streak::new_weekly(name);
-    format!("Created {} streak: {}", streak.frequency, streak.task)
+    db.streaks.lock().unwrap().push(streak.clone());
+    db.save()?;
+    Ok(streak)
 }
 
-pub fn parse() -> String {
+fn list_all(db: &mut Database) -> Vec<Streak> {
+    db.streaks.lock().unwrap().clone()
+}
+
+pub fn parse(db: &mut Database) {
     let cli = Cli::parse();
     match &cli.command {
         Commands::Add { name, frequency } => match frequency {
-            Frequency::Daily => new_daily(name.to_string()),
-            Frequency::Weekly => new_weekly(name.to_string()),
+            Frequency::Daily => {
+                let streak = new_daily(name.to_string(), db).unwrap();
+                println!("Created new daily streak: {}", streak.task);
+            }
+            Frequency::Weekly => {
+                let streak = new_weekly(name.to_string(), db).unwrap();
+                println!("Created new weekly streak: {}", streak.task);
+            }
         },
+        Commands::ListAll => {
+            let list: Vec<Streak> = list_all(db);
+            let output: String = list
+                .into_iter()
+                .enumerate()
+                .map(|(i, s)| format!("{}: {}\n", i + 1, s.task.clone()))
+                .collect();
+
+            println!("{}", output);
+        }
     }
 }
 

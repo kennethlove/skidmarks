@@ -1,8 +1,7 @@
-use serde::{Deserialize, Serialize};
-use std::fmt::Display;
-
 use chrono::{Local, NaiveDate};
 use clap::ValueEnum;
+use serde::{Deserialize, Serialize};
+use std::fmt::Display;
 
 #[derive(Clone, Debug, PartialEq, ValueEnum, Serialize, Deserialize)]
 pub enum Frequency {
@@ -29,24 +28,22 @@ pub struct Streak {
 impl Streak {
     pub fn new_daily(name: String) -> Self {
         let date = Local::now();
-        let mut streaks: Vec<Streak> = load_streaks();
         let streak = Self {
             task: name,
             frequency: Frequency::Daily,
             last_checkin: date.date_naive(),
         };
-        streaks.push(streak.clone());
-        save_streaks(streaks);
         streak
     }
 
     pub fn new_weekly(name: String) -> Self {
         let date = Local::now();
-        Self {
+        let streak = Self {
             task: name,
             frequency: Frequency::Weekly,
             last_checkin: date.date_naive(),
-        }
+        };
+        streak
     }
 
     pub fn checkin(&mut self) {
@@ -62,47 +59,6 @@ impl Streak {
             Frequency::Weekly => duration.num_days() > 7,
         }
     }
-}
-
-use std::fs::{File, OpenOptions};
-use std::io::Write;
-
-fn create_database_if_new() -> std::io::Result<()> {
-    let filename = "streaks.ron";
-    let data = "[]".as_bytes();
-
-    let metadata = match std::fs::metadata(filename) {
-        Ok(meta) => meta,
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
-            let mut file = OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(filename)?;
-            file.write_all(data)?;
-            return Ok(());
-        },
-        Err(err) => return Err(err),
-    };
-
-    if metadata.len() == 0 {
-        let mut file = File::open(filename)?;
-        file.write_all(data)?;
-    }
-    Ok(())
-}
-
-fn save_streaks(streaks: Vec<Streak>) {
-    let ronned = ron::ser::to_string(&streaks).unwrap();
-    let _ = create_database_if_new();
-    std::fs::write("streaks.ron", ronned).unwrap();
-}
-
-fn load_streaks() -> Vec<Streak> {
-    let _ = create_database_if_new();
-    let ronned = std::fs::read_to_string("streaks.ron").unwrap();
-    let ronned: Vec<Streak> = ron::de::from_str(&ronned).expect("Failed to load streaks");
-    dbg!(&ronned);
-    ronned
 }
 
 #[cfg(test)]
