@@ -28,22 +28,20 @@ pub struct Streak {
 impl Streak {
     pub fn new_daily(name: String) -> Self {
         let date = Local::now();
-        let streak = Self {
+        Self {
             task: name,
             frequency: Frequency::Daily,
             last_checkin: date.date_naive(),
-        };
-        streak
+        }
     }
 
     pub fn new_weekly(name: String) -> Self {
         let date = Local::now();
-        let streak = Self {
+        Self {
             task: name,
             frequency: Frequency::Weekly,
             last_checkin: date.date_naive(),
-        };
-        streak
+        }
     }
 
     pub fn checkin(&mut self) {

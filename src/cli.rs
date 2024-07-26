@@ -1,3 +1,4 @@
+use std::fmt::Write;
 use crate::{
     db::Database,
     streaks::{Frequency, Streak},
@@ -73,6 +74,13 @@ fn delete(db: &mut Database, idx: u32) -> Result<(), Box<dyn std::error::Error>>
     db.save()?;
     Ok(())
 }
+fn list_all(db: &mut Database) -> String {
+    let list: Vec<Streak> = get_all(db);
+    list.into_iter().enumerate().fold(String::new(), |mut acc, (i, s)| {
+        let _ = writeln!(acc, "{}: {}", i + 1, s.task.clone());
+        acc
+    })
+}
 
 pub fn parse(db: &mut Database) {
     let cli = Cli::parse();
@@ -88,14 +96,7 @@ pub fn parse(db: &mut Database) {
             }
         },
         Commands::ListAll => {
-            let list: Vec<Streak> = get_all(db);
-            let output: String = list
-                .into_iter()
-                .enumerate()
-                .map(|(i, s)| format!("{}: {}\n", i + 1, s.task.clone()))
-                .collect();
-
-            println!("{}", output);
+            println!("{}", list_all(db));
         }
         Commands::Get { idx } => {
             let streak = get_one(db, *idx - 1);
@@ -121,7 +122,7 @@ mod tests {
 
     #[test]
     fn test_new_daily_command() {
-        let cli = Cli::parse_from(&[
+        let cli = Cli::parse_from([
             "skidmarks",
             "add",
             "--name",
@@ -129,6 +130,24 @@ mod tests {
             "--frequency",
             "daily",
         ]);
-        assert!(matches!(cli.command, Commands::Add { .. }));
+        assert!(matches!(cli.command,
+            Commands::Add { frequency, name } if frequency == Frequency::Daily && name == "Test Streak"));
+    }
+
+    #[test]
+    fn test_new_weekly_command() {
+        let cli = Cli::parse_from([
+            "skidmarks",
+            "add",
+            "--name",
+            "Test Streak",
+            "--frequency",
+            "weekly",
+        ]);
+        assert!(matches!(cli.command,
+            Commands::Add { frequency, name }
+            if frequency == Frequency::Weekly
+            && name == "Test Streak"
+        ));
     }
 }
