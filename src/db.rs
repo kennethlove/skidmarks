@@ -1,9 +1,12 @@
+use crate::settings::Settings;
 use crate::streaks::Streak;
 use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::sync::Mutex;
 
-const DB_FILENAME: &str = "streaks.ron";
+lazy_static::lazy_static! {
+    static ref FILE_LOCK: Mutex<()> = Mutex::new(());
+}
 
 pub struct Database {
     pub filename: String,
@@ -20,6 +23,8 @@ impl Database {
                     .create(true)
                     .append(true)
                     .open(filename)?;
+
+                let _lock = FILE_LOCK.lock().unwrap();
                 file.write_all(data)?;
                 return Ok(());
             }
@@ -28,6 +33,7 @@ impl Database {
 
         if metadata.len() == 0 {
             let mut file = File::open(filename)?;
+            let _lock = FILE_LOCK.lock().unwrap();
             file.write_all(data)?;
         }
         Ok(())
@@ -42,7 +48,13 @@ impl Database {
     fn save_database(&self, filename: &str) {
         let streaks: Vec<Streak> = self.streaks.lock().unwrap().clone();
         let ronned = ron::ser::to_string(&streaks).unwrap();
-        std::fs::write(filename, ronned).unwrap();
+        let mut file = OpenOptions::new()
+            .write(true)
+            .truncate(true)
+            .open(filename)
+            .unwrap();
+        let _lock = FILE_LOCK.lock().unwrap();
+        file.write_all(ronned.as_bytes()).unwrap();
     }
 
     pub fn save(&self) -> Result<(), std::io::Error> {
@@ -81,9 +93,10 @@ impl Database {
 
 impl Default for Database {
     fn default() -> Self {
+        let settings = Settings::new().unwrap();
         Self {
             streaks: Mutex::new(Vec::new()),
-            filename: DB_FILENAME.to_string(),
+            filename: settings.database.url,
         }
     }
 }
@@ -125,6 +138,21 @@ mod tests {
         let _ = std::fs::remove_file(db_file.path());
         temp.close().unwrap();
     }
+
+    #[test]
+    fn test_load_database_empty() {
+        let temp = assert_fs::TempDir::new().unwrap();
+        let db_file = temp.child("test_load_database_empty.ron");
+        let _ = Database::new(db_file.to_str().unwrap()).unwrap();
+
+        let result = Database::load_database(db_file.to_str().unwrap());
+        assert!(result.is_ok());
+        assert!(result.unwrap().is_empty());
+
+        let _ = std::fs::remove_file(db_file.path());
+        temp.close().unwrap();
+    }
+
 
     #[test]
     fn test_save_database() {

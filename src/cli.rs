@@ -1,9 +1,9 @@
-use std::fmt::Write;
 use crate::{
     db::Database,
     streaks::{Frequency, Streak},
 };
 use clap::{Parser, Subcommand};
+use std::fmt::Write;
 
 #[derive(Debug, Parser)]
 #[command(version, about, long_about = None)]
@@ -14,7 +14,8 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Commands {
-    ListAll,
+    #[command(about = "List all streaks", long_about = None)]
+    GetAll,
     #[command(about = "Create a new streak", long_about = None)]
     Add {
         #[clap(short, long, value_enum)]
@@ -23,15 +24,12 @@ enum Commands {
         #[clap(short, long)]
         name: String,
     },
-    Get {
-        idx: u32,
-    },
-    CheckIn {
-        idx: u32,
-    },
-    Remove {
-        idx: u32,
-    },
+    #[command(about = "Get a single streak", long_about = None)]
+    Get { idx: u32 },
+    #[command(about = "Check in to a streak", long_about = None)]
+    CheckIn { idx: u32 },
+    #[command(about = "Remove a streak", long_about = None)]
+    Remove { idx: u32 },
 }
 
 fn new_daily(name: String, db: &mut Database) -> Result<Streak, Box<dyn std::error::Error>> {
@@ -49,7 +47,17 @@ fn new_weekly(name: String, db: &mut Database) -> Result<Streak, Box<dyn std::er
 }
 
 fn get_all(db: &mut Database) -> Vec<Streak> {
-    db.streaks.lock().unwrap().clone()
+    let streaks = db.streaks.lock();
+    match streaks {
+        Ok(streaks) => {
+            if streaks.is_empty() {
+                Vec::<Streak>::new()
+            } else {
+                streaks.clone()
+            }
+        }
+        Err(e) => panic!("Error getting streaks: {}", e),
+    }
 }
 
 fn get_one(db: &mut Database, idx: u32) -> Streak {
@@ -76,10 +84,12 @@ fn delete(db: &mut Database, idx: u32) -> Result<(), Box<dyn std::error::Error>>
 }
 fn list_all(db: &mut Database) -> String {
     let list: Vec<Streak> = get_all(db);
-    list.into_iter().enumerate().fold(String::new(), |mut acc, (i, s)| {
-        let _ = writeln!(acc, "{}: {}", i + 1, s.task.clone());
-        acc
-    })
+    list.into_iter()
+        .enumerate()
+        .fold(String::new(), |mut acc, (i, s)| {
+            let _ = writeln!(acc, "{}: {}", i + 1, s.task.clone());
+            acc
+        })
 }
 
 pub fn parse(db: &mut Database) {
@@ -95,8 +105,9 @@ pub fn parse(db: &mut Database) {
                 println!("Created new weekly streak: {}", streak.task);
             }
         },
-        Commands::ListAll => {
-            println!("{}", list_all(db));
+        Commands::GetAll => {
+            let streak_list = list_all(db);
+            println!("{}", streak_list);
         }
         Commands::Get { idx } => {
             let streak = get_one(db, *idx - 1);
@@ -118,36 +129,82 @@ pub fn parse(db: &mut Database) {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::{env, fs};
+    use std::fs::{File, OpenOptions};
+    use std::io::Write;
+    use std::sync::Mutex;
+    use assert_cmd::Command;
+    use crate::settings::Settings;
+
+    lazy_static::lazy_static! {
+        static ref FILE_LOCK: Mutex<()> = Mutex::new(());
+    }
+
+    #[test]
+    fn test_get_all() {
+        env::set_var("RUN_MODE", "Testing");
+        let settings = Settings::new().unwrap();
+        let _lock = FILE_LOCK.lock().unwrap();
+        if fs::remove_file(&settings.database.url).is_ok() {
+            println!("Removed existing database file");
+        } else {
+            println!("No existing database file to remove");
+        }
+
+        let mut cmd = Command::cargo_bin("skidmarks").unwrap();
+        let list_assert = cmd
+            .arg("get-all")
+            .assert();
+        list_assert.success();
+
+        fs::remove_file(&settings.database.url).unwrap();
+    }
 
     #[test]
     fn test_new_daily_command() {
-        let cli = Cli::parse_from([
-            "skidmarks",
-            "add",
-            "--name",
-            "Test Streak",
-            "--frequency",
-            "daily",
-        ]);
-        assert!(matches!(cli.command,
-            Commands::Add { frequency, name } if frequency == Frequency::Daily && name == "Test Streak"));
+        env::set_var("RUN_MODE", "Testing");
+        let settings = Settings::new().unwrap();
+        let _lock = FILE_LOCK.lock().unwrap();
+        if fs::remove_file(&settings.database.url).is_ok() {
+            println!("Removed existing database file");
+        } else {
+            println!("No existing database file to remove");
+        }
+
+        let mut cmd = Command::cargo_bin("skidmarks").unwrap();
+        let add_assert = cmd
+            .arg("add")
+            .arg("--name")
+            .arg("Test Streak")
+            .arg("--frequency")
+            .arg("daily")
+            .assert();
+        add_assert.success();
+
+        fs::remove_file(&settings.database.url).unwrap();
     }
 
     #[test]
     fn test_new_weekly_command() {
-        let cli = Cli::parse_from([
-            "skidmarks",
-            "add",
-            "--name",
-            "Test Streak",
-            "--frequency",
-            "weekly",
-        ]);
-        assert!(matches!(cli.command,
-            Commands::Add { frequency, name }
-            if frequency == Frequency::Weekly
-            && name == "Test Streak"
-        ));
+        env::set_var("RUN_MODE", "Testing");
+        let settings = Settings::new().unwrap();
+        let _lock = FILE_LOCK.lock().unwrap();
+        if fs::remove_file(&settings.database.url).is_ok() {
+            println!("Removed existing database file");
+        } else {
+            println!("No existing database file to remove");
+        }
+
+        let mut cmd = Command::cargo_bin("skidmarks").unwrap();
+        let add_assert = cmd
+            .arg("add")
+            .arg("--name")
+            .arg("Test Streak")
+            .arg("--frequency")
+            .arg("weekly")
+            .assert();
+        add_assert.success();
+
+        fs::remove_file(&settings.database.url).unwrap();
     }
 }

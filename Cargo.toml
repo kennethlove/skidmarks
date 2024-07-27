@@ -4,8 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+assert_cmd = "2.0.15"
 assert_fs = "1.1.2"
 chrono = { version = "0.4.38", features = ["serde"] }
 clap = { version = "4.5.11", features = ["derive"] }
+config = "0.14.0"
+lazy_static = "1.5.0"
 ron = "0.8.1"
 serde = { version = "1.0.204", features = ["derive"] }
