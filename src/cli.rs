@@ -1,7 +1,9 @@
 use std::fmt::Write;
+use std::io::Write as _;
 use ansi_term::{Color, Style};
 use clap::{Parser, Subcommand};
-use console::{pad_str, Alignment, Term};
+use console::{pad_str, Alignment, Emoji, Term};
+use tabwriter::TabWriter;
 use crate::{
     db::Database,
     streaks::{Frequency, Streak},
@@ -17,7 +19,7 @@ struct Cli {
 #[derive(Debug, Subcommand)]
 enum Commands {
     #[command(about = "List all streaks", long_about = None)]
-    GetAll,
+    List,
     #[command(about = "Create a new streak", long_about = None)]
     Add {
         #[clap(short, long, value_enum)]
@@ -108,7 +110,7 @@ pub fn parse(db: &mut Database) {
                 println!("Created new weekly streak: {}", streak.task);
             }
         },
-        Commands::GetAll => {
+        Commands::List => {
             let width = Term::stdout().size().1;
             let line = console::pad_str_with("", width.into(), Alignment::Center, None, '-');
 
@@ -121,21 +123,29 @@ pub fn parse(db: &mut Database) {
                 None
             );
             println!("{headline}");
-            println!("{line}\n");
+            println!("{line}");
+
+            let mut tw = TabWriter::new(vec![]).padding(2);
+            writeln!(&mut tw, "Index\tTask\tFrequency\tChecked In\tLast Checkin").unwrap();
 
             let streak_list = get_all(db);
             for (index, streak) in streak_list.iter().enumerate() {
                 let streak_name = &streak.task;
                 let streak_name = Style::new().bold().paint(streak_name);
+                let frequency = &streak.frequency;
                 let checked_in = if streak.clone().was_missed() {
-                    Color::Red.paint("Missed")
+                    Emoji("❌", "")
                 } else {
-                    Color::Green.paint("Checked in")
+                    Emoji("✅", "")
                 };
-                println!("[{index}] {streak_name} {checked_in}");
+                let last_checkin = &streak.last_checkin;
+
+                writeln!(&mut tw, "[{index}]\t{streak_name}\t{frequency}\t{checked_in}\t{last_checkin}").unwrap();
             }
+            tw.flush().unwrap();
 
-
+            let tabline = String::from_utf8(tw.into_inner().unwrap()).unwrap();
+            println!("{tabline}");
         }
         Commands::Get { idx } => {
             let streak = get_one(db, *idx - 1);
