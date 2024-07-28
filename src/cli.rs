@@ -1,9 +1,11 @@
+use std::fmt::Write;
+use ansi_term::{Color, Style};
+use clap::{Parser, Subcommand};
+use console::{pad_str, Alignment, Term};
 use crate::{
     db::Database,
     streaks::{Frequency, Streak},
 };
-use clap::{Parser, Subcommand};
-use std::fmt::Write;
 
 #[derive(Debug, Parser)]
 #[command(version, about, long_about = None)]
@@ -82,6 +84,7 @@ fn delete(db: &mut Database, idx: u32) -> Result<(), Box<dyn std::error::Error>>
     db.save()?;
     Ok(())
 }
+
 fn list_all(db: &mut Database) -> String {
     let list: Vec<Streak> = get_all(db);
     list.into_iter()
@@ -106,8 +109,33 @@ pub fn parse(db: &mut Database) {
             }
         },
         Commands::GetAll => {
-            let streak_list = list_all(db);
-            println!("{}", streak_list);
+            let width = Term::stdout().size().1;
+            let line = console::pad_str_with("", width.into(), Alignment::Center, None, '-');
+
+            let headline = "Skidmarks";
+            let headline = Style::new().bold().paint(headline);
+            let headline = pad_str(
+                &headline,
+                width.into(),
+                Alignment::Center,
+                None
+            );
+            println!("{headline}");
+            println!("{line}\n");
+
+            let streak_list = get_all(db);
+            for (index, streak) in streak_list.iter().enumerate() {
+                let streak_name = &streak.task;
+                let streak_name = Style::new().bold().paint(streak_name);
+                let checked_in = if streak.clone().was_missed() {
+                    Color::Red.paint("Missed")
+                } else {
+                    Color::Green.paint("Checked in")
+                };
+                println!("[{index}] {streak_name} {checked_in}");
+            }
+
+
         }
         Commands::Get { idx } => {
             let streak = get_one(db, *idx - 1);
@@ -130,8 +158,6 @@ pub fn parse(db: &mut Database) {
 #[cfg(test)]
 mod tests {
     use std::{env, fs};
-    use std::fs::{File, OpenOptions};
-    use std::io::Write;
     use std::sync::Mutex;
     use assert_cmd::Command;
     use crate::settings::Settings;

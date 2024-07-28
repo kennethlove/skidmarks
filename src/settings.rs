@@ -29,9 +29,6 @@ impl Settings {
             .add_source(Environment::with_prefix("SKID"))
             .build()?;
 
-        println!("Running in {:?} mode", run_mode);
-        println!("Database URL: {:?}", s.get::<String>("database.url"));
-
         s.try_deserialize()
     }
 }
