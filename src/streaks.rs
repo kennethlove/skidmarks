@@ -23,6 +23,7 @@ pub struct Streak {
     pub task: String,
     pub frequency: Frequency,
     pub last_checkin: NaiveDate,
+    pub total_checkins: u32,
 }
 
 impl Streak {
@@ -32,6 +33,7 @@ impl Streak {
             task: name,
             frequency: Frequency::Daily,
             last_checkin: date.date_naive(),
+            total_checkins: 1,
         }
     }
 
@@ -41,12 +43,14 @@ impl Streak {
             task: name,
             frequency: Frequency::Weekly,
             last_checkin: date.date_naive(),
+            total_checkins: 1,
         }
     }
 
     pub fn checkin(&mut self) {
         let date = Local::now().date_naive();
         self.last_checkin = date;
+        self.total_checkins += 1;
     }
 
     pub fn was_missed(self) -> bool {
@@ -71,6 +75,7 @@ mod tests {
         assert_eq!(streak.task, "Test Streak");
         assert_eq!(streak.frequency, Frequency::Daily);
         assert_eq!(streak.last_checkin, today.date_naive());
+        assert_eq!(streak.total_checkins, 1);
     }
 
     #[test]
@@ -86,9 +91,11 @@ mod tests {
         let mut streak = Streak::new_daily("Test Streak".to_string());
         streak.last_checkin = old_date;
         assert_eq!(streak.last_checkin, old_date);
+        assert_eq!(streak.total_checkins, 1);
 
         streak.checkin();
         assert!(streak.last_checkin != old_date);
+        assert_eq!(streak.total_checkins, 2);
     }
 
     #[test]
