@@ -5,7 +5,7 @@ use console::Emoji;
 use tabled::{builder::Builder, settings::{Panel, Style as TabledStyle}};
 use crate::{
     db::Database,
-    streaks::{Frequency, Streak},
+    streaks::{Frequency, Streak, Status},
 };
 
 #[derive(Debug, Parser)]
@@ -112,23 +112,25 @@ pub fn parse(db: &mut Database) {
         },
         Commands::List => {
             let mut builder = Builder::new();
-            builder.push_record(["Task", "Freq", "Checked In", "Last Check In"]);
+            builder.push_record(["Streak", "Freq", "Status", "Last Check In", "Total"]);
 
             let streak_list = get_all(db);
             for streak in streak_list.iter() {
                 let streak_name = Style::new().bold().paint(&streak.task);
                 let frequency = Style::new().italic().paint(format!("{}", &streak.frequency));
-                let checked_in = if streak.clone().was_missed() {
-                    Emoji("❌", "")
-                } else {
-                    Emoji("✅", "")
+                let checked_in = match streak.clone().status() {
+                    Status::Done => Emoji("✅", ""),
+                    Status::Missed => Emoji("❌", ""),
+                    Status::Waiting => Emoji("⏳", ""),
                 };
                 let last_checkin = Style::new().underline().paint(format!("{}", &streak.last_checkin));
+                let total_checkins = Style::new().bold().paint(format!("{}", &streak.total_checkins));
                 builder.push_record([
                     streak_name.to_string(),
                     frequency.to_string(),
                     checked_in.to_string(),
-                    last_checkin.to_string()
+                    last_checkin.to_string(),
+                    total_checkins.to_string()
                 ]);
             }
 
@@ -136,7 +138,7 @@ pub fn parse(db: &mut Database) {
                 .index()
                 .build()
                 .with(TabledStyle::markdown())
-                .with(Panel::horizontal(0, "Skidmarks"))
+                .with(Panel::header("Skidmarks"))
                 .to_string();
 
             println!("{table}");

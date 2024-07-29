@@ -19,6 +19,13 @@ impl Display for Frequency {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub enum Status {
+    Waiting,
+    Done,
+    Missed,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, Tabled)]
 pub struct Streak {
     pub task: String,
@@ -54,12 +61,31 @@ impl Streak {
         self.total_checkins += 1;
     }
 
-    pub fn was_missed(self) -> bool {
+    pub fn was_missed(&self) -> bool {
         let today = Local::now().date_naive();
         let duration = today - self.last_checkin;
-        match self.frequency {
+        match &self.frequency {
             Frequency::Daily => duration.num_days() > 1,
             Frequency::Weekly => duration.num_days() > 7,
+        }
+    }
+
+    pub fn done_in_period(&self) -> bool {
+        let today = Local::now().date_naive();
+        let duration = today - self.last_checkin;
+        match &self.frequency {
+            Frequency::Daily => duration.num_days() == 0,
+            Frequency::Weekly => duration.num_days() < 6,
+        }
+    }
+
+    pub fn status(&self) -> Status {
+        if self.was_missed() {
+            Status::Missed
+        } else if self.done_in_period() {
+            Status::Done
+        } else {
+            Status::Waiting
         }
     }
 }
@@ -68,6 +94,27 @@ impl Streak {
 mod tests {
     use super::*;
     use chrono::TimeDelta;
+
+    #[test]
+    fn status_waiting() {
+        let mut streak = Streak::new_daily("Test Streak".to_string());
+        streak.last_checkin = Local::now().date_naive() - TimeDelta::days(1);
+        assert_eq!(streak.status(), Status::Waiting);
+    }
+
+    #[test]
+    fn status_waiting_weekly() {
+        let mut streak = Streak::new_weekly("Test Streak".to_string());
+        streak.last_checkin = Local::now().date_naive() - TimeDelta::days(7);
+        assert_eq!(streak.status(), Status::Waiting);
+    }
+
+    #[test]
+    fn status_done() {
+        let mut streak = Streak::new_weekly("Test Streak".to_string());
+        streak.last_checkin = Local::now().date_naive() - TimeDelta::days(3);
+        assert_eq!(streak.status(), Status::Done);
+    }
 
     #[test]
     fn new_daily_streak() {
