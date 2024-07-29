@@ -105,7 +105,6 @@ impl Default for Database {
 mod tests {
     use super::*;
     use assert_fs::prelude::*;
-    use chrono::Local;
 
     #[test]
     fn test_create_if_missing() {
@@ -128,7 +127,7 @@ mod tests {
         let _ = Database::new(db_file.to_str().unwrap()).unwrap();
 
         db_file
-            .write_str(r#"[(task:"brush teeth",frequency:Daily,last_checkin:"2024-07-26",total_checkins:1)]"#)
+            .write_str(r#"[(task:"brush teeth",frequency:Daily,last_checkin:Some("2024-07-26"),total_checkins:1)]"#)
             .unwrap();
 
         let result = Database::load_database(db_file.to_str().unwrap());
@@ -165,10 +164,7 @@ mod tests {
         db.add(streak).unwrap();
         db.save().unwrap();
 
-        let expected_content = r#"[(task:"brush teeth",frequency:Daily,last_checkin:""#;
-        let date = Local::now().date_naive();
-        let end = r#"",total_checkins:1)]"#;
-        let expected_content = format!("{}{}{}", expected_content, date, end);
+        let expected_content = r#"[(task:"brush teeth",frequency:Daily,last_checkin:None,total_checkins:0)]"#;
 
         let result = std::fs::read_to_string(file_path);
         assert_eq!(result.unwrap(), expected_content);

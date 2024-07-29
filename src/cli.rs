@@ -100,7 +100,11 @@ fn build_table(streaks: Vec<Streak>) -> String {
             Status::Missed => Emoji("❌", ""),
             Status::Waiting => Emoji("⏳", ""),
         };
-        let last_checkin = Style::new().underline().paint(format!("{}", &streak.last_checkin));
+        let check_in = match &streak.last_checkin {
+            Some(date) => date.to_string(),
+            None => "None".to_string()
+        };
+        let last_checkin = Style::new().underline().paint(format!("{}", check_in));
         let total_checkins = Style::new().bold().paint(format!("{}", &streak.total_checkins));
         builder.push_record([
             streak_name.to_string(),
