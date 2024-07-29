@@ -1,9 +1,8 @@
 use std::fmt::Write;
-use std::io::Write as _;
-use ansi_term::{Color, Style};
+use ansi_term::Style;
 use clap::{Parser, Subcommand};
-use console::{pad_str, Alignment, Emoji, Term};
-use tabwriter::TabWriter;
+use console::Emoji;
+use tabled::{builder::Builder, settings::{Panel, Style as TabledStyle}};
 use crate::{
     db::Database,
     streaks::{Frequency, Streak},
@@ -87,6 +86,7 @@ fn delete(db: &mut Database, idx: u32) -> Result<(), Box<dyn std::error::Error>>
     Ok(())
 }
 
+#[allow(dead_code)]
 fn list_all(db: &mut Database) -> String {
     let list: Vec<Streak> = get_all(db);
     list.into_iter()
@@ -111,41 +111,35 @@ pub fn parse(db: &mut Database) {
             }
         },
         Commands::List => {
-            let width = Term::stdout().size().1;
-            let line = console::pad_str_with("", width.into(), Alignment::Center, None, '-');
-
-            let headline = "Skidmarks";
-            let headline = Style::new().bold().paint(headline);
-            let headline = pad_str(
-                &headline,
-                width.into(),
-                Alignment::Center,
-                None
-            );
-            println!("{headline}");
-            println!("{line}");
-
-            let mut tw = TabWriter::new(vec![]).padding(2);
-            writeln!(&mut tw, "Index\tTask\tFrequency\tChecked In\tLast Checkin").unwrap();
+            let mut builder = Builder::new();
+            builder.push_record(["Task", "Freq", "Checked In", "Last Check In"]);
 
             let streak_list = get_all(db);
-            for (index, streak) in streak_list.iter().enumerate() {
-                let streak_name = &streak.task;
-                let streak_name = Style::new().bold().paint(streak_name);
-                let frequency = &streak.frequency;
+            for streak in streak_list.iter() {
+                let streak_name = Style::new().bold().paint(&streak.task);
+                let frequency = Style::new().italic().paint(format!("{}", &streak.frequency));
                 let checked_in = if streak.clone().was_missed() {
                     Emoji("❌", "")
                 } else {
                     Emoji("✅", "")
                 };
-                let last_checkin = &streak.last_checkin;
-
-                writeln!(&mut tw, "[{index}]\t{streak_name}\t{frequency}\t{checked_in}\t{last_checkin}").unwrap();
+                let last_checkin = Style::new().underline().paint(format!("{}", &streak.last_checkin));
+                builder.push_record([
+                    streak_name.to_string(),
+                    frequency.to_string(),
+                    checked_in.to_string(),
+                    last_checkin.to_string()
+                ]);
             }
-            tw.flush().unwrap();
 
-            let tabline = String::from_utf8(tw.into_inner().unwrap()).unwrap();
-            println!("{tabline}");
+            let table = builder
+                .index()
+                .build()
+                .with(TabledStyle::markdown())
+                .with(Panel::horizontal(0, "Skidmarks"))
+                .to_string();
+
+            println!("{table}");
         }
         Commands::Get { idx } => {
             let streak = get_one(db, *idx - 1);
@@ -189,7 +183,7 @@ mod tests {
 
         let mut cmd = Command::cargo_bin("skidmarks").unwrap();
         let list_assert = cmd
-            .arg("get-all")
+            .arg("list")
             .assert();
         list_assert.success();
 

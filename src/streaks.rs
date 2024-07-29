@@ -1,6 +1,7 @@
 use chrono::{Local, NaiveDate};
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
+use tabled::Tabled;
 use std::fmt::Display;
 
 #[derive(Clone, Debug, PartialEq, ValueEnum, Serialize, Deserialize)]
@@ -18,7 +19,7 @@ impl Display for Frequency {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Tabled)]
 pub struct Streak {
     pub task: String,
     pub frequency: Frequency,
