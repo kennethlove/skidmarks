@@ -1,10 +1,10 @@
-use std::fmt::Write;
 use ansi_term::Style;
 use clap::{Parser, Subcommand};
 use console::Emoji;
 use tabled::{builder::Builder, settings::{Panel, Style as TabledStyle}};
 use crate::{
     db::Database,
+    settings::Settings,
     streaks::{Frequency, Streak, Status},
 };
 
@@ -13,6 +13,8 @@ use crate::{
 struct Cli {
     #[command(subcommand)]
     command: Commands,
+    #[clap(short, long, default_value = "skidmarks.ron")]
+    database_url: String,
 }
 
 #[derive(Debug, Subcommand)]
@@ -86,76 +88,75 @@ fn delete(db: &mut Database, idx: u32) -> Result<(), Box<dyn std::error::Error>>
     Ok(())
 }
 
-#[allow(dead_code)]
-fn list_all(db: &mut Database) -> String {
-    let list: Vec<Streak> = get_all(db);
-    list.into_iter()
-        .enumerate()
-        .fold(String::new(), |mut acc, (i, s)| {
-            let _ = writeln!(acc, "{}: {}", i + 1, s.task.clone());
-            acc
-        })
+fn build_table(streaks: Vec<Streak>) -> String {
+    let mut builder = Builder::new();
+    builder.push_record(["Streak", "Freq", "Status", "Last Check In", "Total"]);
+
+    for streak in streaks.iter() {
+        let streak_name = Style::new().bold().paint(&streak.task);
+        let frequency = Style::new().italic().paint(format!("{}", &streak.frequency));
+        let checked_in = match streak.clone().status() {
+            Status::Done => Emoji("✅", ""),
+            Status::Missed => Emoji("❌", ""),
+            Status::Waiting => Emoji("⏳", ""),
+        };
+        let last_checkin = Style::new().underline().paint(format!("{}", &streak.last_checkin));
+        let total_checkins = Style::new().bold().paint(format!("{}", &streak.total_checkins));
+        builder.push_record([
+            streak_name.to_string(),
+            frequency.to_string(),
+            checked_in.to_string(),
+            last_checkin.to_string(),
+            total_checkins.to_string()
+        ]);
+    }
+
+    builder
+        .index()
+        .build()
+        .with(TabledStyle::psql())
+        .with(Panel::header("Skidmarks"))
+        .to_string()
 }
 
-pub fn parse(db: &mut Database) {
+pub fn parse() {
     let cli = Cli::parse();
+    let settings = Settings::new().unwrap();
+    let db_url: String;
+    if cli.database_url != settings.database.url {
+        db_url = cli.database_url.clone();
+    } else {
+        db_url = settings.database.url;
+    }
+    let mut db = Database::new(db_url.as_str()).expect("Could not load database");
     match &cli.command {
         Commands::Add { name, frequency } => match frequency {
             Frequency::Daily => {
-                let streak = new_daily(name.to_string(), db).unwrap();
+                let streak = new_daily(name.to_string(), &mut db).unwrap();
                 println!("Created new daily streak: {}", streak.task);
             }
             Frequency::Weekly => {
-                let streak = new_weekly(name.to_string(), db).unwrap();
+                let streak = new_weekly(name.to_string(), &mut db).unwrap();
                 println!("Created new weekly streak: {}", streak.task);
             }
         },
         Commands::List => {
-            let mut builder = Builder::new();
-            builder.push_record(["Streak", "Freq", "Status", "Last Check In", "Total"]);
-
-            let streak_list = get_all(db);
-            for streak in streak_list.iter() {
-                let streak_name = Style::new().bold().paint(&streak.task);
-                let frequency = Style::new().italic().paint(format!("{}", &streak.frequency));
-                let checked_in = match streak.clone().status() {
-                    Status::Done => Emoji("✅", ""),
-                    Status::Missed => Emoji("❌", ""),
-                    Status::Waiting => Emoji("⏳", ""),
-                };
-                let last_checkin = Style::new().underline().paint(format!("{}", &streak.last_checkin));
-                let total_checkins = Style::new().bold().paint(format!("{}", &streak.total_checkins));
-                builder.push_record([
-                    streak_name.to_string(),
-                    frequency.to_string(),
-                    checked_in.to_string(),
-                    last_checkin.to_string(),
-                    total_checkins.to_string()
-                ]);
-            }
-
-            let table = builder
-                .index()
-                .build()
-                .with(TabledStyle::markdown())
-                .with(Panel::header("Skidmarks"))
-                .to_string();
-
-            println!("{table}");
+            let streak_list = get_all(&mut db);
+            println!("{}", build_table(streak_list));
         }
         Commands::Get { idx } => {
-            let streak = get_one(db, *idx - 1);
-            println!("{}: {}\n{}", idx, streak.task, streak.frequency);
+            let streak = get_one(&mut db, *idx);
+            println!("{}", build_table(vec![streak]));
         }
-        Commands::CheckIn { idx } => match checkin(db, *idx - 1) {
+        Commands::CheckIn { idx } => match checkin(&mut db, *idx) {
             Ok(_) => {
-                let streak = get_one(db, *idx - 1);
+                let streak = get_one(&mut db, *idx);
                 println!("Checked in streak: {}", streak.task)
             }
             Err(e) => eprintln!("Error checking in: {}", e),
         },
         Commands::Remove { idx } => {
-            let _ = delete(db, *idx - 1);
+            let _ = delete(&mut db, *idx);
             println!("Removed streak at index {}", idx)
         }
     }
@@ -163,10 +164,9 @@ pub fn parse(db: &mut Database) {
 
 #[cfg(test)]
 mod tests {
-    use std::{env, fs};
+    use std::env;
     use std::sync::Mutex;
     use assert_cmd::Command;
-    use crate::settings::Settings;
 
     lazy_static::lazy_static! {
         static ref FILE_LOCK: Mutex<()> = Mutex::new(());
@@ -175,36 +175,22 @@ mod tests {
     #[test]
     fn test_get_all() {
         env::set_var("RUN_MODE", "Testing");
-        let settings = Settings::new().unwrap();
-        let _lock = FILE_LOCK.lock().unwrap();
-        if fs::remove_file(&settings.database.url).is_ok() {
-            println!("Removed existing database file");
-        } else {
-            println!("No existing database file to remove");
-        }
-
         let mut cmd = Command::cargo_bin("skidmarks").unwrap();
         let list_assert = cmd
+            .arg("--database-url")
+            .arg("test-get-all.ron")
             .arg("list")
             .assert();
         list_assert.success();
-
-        fs::remove_file(&settings.database.url).unwrap();
     }
 
     #[test]
     fn test_new_daily_command() {
         env::set_var("RUN_MODE", "Testing");
-        let settings = Settings::new().unwrap();
-        let _lock = FILE_LOCK.lock().unwrap();
-        if fs::remove_file(&settings.database.url).is_ok() {
-            println!("Removed existing database file");
-        } else {
-            println!("No existing database file to remove");
-        }
-
         let mut cmd = Command::cargo_bin("skidmarks").unwrap();
         let add_assert = cmd
+            .arg("--database-url")
+            .arg("test-new-daily.ron")
             .arg("add")
             .arg("--name")
             .arg("Test Streak")
@@ -212,23 +198,15 @@ mod tests {
             .arg("daily")
             .assert();
         add_assert.success();
-
-        fs::remove_file(&settings.database.url).unwrap();
     }
 
     #[test]
     fn test_new_weekly_command() {
         env::set_var("RUN_MODE", "Testing");
-        let settings = Settings::new().unwrap();
-        let _lock = FILE_LOCK.lock().unwrap();
-        if fs::remove_file(&settings.database.url).is_ok() {
-            println!("Removed existing database file");
-        } else {
-            println!("No existing database file to remove");
-        }
-
         let mut cmd = Command::cargo_bin("skidmarks").unwrap();
         let add_assert = cmd
+            .arg("--database-url")
+            .arg("test-new-weekly.ron")
             .arg("add")
             .arg("--name")
             .arg("Test Streak")
@@ -236,7 +214,5 @@ mod tests {
             .arg("weekly")
             .assert();
         add_assert.success();
-
-        fs::remove_file(&settings.database.url).unwrap();
     }
 }
