@@ -139,7 +139,7 @@ fn build_table(streaks: Vec<Streak>) -> String {
 pub fn parse() {
     let cli = Cli::parse();
     let settings = Settings::new().unwrap();
-    let mut db_url: String;
+    let db_url: String;
     if cli.database_url == "" {
         db_url = settings.database.url;
     } else if cli.database_url != settings.database.url {
@@ -147,7 +147,12 @@ pub fn parse() {
     } else {
         db_url = settings.database.url;
     }
-    db_url = format!("{}/{db_url}", dirs::config_dir().unwrap().display());
+    // Feels hacky, fix with `clio`?
+    let db_url = match db_url.chars().nth(0) {
+        Some('/') => db_url,
+        Some('~') => db_url,
+        _ => format!("{}/{db_url}", dirs::data_local_dir().unwrap().display())
+    };
     let mut db = Database::new(db_url.as_str()).expect("Could not load database");
     match &cli.command {
         Commands::Add { name, frequency } => match frequency {
@@ -187,6 +192,7 @@ mod tests {
     use std::env;
     use std::sync::Mutex;
     use assert_cmd::Command;
+    use assert_fs::TempDir;
 
     lazy_static::lazy_static! {
         static ref FILE_LOCK: Mutex<()> = Mutex::new(());
@@ -195,10 +201,13 @@ mod tests {
     #[test]
     fn test_get_all() {
         env::set_var("RUN_MODE", "Testing");
+
+        let temp = TempDir::new().unwrap();
+
         let mut cmd = Command::cargo_bin("skidmarks").unwrap();
         let list_assert = cmd
             .arg("--database-url")
-            .arg("test-get-all.ron")
+            .arg(format!("{}{}", temp.path().display(), "test-get-all.ron"))
             .arg("list")
             .assert();
         list_assert.success();
@@ -207,10 +216,11 @@ mod tests {
     #[test]
     fn test_new_daily_command() {
         env::set_var("RUN_MODE", "Testing");
+        let temp = TempDir::new().unwrap();
         let mut cmd = Command::cargo_bin("skidmarks").unwrap();
         let add_assert = cmd
             .arg("--database-url")
-            .arg("test-new-daily.ron")
+            .arg(format!("{}{}", temp.path().display(), "test-new-daily.ron"))
             .arg("add")
             .arg("--name")
             .arg("Test Streak")
@@ -223,10 +233,11 @@ mod tests {
     #[test]
     fn test_new_weekly_command() {
         env::set_var("RUN_MODE", "Testing");
+        let temp = TempDir::new().unwrap();
         let mut cmd = Command::cargo_bin("skidmarks").unwrap();
         let add_assert = cmd
             .arg("--database-url")
-            .arg("test-new-weekly.ron")
+            .arg(format!("{}{}", temp.path().display(), "test-new-weekly.ron"))
             .arg("add")
             .arg("--name")
             .arg("Test Streak")
