@@ -19,9 +19,9 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Commands {
-    #[command(about = "List all streaks", long_about = None)]
+    #[command(about = "List all streaks", long_about = None, short_flag = 'l')]
     List,
-    #[command(about = "Create a new streak", long_about = None)]
+    #[command(about = "Create a new streak", long_about = None, short_flag = 'a')]
     Add {
         #[clap(short, long, value_enum)]
         frequency: Frequency,
@@ -29,14 +29,15 @@ enum Commands {
         #[clap(short, long)]
         name: String,
     },
-    #[command(about = "Get a single streak", long_about = None)]
+    #[command(about = "Get a single streak", long_about = None, short_flag='g')]
     Get { idx: u32 },
-    #[command(about = "Check in to a streak", long_about = None)]
+    #[command(about = "Check in to a streak", long_about = None, short_flag = 'c')]
     CheckIn { idx: u32 },
-    #[command(about = "Remove a streak", long_about = None)]
+    #[command(about = "Remove a streak", long_about = None, short_flag = 'r')]
     Remove { idx: u32 },
 }
 
+/// Create a new daily streak item
 fn new_daily(name: String, db: &mut Database) -> Result<Streak, Box<dyn std::error::Error>> {
     let streak = Streak::new_daily(name);
     db.streaks.lock().unwrap().push(streak.clone());
@@ -44,6 +45,7 @@ fn new_daily(name: String, db: &mut Database) -> Result<Streak, Box<dyn std::err
     Ok(streak)
 }
 
+/// Create a new weekly streak item
 fn new_weekly(name: String, db: &mut Database) -> Result<Streak, Box<dyn std::error::Error>> {
     let streak = Streak::new_weekly(name);
     db.streaks.lock().unwrap().push(streak.clone());
@@ -51,6 +53,7 @@ fn new_weekly(name: String, db: &mut Database) -> Result<Streak, Box<dyn std::er
     Ok(streak)
 }
 
+/// Get all streaks
 fn get_all(db: &mut Database) -> Vec<Streak> {
     let streaks = db.streaks.lock();
     match streaks {
@@ -65,6 +68,7 @@ fn get_all(db: &mut Database) -> Vec<Streak> {
     }
 }
 
+/// Get one single streak
 fn get_one(db: &mut Database, idx: u32) -> Streak {
     db.streaks
         .lock()
@@ -74,6 +78,7 @@ fn get_one(db: &mut Database, idx: u32) -> Streak {
         .clone()
 }
 
+/// Check in to a streak today
 fn checkin(db: &mut Database, idx: u32) -> Result<(), Box<dyn std::error::Error>> {
     let mut streak = get_one(db, idx);
     streak.checkin();
@@ -82,12 +87,14 @@ fn checkin(db: &mut Database, idx: u32) -> Result<(), Box<dyn std::error::Error>
     Ok(())
 }
 
+/// Remove a streak
 fn delete(db: &mut Database, idx: u32) -> Result<(), Box<dyn std::error::Error>> {
     db.streaks.lock().unwrap().remove(idx as usize);
     db.save()?;
     Ok(())
 }
 
+/// Builds table of streaks from list
 fn build_table(streaks: Vec<Streak>) -> String {
     let mut builder = Builder::new();
     builder.push_record(["Streak", "Freq", "Status", "Last Check In", "Total"]);
@@ -123,6 +130,7 @@ fn build_table(streaks: Vec<Streak>) -> String {
         .to_string()
 }
 
+/// Parses command line options
 pub fn parse() {
     let cli = Cli::parse();
     let settings = Settings::new().unwrap();
