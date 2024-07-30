@@ -1,3 +1,4 @@
+#[allow(unused_imports)]
 use chrono::{Local, NaiveDate};
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
@@ -96,7 +97,7 @@ impl Streak {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::TimeDelta;
+    use chrono::{NaiveDate, TimeDelta};
 
     #[test]
     fn status_waiting() {
