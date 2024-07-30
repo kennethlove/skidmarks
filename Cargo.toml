@@ -9,6 +9,7 @@ license-file = "LICENSE"
 keywords = ["cli", "streaks", "habits"]
 categories = ["command-line-utilities"]
 include = [
+  "src/",
   "config/"
 ]
 
