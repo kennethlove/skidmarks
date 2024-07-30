@@ -1,4 +1,5 @@
 use ansi_term::Style;
+#[allow(unused_imports)]
 use chrono::{Local, NaiveDate};
 use clap::{Parser, Subcommand};
 use console::Emoji;
