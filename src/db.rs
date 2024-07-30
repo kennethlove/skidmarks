@@ -1,4 +1,3 @@
-use crate::settings::Settings;
 use crate::streaks::Streak;
 use std::fs::{File, OpenOptions};
 use std::io::Write;
@@ -93,10 +92,9 @@ impl Database {
 
 impl Default for Database {
     fn default() -> Self {
-        let settings = Settings::new().unwrap();
         Self {
             streaks: Mutex::new(Vec::new()),
-            filename: settings.database.url,
+            filename: "skidmarks.ron".to_string(),
         }
     }
 }

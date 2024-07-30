@@ -83,8 +83,13 @@ fn get_one(db: &mut Database, idx: u32) -> Streak {
 /// Check in to a streak today
 fn checkin(db: &mut Database, idx: u32) -> Result<(), Box<dyn std::error::Error>> {
     let mut streak = get_one(db, idx);
-    if streak.last_checkin.unwrap() == Local::now().date_naive() {
-        return Ok(())
+    match streak.last_checkin {
+        Some(check_in) => {
+            if check_in == Local::now().date_naive() {
+                return Ok(())
+            }
+        }
+        None => ()
     }
     streak.checkin();
     db.update(idx, streak)?;
