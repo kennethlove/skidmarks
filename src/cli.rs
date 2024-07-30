@@ -3,6 +3,7 @@ use ansi_term::Style;
 use chrono::{Local, NaiveDate};
 use clap::{Parser, Subcommand};
 use console::Emoji;
+use dirs;
 use tabled::{builder::Builder, settings::{Panel, Style as TabledStyle}};
 use crate::{
     db::Database,
