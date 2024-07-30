@@ -1,4 +1,5 @@
 use ansi_term::Style;
+use chrono::{Local, NaiveDate};
 use clap::{Parser, Subcommand};
 use console::Emoji;
 use tabled::{builder::Builder, settings::{Panel, Style as TabledStyle}};
@@ -81,6 +82,9 @@ fn get_one(db: &mut Database, idx: u32) -> Streak {
 /// Check in to a streak today
 fn checkin(db: &mut Database, idx: u32) -> Result<(), Box<dyn std::error::Error>> {
     let mut streak = get_one(db, idx);
+    if streak.last_checkin.unwrap() == Local::now().date_naive() {
+        return Ok(())
+    }
     streak.checkin();
     db.update(idx, streak)?;
     db.save()?;
