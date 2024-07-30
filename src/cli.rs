@@ -15,7 +15,7 @@ use crate::{
 struct Cli {
     #[command(subcommand)]
     command: Commands,
-    #[clap(short, long, default_value = "skidmarks.ron")]
+    #[clap(short, long, default_value = "")]
     database_url: String,
 }
 
@@ -139,12 +139,15 @@ fn build_table(streaks: Vec<Streak>) -> String {
 pub fn parse() {
     let cli = Cli::parse();
     let settings = Settings::new().unwrap();
-    let db_url: String;
-    if cli.database_url != settings.database.url {
+    let mut db_url: String;
+    if cli.database_url == "" {
+        db_url = settings.database.url;
+    } else if cli.database_url != settings.database.url {
         db_url = cli.database_url.clone();
     } else {
         db_url = settings.database.url;
     }
+    db_url = format!("{}/{db_url}", dirs::config_dir().unwrap().display());
     let mut db = Database::new(db_url.as_str()).expect("Could not load database");
     match &cli.command {
         Commands::Add { name, frequency } => match frequency {
