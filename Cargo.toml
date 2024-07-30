@@ -1,6 +1,6 @@
 [package]
 name = "skidmarks"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "A simple CLI for tracking streaks"
 repository = "https://github.com/kennethlove/skidmarks"
@@ -8,6 +8,9 @@ readme = "README.md"
 license-file = "LICENSE"
 keywords = ["cli", "streaks", "habits"]
 categories = ["command-line-utilities"]
+include = [
+  "config/"
+]
 
 [dependencies]
 ansi_term = "0.12.1"
