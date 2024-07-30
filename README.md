@@ -8,6 +8,8 @@ weekly).
 
 - Add new streaks with a specified name and frequency.
 - List all existing streaks.
+- Check in on a streak to keep it going.
+- Remove a streak when it's no longer needed.
 
 ## Installation
 
@@ -39,58 +41,32 @@ options.
 ```
 
 ### Listing All Streaks
-To list all existing streaks, use the `list-all` command.
+To list all existing streaks, use the `list` command.
 
 ```sh
-./target/release/skidmarks list-all
+./target/release/skidmarks list
 ```
+
+### Checking In on a Streak
+To check in on a streak, use the `check-in` command.
+
+```sh
+./target/release/skidmarks check-in <streak_id>
+```
+
+### Removing a Streak
+To remove a streak, use the `remove` command.
+
+```sh
+./target/release/skidmarks remove <streak_id>
+```
+
 
 ## Running Tests
 To run the tests for this project, use the following command:
 
 ```sh
 cargo test
-```
-
-## Example Tests
-Here are some example tests from the `cli.rs` file:
-
-```rust
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_new_daily_command() {
-        let cli = Cli::parse_from([
-            "skidmarks",
-            "add",
-            "--name",
-            "Test Streak",
-            "--frequency",
-            "daily",
-        ]);
-        assert!(matches!(cli.command,
-            Commands::Add { frequency, name } if frequency == Frequency::Daily && name == "Test Streak"));
-    }
-
-    #[test]
-    fn test_new_weekly_command() {
-        let cli = Cli::parse_from([
-            "skidmarks",
-            "add",
-            "--name",
-            "Test Streak",
-            "--frequency",
-            "weekly",
-        ]);
-        assert!(matches!(cli.command,
-            Commands::Add { frequency, name }
-            if frequency == Frequency::Weekly
-            && name == "Test Streak"
-        ));
-    }
-}
 ```
 
 ## Example
@@ -104,7 +80,7 @@ Here is an example of how to use Skidmarks:
 ./target/release/skidmarks add --name "Test Streak" --frequency weekly
 
 # List all streaks
-./target/release/skidmarks list-all
+./target/release/skidmarks list
 ```
 
 ## Contributing
