@@ -184,7 +184,6 @@ pub fn parse() {
 
 #[cfg(test)]
 mod tests {
-    use std::env;
     use std::sync::Mutex;
     use assert_cmd::Command;
     use assert_fs::TempDir;
