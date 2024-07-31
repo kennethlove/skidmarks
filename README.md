@@ -42,10 +42,16 @@ options.
 
 ```sh
 # Add a daily streak
-skidmarks add --name "Exercise" --frequency daily
+$ skidmarks add --name "Exercise" --frequency daily
 
+🎉 Created a new daily streak: Exercise
+```
+
+```sh
 # Add a weekly streak
-skidmarks add --name "Read a book" --frequency weekly
+$ skidmarks add --name "Read a book" --frequency weekly
+
+🎉 Created a new weekly streak: Read a book
 ```
 
 ### Listing All Streaks
@@ -53,23 +59,36 @@ skidmarks add --name "Read a book" --frequency weekly
 To list all existing streaks, use the `list` command.
 
 ```sh
-skidmarks list
+$ skidmarks list
+
+   | Streak          | Freq   | Status | Last Check In | Total
+---+-----------------+--------+--------+---------------+-------
+ 0 | Exercise        | daily  | ✅     |  2024-07-31   |   1
+ 1 | Wordle          | daily  | ✅     |  2024-07-31   |   1
+ 2 | Coloring page   | daily  | ✅     |  2024-07-31   |   1
+ 3 | Duolingo        | daily  | ✅     |  2024-07-31   |   1
+ 4 | Animal Crossing | daily  | ❌     |     None      |   0
+ 5 | Read a book     | weekly | ❌     |     None      |   0
 ```
 
 ### Checking In on a Streak
 
-To check in on a streak, use the `check-in` command.
+To check in on a streak, use the `check-in <streak id>` command.
 
 ```sh
-skidmarks check-in <streak_id>
+$ skidmarks check-in 0
+
+🌟 Checked in on the "Exercise" streak!
 ```
 
 ### Removing a Streak
 
-To remove a streak, use the `remove` command.
+To remove a streak, use the `remove <streak id>` command.
 
 ```sh
-skidmarks remove <streak_id>
+$ skidmarks remove 5
+
+🗑 Removed the "Read a book" streak
 ```
 
 ## Running Tests
