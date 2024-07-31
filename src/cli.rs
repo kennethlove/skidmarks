@@ -166,12 +166,14 @@ pub fn parse() {
             Frequency::Daily => {
                 let streak = new_daily(name.to_string(), &mut db).unwrap();
                 let response = response_style.paint("Created a new daily streak:").to_string();
-                println!("{response} {}", streak.task);
+                let tada = Emoji("🎉", "");
+                println!("{tada} {response} {}", streak.task);
             }
             Frequency::Weekly => {
                 let streak = new_weekly(name.to_string(), &mut db).unwrap();
                 let response = response_style.paint("Created a new weekly streak:").to_string();
-                println!("{response} {}", streak.task);
+                let tada = Emoji("🎉", "");
+                println!("{tada} {response} {}", streak.task);
             }
         },
         Commands::List => {
@@ -185,8 +187,10 @@ pub fn parse() {
         Commands::CheckIn { idx } => match checkin(&mut db, *idx) {
             Ok(_) => {
                 let streak = get_one(&mut db, *idx);
-                let response = response_style.paint("Checked in streak:").to_string();
-                println!("{response} {}", streak.task)
+                let name = &streak.task;
+                let response = response_style.paint(format!("Checked in on the {name} streak!")).to_string();
+                let star = Emoji("🌟", "");
+                println!("{star} {response}")
             }
             Err(e) => {
                 let response = Style::new().bold().fg(Color::Red).paint("Error checking in:");
@@ -194,9 +198,12 @@ pub fn parse() {
             },
         },
         Commands::Remove { idx } => {
+            let streak = get_one(&mut db, *idx).clone();
             let _ = delete(&mut db, *idx);
-            let response = response_style.paint("Removed streak at index").to_string();
-            println!("{response} {}", idx)
+            let name = &streak.task;
+            let response = response_style.paint(format!(r#"Removed the "{name}" streak"#)).to_string();
+            let trash = Emoji("🗑️", "");
+            println!("{trash} {response}")
         }
     }
 }
