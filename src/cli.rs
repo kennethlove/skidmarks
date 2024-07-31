@@ -1,10 +1,10 @@
-use ansi_term::Style;
+use ansi_term::{Style, Color};
 #[allow(unused_imports)]
 use chrono::{Local, NaiveDate};
 use clap::{Parser, Subcommand};
 use console::Emoji;
 use dirs;
-use tabled::{builder::Builder, settings::{Panel, Style as TabledStyle}};
+use tabled::{builder::Builder, settings::Style as TabledStyle};
 use crate::{
     db::Database,
     streaks::{Frequency, Streak, Status},
@@ -107,22 +107,29 @@ fn delete(db: &mut Database, idx: u32) -> Result<(), Box<dyn std::error::Error>>
 /// Builds table of streaks from list
 fn build_table(streaks: Vec<Streak>) -> String {
     let mut builder = Builder::new();
-    builder.push_record(["Streak", "Freq", "Status", "Last Check In", "Total"]);
+    let header_style = Style::new().italic();
+    builder.push_record([
+        header_style.paint("Streak").to_string(),
+        header_style.paint("Freq").to_string(),
+        header_style.paint("Status").to_string(),
+        header_style.paint("Last Check In").to_string(),
+        header_style.paint("Total").to_string()
+    ]);
 
     for streak in streaks.iter() {
         let streak_name = Style::new().bold().paint(&streak.task);
-        let frequency = Style::new().italic().paint(format!("{}", &streak.frequency));
+        let frequency = Style::new().paint(format!("{}", &streak.frequency));
         let checked_in = match streak.clone().status() {
-            Status::Done => Emoji("✅", ""),
-            Status::Missed => Emoji("❌", ""),
-            Status::Waiting => Emoji("⏳", ""),
+            Status::Done => Emoji("✅", "Yes"),
+            Status::Missed => Emoji("❌", "No"),
+            Status::Waiting => Emoji("⏳", "Waiting"),
         };
         let check_in = match &streak.last_checkin {
             Some(date) => date.to_string(),
             None => "None".to_string()
         };
-        let last_checkin = Style::new().underline().paint(format!("{}", check_in));
-        let total_checkins = Style::new().bold().paint(format!("{}", &streak.total_checkins));
+        let last_checkin = Style::new().bold().paint(format!("{:^13}", check_in));
+        let total_checkins = Style::new().bold().paint(format!("{:^5}", &streak.total_checkins));
         builder.push_record([
             streak_name.to_string(),
             frequency.to_string(),
@@ -136,7 +143,6 @@ fn build_table(streaks: Vec<Streak>) -> String {
         .index()
         .build()
         .with(TabledStyle::psql())
-        .with(Panel::header("Skidmarks"))
         .to_string()
 }
 
@@ -154,15 +160,18 @@ pub fn parse() {
         _ => format!("{}/{db_url}", dirs::data_local_dir().unwrap().display())
     };
     let mut db = Database::new(db_url.as_str()).expect("Could not load database");
+    let response_style = Style::new().bold().fg(Color::Green);
     match &cli.command {
         Commands::Add { name, frequency } => match frequency {
             Frequency::Daily => {
                 let streak = new_daily(name.to_string(), &mut db).unwrap();
-                println!("Created new daily streak: {}", streak.task);
+                let response = response_style.paint("Created a new daily streak:").to_string();
+                println!("{response} {}", streak.task);
             }
             Frequency::Weekly => {
                 let streak = new_weekly(name.to_string(), &mut db).unwrap();
-                println!("Created new weekly streak: {}", streak.task);
+                let response = response_style.paint("Created a new weekly streak:").to_string();
+                println!("{response} {}", streak.task);
             }
         },
         Commands::List => {
@@ -176,13 +185,18 @@ pub fn parse() {
         Commands::CheckIn { idx } => match checkin(&mut db, *idx) {
             Ok(_) => {
                 let streak = get_one(&mut db, *idx);
-                println!("Checked in streak: {}", streak.task)
+                let response = response_style.paint("Checked in streak:").to_string();
+                println!("{response} {}", streak.task)
             }
-            Err(e) => eprintln!("Error checking in: {}", e),
+            Err(e) => {
+                let response = Style::new().bold().fg(Color::Red).paint("Error checking in:");
+                eprintln!("{response} {}", e)
+            },
         },
         Commands::Remove { idx } => {
             let _ = delete(&mut db, *idx);
-            println!("Removed streak at index {}", idx)
+            let response = response_style.paint("Removed streak at index").to_string();
+            println!("{response} {}", idx)
         }
     }
 }
