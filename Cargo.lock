@@ -705,7 +705,7 @@ dependencies = [
 
 [[package]]
 name = "skidmarks"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "ansi_term",
  "assert_cmd",
