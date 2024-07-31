@@ -6,7 +6,6 @@ description = "A simple CLI for tracking streaks"
 repository = "https://github.com/kennethlove/skidmarks"
 readme = "README.md"
 license = "Apache 2.0"
-license-file = "LICENSE"
 keywords = ["cli", "streaks", "habits"]
 categories = ["command-line-utilities"]
 
