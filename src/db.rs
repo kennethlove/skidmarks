@@ -114,8 +114,6 @@ mod tests {
 
         let result = Database::create_if_missing(db_file.to_str().unwrap());
         assert!(result.is_ok());
-
-        let _ = std::fs::remove_file(db_file.path());
     }
 
     #[test]
@@ -132,7 +130,6 @@ mod tests {
         assert!(result.is_ok());
         assert!(result.unwrap().len() == 1);
 
-        let _ = std::fs::remove_file(db_file.path());
         temp.close().unwrap();
     }
 
@@ -146,7 +143,6 @@ mod tests {
         assert!(result.is_ok());
         assert!(result.unwrap().is_empty());
 
-        let _ = std::fs::remove_file(db_file.path());
         temp.close().unwrap();
     }
 
@@ -167,7 +163,6 @@ mod tests {
         let result = std::fs::read_to_string(file_path);
         assert_eq!(result.unwrap(), expected_content);
 
-        let _ = std::fs::remove_file(db_file.path());
         temp.close().unwrap();
     }
 }
