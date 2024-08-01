@@ -90,18 +90,24 @@ impl Database {
         Ok(new_db)
     }
 
-    pub fn get_all(self: Database) -> Result<Vec<Streak>, ()> {
+    pub fn get_all(&mut self) -> Option<Vec<Streak>> {
         let streaks = self.streaks.lock();
         match streaks {
             Ok(streaks) => {
                 if streaks.is_empty() {
-                    Ok(Vec::<Streak>::new())
+                    Some(Vec::<Streak>::new())
                 } else {
-                    Ok(streaks.clone())
+                    Some(streaks.clone())
                 }
             }
-            Err(e) => panic!("Error getting streaks: {}", e),
+            _ => None,
         }
+    }
+
+    pub fn get_one(&mut self, idx: u32) -> Option<Streak> {
+        let streaks = self.get_all()?;
+        let streak = streaks.get(idx as usize);
+        Some(streak.unwrap().clone())
     }
 }
 

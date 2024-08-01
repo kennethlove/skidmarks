@@ -61,24 +61,22 @@ fn new_weekly(name: String, db: &mut Database) -> Result<Streak, Box<dyn std::er
 /// Get all streaks
 fn get_all(db: Database) -> Vec<Streak> {
     match db.get_all() {
-        Ok(streaks) => streaks.clone(),
-        Err(_) => Vec::<Streak>::new()
+        Some(streaks) => streaks.clone(),
+        None => Vec::<Streak>::new()
     }
 }
 
 /// Get one single streak
-fn get_one(db: &mut Database, idx: u32) -> Streak {
-    db.streaks
-        .lock()
-        .unwrap()
-        .get(idx as usize)
-        .unwrap()
-        .clone()
+fn get_one(db: &mut Database, idx: u32) -> Option<Streak>{
+    match db.get_one(idx) {
+        Some(streak) => Some(streak.clone()),
+        None => None,
+    }
 }
 
 /// Check in to a streak today
 fn checkin(db: &mut Database, idx: u32) -> Result<(), Box<dyn std::error::Error>> {
-    let mut streak = get_one(db, idx);
+    let mut streak = get_one(db, idx).unwrap();
     match streak.last_checkin {
         Some(check_in) => {
             if check_in == Local::now().date_naive() {
@@ -95,7 +93,7 @@ fn checkin(db: &mut Database, idx: u32) -> Result<(), Box<dyn std::error::Error>
 
 /// Remove a streak
 fn delete(db: &mut Database, idx: u32) -> Result<(), Box<dyn std::error::Error>> {
-    db.streaks.lock().unwrap().remove(idx as usize);
+    db.delete(idx)?;
     db.save()?;
     Ok(())
 }
