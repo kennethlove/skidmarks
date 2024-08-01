@@ -7,7 +7,7 @@ use dirs;
 use tabled::{builder::Builder, settings::Style as TabledStyle};
 use crate::{
     db::Database,
-    streaks::{Frequency, Streak, Status},
+    streaks::{Frequency, Streak},
     tui,
 };
 
@@ -39,7 +39,7 @@ enum Commands {
     #[command(about = "Remove a streak", long_about = None, short_flag = 'r')]
     Remove { idx: u32 },
     #[command(about = "Switch to TUI", long_about = None, short_flag = 't')]
-    Switch,
+    TUI,
 }
 
 /// Create a new daily streak item
@@ -113,11 +113,6 @@ fn build_table(streaks: Vec<Streak>) -> String {
     for streak in streaks.iter() {
         let streak_name = Style::new().bold().paint(&streak.task);
         let frequency = Style::new().paint(format!("{}", &streak.frequency));
-        let checked_in = match streak.clone().status() {
-            Status::Done => Emoji("✅", "Yes"),
-            Status::Missed => Emoji("❌", "No"),
-            Status::Waiting => Emoji("⏳", "Waiting"),
-        };
         let check_in = match &streak.last_checkin {
             Some(date) => date.to_string(),
             None => "None".to_string()
@@ -127,7 +122,7 @@ fn build_table(streaks: Vec<Streak>) -> String {
         builder.push_record([
             streak_name.to_string(),
             frequency.to_string(),
-            checked_in.to_string(),
+            streak.emoji_status(),
             last_checkin.to_string(),
             total_checkins.to_string()
         ]);
@@ -205,7 +200,7 @@ pub fn parse() {
             let trash = Emoji("🗑️", "");
             println!("{trash} {response}")
         }
-        Commands::Switch => {
+        Commands::TUI => {
             tui::main().expect("Couldn't launch TUI")
         }
     }

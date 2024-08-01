@@ -19,6 +19,23 @@ impl Display for Frequency {
     }
 }
 
+impl Frequency {
+    pub fn from_str(s: &str) -> Self {
+        match s {
+            "daily" => Frequency::Daily,
+            "weekly" => Frequency::Weekly,
+            _ => panic!("Invalid frequency"),
+        }
+    }
+
+    pub fn to_string(&self) -> String {
+        match self {
+            Frequency::Daily => "daily".to_string(),
+            Frequency::Weekly => "weekly".to_string(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Status {
     Waiting,
@@ -100,6 +117,14 @@ impl Streak {
             Status::Done
         } else {
             Status::Waiting
+        }
+    }
+
+    pub fn emoji_status(&self) -> String {
+        match self.status() {
+            Status::Done => "✅".to_string(),
+            Status::Missed => "❌".to_string(),
+            Status::Waiting => "⏳".to_string(),
         }
     }
 }

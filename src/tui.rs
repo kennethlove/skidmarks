@@ -1,110 +1,310 @@
-use std::io::{self, stdout};
+use std::io;
 use crate::db::Database;
 use crate::cli::get_database_url;
-
+use crate::streaks::Streak;
+use style::palette::tailwind;
 use ratatui::{
+    backend::{Backend, CrosstermBackend},
     crossterm::{
-        event::{self, Event, KeyCode},
-        terminal::{
-            disable_raw_mode, enable_raw_mode,
-            EnterAlternateScreen, LeaveAlternateScreen,
-        },
-        ExecutableCommand,
+        event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind},
+        execute,
+        terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
     },
-    prelude::*,
-    widgets::*,
+    layout::{Constraint, Layout, Margin, Rect},
+    style::{self, Color, Modifier, Style, Stylize},
+    terminal::{Frame, Terminal},
+    text::{Line, Text},
+    widgets::{
+        Block, BorderType, Cell, HighlightSpacing, Paragraph, Row, Scrollbar, ScrollbarOrientation,
+        ScrollbarState, Table, TableState,
+    },
 };
+use unicode_width::UnicodeWidthStr;
+
+const PALETTES: [tailwind::Palette; 4] = [
+    tailwind::BLUE,
+    tailwind::EMERALD,
+    tailwind::INDIGO,
+    tailwind::RED,
+];
+
+const INFO_TEXT: &str = "[Q]uit | (↑) move up | (↓) move down | [C]heck in | [R]emove";
+const ITEM_HEIGHT: usize = 4;
+
+
+struct TableColors {
+    buffer_bg: Color,
+    header_bg: Color,
+    header_fg: Color,
+    row_fg: Color,
+    selected_style_fg: Color,
+    normal_row_color: Color,
+    alt_row_color: Color,
+    footer_border_color: Color,
+}
+
+impl TableColors {
+    const fn new(color: &tailwind::Palette) -> Self {
+        Self {
+            buffer_bg: tailwind::SLATE.c950,
+            header_bg: color.c900,
+            header_fg: tailwind::SLATE.c200,
+            row_fg: tailwind::SLATE.c200,
+            selected_style_fg: color.c400,
+            normal_row_color: tailwind::SLATE.c950,
+            alt_row_color: tailwind::SLATE.c900,
+            footer_border_color: color.c400,
+        }
+    }
+}
+
+struct App {
+    state: TableState,
+    items: Vec<Streak>,
+    longest_item_lens: [usize; 5],
+    scroll_state: ScrollbarState,
+    colors: TableColors,
+    color_index: usize,
+}
+
+impl App {
+    fn new() -> Self {
+        let mut db = Database::new(&get_database_url()).expect("Failed to load database");
+        let data_vec = db.get_all().unwrap_or(vec![]);
+        Self {
+            state: TableState::default().with_selected(0),
+            items: data_vec.clone(),
+            longest_item_lens: constraint_len_calculator(&data_vec).into(),
+            scroll_state: ScrollbarState::default(),
+            colors: TableColors::new(&PALETTES[0]),
+            color_index: 0,
+        }
+    }
+
+    pub fn next(&mut self) {
+        let i = match self.state.selected() {
+            Some(i) => {
+                if i >= self.items.len() - 1 { 0 }
+                else { i + 1 }
+            },
+            None => 0,
+        };
+        self.state.select(Some(i));
+        self.scroll_state = self.scroll_state.position(i * ITEM_HEIGHT);
+    }
+
+    pub fn previous(&mut self) {
+        let i = match self.state.selected() {
+            Some(i) => {
+                if i == 0 { self.items.len() - 1 }
+                else { i - 1 }
+            },
+            None => 0,
+        };
+        self.state.select(Some(i));
+        self.scroll_state = self.scroll_state.position(i * ITEM_HEIGHT);
+    }
+}
+
+struct Data {
+    task: String,
+    frequency: String,
+    emoji: String,
+    last_checkin: String,
+    total_checkins: String,
+}
+
+impl Data {
+    fn new(streak: Streak) -> Self {
+        let streak = streak.to_owned();
+        Self {
+            task: streak.task.clone(),
+            frequency: streak.frequency.to_string(),
+            emoji: streak.emoji_status(),
+            last_checkin: {
+                match streak.last_checkin {
+                    Some(checkin) => checkin.to_string(),
+                    None => "None".to_string()
+                }
+            },
+            total_checkins: streak.total_checkins.to_string()
+        }
+    }
+}
+
+impl Streak {
+    fn ref_array(&self) -> [&String; 5] {
+        let data = Data::new(self.clone());
+        [
+            &data.task,
+            &data.frequency,
+            &data.emoji,
+            &data.last_checkin,
+            &data.total_checkins
+        ]
+    }
+}
+
+fn constraint_len_calculator(items: &[Streak]) -> (usize, usize, usize, usize, usize) {
+    // Streak, Frequcency, Emoji, Last Checkin, Total Checkins
+    let streak_len = items
+        .iter()
+        .map(Streak.task)
+        .flat_map(str::lines)
+        .map(UnicodeWidthStr::width)
+        .max()
+        .unwrap_or(0);
+
+    let frequency_len = items
+        .iter()
+        .map(Streak.frequency)
+        .map(UnicodeWidthStr::width)
+        .max()
+        .unwrap_or(0);
+
+    let emoji_len = items
+        .iter()
+        .map(Streak.emoji)
+        .map(UnicodeWidthStr::width)
+        .max()
+        .unwrap_or(0);
+
+    let last_checkin_len = items
+        .iter()
+        .map(Streak.last_checkin)
+        .map(UnicodeWidthStr::width)
+        .max()
+        .unwrap_or(0);
+
+    let total_checkins_len = items
+        .iter()
+        .map(Streak.total_checkins)
+        .map(UnicodeWidthStr::width)
+        .max()
+        .unwrap_or(0);
+
+    #[allow(clippy::cast_possible_truncation)]
+    (streak_len as usize, frequency_len as usize, emoji_len as usize, last_checkin_len as usize, total_checkins_len as usize)
+}
 
 pub fn main() -> io::Result<()> {
     enable_raw_mode()?;
-    stdout().execute(EnterAlternateScreen)?;
-    let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
+    let mut stdout = io::stdout();
+    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
+    let backend = CrosstermBackend::new(stdout);
+    let mut terminal = Terminal::new(backend)?;
 
-    let mut should_quit = false;
-    while !should_quit {
-        terminal.draw(ui)?;
-        should_quit = handle_events()?;
-    }
+    let app = App::new();
+    let res = run_app(&mut terminal, app);
 
     disable_raw_mode()?;
-    stdout().execute(LeaveAlternateScreen)?;
+    execute!(
+        terminal.backend_mut(),
+        LeaveAlternateScreen,
+        DisableMouseCapture
+    )?;
+    terminal.show_cursor()?;
+
+    if let Err(err) = res {
+        println!("{err:?}");
+    }
     Ok(())
 }
 
-fn handle_events() -> io::Result<bool> {
-    if event::poll(std::time::Duration::from_millis(50))? {
+fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<()> {
+    loop {
+        terminal.draw(|f| ui(f, &mut app))?;
+
         if let Event::Key(key) = event::read()? {
-            if key.kind == event::KeyEventKind::Press && key.code == KeyCode::Char('q') {
-                return Ok(true);
+            if key.kind == KeyEventKind::Press {
+                match key.code {
+                    KeyCode::Char('q') | KeyCode::Esc => return Ok(()),
+                    KeyCode::Char('j') | KeyCode::Down => app.next(),
+                    KeyCode::Char('k') | KeyCode::Up => app.previous(),
+                    _ => {}
+                }
             }
         }
     }
-    Ok(false)
 }
 
-fn ui(frame: &mut Frame) {
-    let db_url = get_database_url();
-    let mut database = Database::new(&db_url.as_str()).expect("Failed to load database");
+fn ui(f: &mut Frame, app: &mut App) {
+    let rects = Layout::vertical([Constraint::Min(5), Constraint::Length(3)]).split(f.size());
 
-    let main_layout = Layout::new(
-        Direction::Vertical,
+    render_table(f, app, rects[0]);
+    render_scrollbar(f, app, rects[0]);
+    render_footer(f, app, rects[1]);
+
+}
+
+fn render_table(f: &mut Frame, app: &mut App, area: Rect) {
+    let header_style = Style::default()
+        .fg(app.colors.header_fg)
+        .bg(app.colors.header_bg);
+    let selected_style = Style::default()
+        .add_modifier(Modifier::REVERSED)
+        .fg(app.colors.selected_style_fg);
+
+    let header = ["Task", "Frequency", "Status", "Last Check In", "Total"]
+        .into_iter()
+        .map(Cell::from)
+        .collect::<Row>()
+        .style(header_style)
+        .height(1);
+
+    let rows = app.items.iter().enumerate().map(|(i, data)| {
+        let color = match i % 2 {
+            0 => app.colors.normal_row_color,
+            _ => app.colors.alt_row_color,
+        };
+        let item = data.ref_array();
+        item.into_iter()
+            .map(|content| Cell::from(Text::from(format!("\n{content}\n"))))
+            .collect::<Row>()
+            .style(Style::new().fg(app.colors.row_fg).bg(color))
+            .height(4)
+    });
+
+    let table = Table::new(
+        rows,
         [
-            Constraint::Length(1),
-            Constraint::Min(0),
-            Constraint::Length(1),
-        ],
+            Constraint::Length(app.longest_item_lens[0] as u16 + 1),
+            Constraint::Min(app.longest_item_lens[1] as u16 + 1),
+            Constraint::Min(app.longest_item_lens[2] as u16),
+            Constraint::Min(app.longest_item_lens[3] as u16),
+            Constraint::Min(app.longest_item_lens[4] as u16),
+        ]
     )
-    .split(frame.size());
+    .header(header)
+    .highlight_style(selected_style)
+    .highlight_symbol(Text::from(">>"))
+    .bg(app.colors.buffer_bg)
+    .highlight_spacing(HighlightSpacing::Always);
+    f.render_stateful_widget(table, area, &mut app.state);
+}
 
-    frame.render_widget(
-        Block::new().borders(Borders::TOP).title("Title Bar"),
-        main_layout[0],
+fn render_scrollbar(f: &mut Frame, app: &mut App, area: Rect) {
+    f.render_stateful_widget(
+        Scrollbar::default()
+            .orientation(ScrollbarOrientation::VerticalRight)
+            .begin_symbol(None)
+            .end_symbol(None),
+        area.inner(Margin {
+            vertical: 1,
+            horizontal: 1,
+        }),
+        &mut app.scroll_state,
     );
-    frame.render_widget(
-        Block::new().borders(Borders::TOP).title("Status Bar"),
-        main_layout[2],
-    );
+}
 
-    let inner_layout = Layout::new(
-        Direction::Horizontal,
-        [
-            Constraint::Percentage(50),
-            Constraint::Percentage(50),
-        ],
-    ).split(main_layout[1]);
-
-
-    match database.get_all() {
-        Some(streaks) => {
-            let mut rows = vec![];
-            for streak in streaks {
-                let row = Row::new(vec![
-                    Cell::from(streak.task.clone()),
-                    Cell::from(streak.frequency.to_string()),
-                    Cell::from(streak.status().to_string()),
-                ]);
-                rows.push(row);
-            }
-
-            let widths = [
-                Constraint::Length(50),
-                Constraint::Length(10),
-                Constraint::Length(10),
-            ];
-
-            let table = Table::new(rows, widths)
-                .header(
-                    Row::new(vec!["Task", "Frequency", "Status"])
-                        .style(Style::default().fg(Color::Yellow))
-                )
-                .highlight_style(Style::new().reversed())
-                .highlight_symbol(">>");
-
-            frame.render_widget(table, inner_layout[0]);
-        }
-        None => {
-            let error = Text::raw("Failed to load streaks");
-            frame.render_widget(error, inner_layout[0]);
-        }
-    }
+fn render_footer(f: &mut Frame, app: &App, area: Rect) {
+    let info_footer = Paragraph::new(Line::from(INFO_TEXT))
+        .style(Style::new().fg(app.colors.row_fg).bg(app.colors.buffer_bg))
+        .centered()
+        .block(
+            Block::bordered()
+                .border_type(BorderType::Double)
+                .border_style(Style::new().fg(app.colors.footer_border_color)),
+        );
+    f.render_widget(info_footer, area);
 }

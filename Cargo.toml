@@ -13,6 +13,7 @@ categories = ["command-line-utilities"]
 ansi_term = "0.12.1"
 assert_cmd = "2.0.15"
 assert_fs = "1.1.2"
+catppuccin = { version = "2.4.0", features = ["ratatui"] }
 chrono = { version = "0.4.38", features = ["serde"] }
 clap = { version = "4.5.11", features = ["derive"] }
 console = "0.15.8"
@@ -22,3 +23,4 @@ ratatui = "0.27.0"
 ron = "0.8.1"
 serde = { version = "1.0.204", features = ["derive"] }
 tabled = { version = "0.15.0", features = ["ansi"] }
+unicode-width = "0.1.13"
