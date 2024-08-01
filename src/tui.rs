@@ -49,7 +49,7 @@ fn ui(frame: &mut Frame) {
         Paragraph::new("Hello World").block(Block::bordered().title("Skidmarks")),
         frame.size(),
     );
-    for streak in database.streaks.lock().unwrap() {
+    for streak in database.get_all().unwrap() {
         frame.render_widget(
             Paragraph::new(streak.task).block(Block::bordered()), frame.size()
         );

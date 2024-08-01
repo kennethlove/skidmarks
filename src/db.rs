@@ -89,6 +89,20 @@ impl Database {
         };
         Ok(new_db)
     }
+
+    pub fn get_all(self: Database) -> Result<Vec<Streak>, ()> {
+        let streaks = self.streaks.lock();
+        match streaks {
+            Ok(streaks) => {
+                if streaks.is_empty() {
+                    Ok(Vec::<Streak>::new())
+                } else {
+                    Ok(streaks.clone())
+                }
+            }
+            Err(e) => panic!("Error getting streaks: {}", e),
+        }
+    }
 }
 
 impl Default for Database {

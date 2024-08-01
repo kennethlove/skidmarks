@@ -59,17 +59,10 @@ fn new_weekly(name: String, db: &mut Database) -> Result<Streak, Box<dyn std::er
 }
 
 /// Get all streaks
-fn get_all(db: &mut Database) -> Vec<Streak> {
-    let streaks = db.streaks.lock();
-    match streaks {
-        Ok(streaks) => {
-            if streaks.is_empty() {
-                Vec::<Streak>::new()
-            } else {
-                streaks.clone()
-            }
-        }
-        Err(e) => panic!("Error getting streaks: {}", e),
+fn get_all(db: Database) -> Vec<Streak> {
+    match db.get_all() {
+        Ok(streaks) => streaks.clone(),
+        Err(_) => Vec::<Streak>::new()
     }
 }
 
@@ -186,7 +179,7 @@ pub fn parse() {
             }
         },
         Commands::List => {
-            let streak_list = get_all(&mut db);
+            let streak_list = get_all(db);
             println!("{}", build_table(streak_list));
         }
         Commands::Get { idx } => {
