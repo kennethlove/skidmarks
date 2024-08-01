@@ -59,7 +59,7 @@ fn new_weekly(name: String, db: &mut Database) -> Result<Streak, Box<dyn std::er
 }
 
 /// Get all streaks
-fn get_all(db: Database) -> Vec<Streak> {
+fn get_all(mut db: Database) -> Vec<Streak> {
     match db.get_all() {
         Some(streaks) => streaks.clone(),
         None => Vec::<Streak>::new()
@@ -182,12 +182,12 @@ pub fn parse() {
         }
         Commands::Get { idx } => {
             let streak = get_one(&mut db, *idx);
-            println!("{}", build_table(vec![streak]));
+            println!("{}", build_table(vec![streak.unwrap()]));
         }
         Commands::CheckIn { idx } => match checkin(&mut db, *idx) {
             Ok(_) => {
                 let streak = get_one(&mut db, *idx);
-                let name = &streak.task;
+                let name = &streak.unwrap().task;
                 let response = response_style.paint(format!("Checked in on the {name} streak!")).to_string();
                 let star = Emoji("🌟", "");
                 println!("{star} {response}")
@@ -200,7 +200,7 @@ pub fn parse() {
         Commands::Remove { idx } => {
             let streak = get_one(&mut db, *idx).clone();
             let _ = delete(&mut db, *idx);
-            let name = &streak.task;
+            let name = &streak.unwrap().task;
             let response = response_style.paint(format!(r#"Removed the "{name}" streak"#)).to_string();
             let trash = Emoji("🗑️", "");
             println!("{trash} {response}")
