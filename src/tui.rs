@@ -78,7 +78,7 @@ fn ui(frame: &mut Frame) {
     match database.get_all() {
         Some(streaks) => {
             for (i, streak) in streaks.iter().enumerate() {
-                frame.render_widget(Text::raw(&streak.task), inner_layout[0]);
+                frame.render_widget(Paragraph::new(&*streak.task), inner_layout[0]);
             }
         }
         None => {
