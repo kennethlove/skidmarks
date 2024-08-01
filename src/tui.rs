@@ -44,14 +44,46 @@ fn handle_events() -> io::Result<bool> {
 
 fn ui(frame: &mut Frame) {
     let db_url = get_database_url();
-    let database = Database::new(&db_url.as_str()).expect("Failed to load database");
+    let mut database = Database::new(&db_url.as_str()).expect("Failed to load database");
+
+    let main_layout = Layout::new(
+        Direction::Vertical,
+        [
+            Constraint::Length(1),
+            Constraint::Min(0),
+            Constraint::Length(1),
+        ],
+    )
+    .split(frame.size());
+
     frame.render_widget(
-        Paragraph::new("Hello World").block(Block::bordered().title("Skidmarks")),
-        frame.size(),
+        Block::new().borders(Borders::TOP).title("Title Bar"),
+        main_layout[0],
     );
-    for streak in database.get_all().unwrap() {
-        frame.render_widget(
-            Paragraph::new(streak.task).block(Block::bordered()), frame.size()
-        );
+    frame.render_widget(
+        Block::new().borders(Borders::TOP).title("Status Bar"),
+        main_layout[2],
+    );
+
+    let inner_layout = Layout::new(
+        Direction::Horizontal,
+        [
+            Constraint::Percentage(50),
+            Constraint::Percentage(50),
+        ],
+    ).split(main_layout[1]);
+    frame.render_widget(Block::bordered().title("Left"), inner_layout[0]);
+    frame.render_widget(Block::bordered().title("Right"), inner_layout[1]);
+
+    match database.get_all() {
+        Some(streaks) => {
+            for (i, streak) in streaks.iter().enumerate() {
+                frame.render_widget(Text::raw(&streak.task), inner_layout[0]);
+            }
+        }
+        None => {
+            let error = Text::raw("Failed to load streaks");
+            frame.render_widget(error, inner_layout[0]);
+        }
     }
 }
