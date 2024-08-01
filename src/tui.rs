@@ -72,14 +72,35 @@ fn ui(frame: &mut Frame) {
             Constraint::Percentage(50),
         ],
     ).split(main_layout[1]);
-    frame.render_widget(Block::bordered().title("Left"), inner_layout[0]);
-    frame.render_widget(Block::bordered().title("Right"), inner_layout[1]);
+
 
     match database.get_all() {
         Some(streaks) => {
-            for (i, streak) in streaks.iter().enumerate() {
-                frame.render_widget(Paragraph::new(&*streak.task), inner_layout[0]);
+            let mut rows = vec![];
+            for streak in streaks {
+                let row = Row::new(vec![
+                    Cell::from(streak.task.clone()),
+                    Cell::from(streak.frequency.to_string()),
+                    Cell::from(streak.status().to_string()),
+                ]);
+                rows.push(row);
             }
+
+            let widths = [
+                Constraint::Length(50),
+                Constraint::Length(10),
+                Constraint::Length(10),
+            ];
+
+            let table = Table::new(rows, widths)
+                .header(
+                    Row::new(vec!["Task", "Frequency", "Status"])
+                        .style(Style::default().fg(Color::Yellow))
+                )
+                .highlight_style(Style::new().reversed())
+                .highlight_symbol(">>");
+
+            frame.render_widget(table, inner_layout[0]);
         }
         None => {
             let error = Text::raw("Failed to load streaks");
