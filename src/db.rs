@@ -83,6 +83,7 @@ impl Database {
         Self::create_if_missing(filename)?;
         let existing_db = Self::load_database(filename)?;
         let new_db = Self {
+
             streaks: Mutex::new(existing_db.clone()),
             filename: filename.to_string(),
         };

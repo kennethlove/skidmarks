@@ -8,6 +8,7 @@ use tabled::{builder::Builder, settings::Style as TabledStyle};
 use crate::{
     db::Database,
     streaks::{Frequency, Streak, Status},
+    tui,
 };
 
 #[derive(Debug, Parser)]
@@ -37,6 +38,8 @@ enum Commands {
     CheckIn { idx: u32 },
     #[command(about = "Remove a streak", long_about = None, short_flag = 'r')]
     Remove { idx: u32 },
+    #[command(about = "Switch to TUI", long_about = None, short_flag = 't')]
+    Switch,
 }
 
 /// Create a new daily streak item
@@ -146,8 +149,7 @@ fn build_table(streaks: Vec<Streak>) -> String {
         .to_string()
 }
 
-/// Parses command line options
-pub fn parse() {
+pub fn get_database_url() -> String {
     let cli = Cli::parse();
     let mut db_url: String = "skidmarks.ron".to_string();
     if cli.database_url != "" {
@@ -159,6 +161,13 @@ pub fn parse() {
         Some('~') => db_url,
         _ => format!("{}/{db_url}", dirs::data_local_dir().unwrap().display())
     };
+    db_url
+}
+
+/// Parses command line options
+pub fn parse() {
+    let cli = Cli::parse();
+    let db_url = get_database_url();
     let mut db = Database::new(db_url.as_str()).expect("Could not load database");
     let response_style = Style::new().bold().fg(Color::Green);
     match &cli.command {
@@ -204,6 +213,9 @@ pub fn parse() {
             let response = response_style.paint(format!(r#"Removed the "{name}" streak"#)).to_string();
             let trash = Emoji("🗑️", "");
             println!("{trash} {response}")
+        }
+        Commands::Switch => {
+            tui::main().expect("Couldn't launch TUI")
         }
     }
 }
