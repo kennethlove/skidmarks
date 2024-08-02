@@ -109,6 +109,21 @@ impl App {
         self.state.select(Some(i));
         self.scroll_state = self.scroll_state.position(i * ITEM_HEIGHT);
     }
+
+    pub fn check_in(&mut self, idx: usize) {
+        let idx = idx as u32;
+        let mut streak = self.db.get_one(idx).unwrap();
+        streak.checkin();
+        let _ = self.db.update(idx, &streak);
+        let _ = self.db.save();
+        self.items[idx as usize] = Data::from(streak);
+    }
+
+    pub fn remove(&mut self, idx: usize) {
+        let _ = self.db.delete(idx as u32);
+        let _ = self.db.save();
+        self.items.remove(idx);
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -251,11 +266,14 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                     KeyCode::Char('k') | KeyCode::Up => app.previous(),
                     KeyCode::Char('c') => {
                         let selected = app.state.selected().unwrap();
-                        let mut streak = app.db.get_one(selected as u32).unwrap();
-                        streak.checkin();
-                        let _ = app.db.update(selected as u32, &streak);
-                        let _ = app.db.save();
-                        app.items[selected] = Data::from(streak);
+                        app.check_in(selected);
+                    },
+                    KeyCode::Char('a') => {
+                        // Add a new streak
+                    },
+                    KeyCode::Char('r') => {
+                        let selected = app.state.selected().unwrap();
+                        app.remove(selected);
                     },
                     _ => {}
                 }
