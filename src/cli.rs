@@ -108,7 +108,14 @@ fn build_table(streaks: Vec<Streak>) -> String {
     ]);
 
     for streak in streaks.iter() {
-        let streak_name = Style::new().bold().paint(&streak.task);
+        let mut wrapped_text = String::new();
+        let wrapped_lines = textwrap::wrap(&streak.task.as_str(), 60);
+        let num_lines: u16 = wrapped_lines.len().try_into().unwrap();
+        for line in wrapped_lines {
+            wrapped_text.push_str(&format!("{}\n", line));
+        }
+
+        let streak_name = Style::new().bold().paint(wrapped_text);
         let frequency = Style::new().paint(format!("{}", &streak.frequency));
         let check_in = match &streak.last_checkin {
             Some(date) => date.to_string(),
