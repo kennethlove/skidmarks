@@ -70,7 +70,6 @@ struct App {
     scroll_state: ScrollbarState,
     colors: TableColors,
     db: Database,
-    show_remove_popup: bool,
     remove_popup: ConfirmDialogState,
     popup_tx: std::sync::mpsc::Sender<Listener>,
     popup_rx: std::sync::mpsc::Receiver<Listener>,
@@ -94,7 +93,6 @@ impl App {
             scroll_state: ScrollbarState::default(),
             colors: TableColors::new(&PALETTES[1]),
             db,
-            show_remove_popup: false,
             remove_popup: ConfirmDialogState::default(),
             popup_tx: tx,
             popup_rx: rx,
@@ -274,8 +272,8 @@ pub fn main() -> io::Result<()> {
 fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<()> {
     loop {
         if let Ok(res) = app.popup_rx.try_recv() {
-            if res.0 == app.remove_popup.id {
-                dbg!("dialog closed with result: ", res.1);
+            if res.0 == app.remove_popup.id && res.1 == Some(true) {
+                app.remove();
             }
         }
 
@@ -296,7 +294,6 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                         // Add a new streak
                     },
                     KeyCode::Char('r') => {
-                        app.show_remove_popup = true;
                         app.remove_popup = app
                             .remove_popup
                             .modal(false)
@@ -305,7 +302,7 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                                 Line::from("Are you sure you want to remove this streak?"),
                                 Line::from(Span::styled(
                                     "This action cannot be undone.",
-                                    Style::default().fg(Color::DarkGray),
+                                    Style::default().fg(Color::Red),
                                 )),
                             ]))
                             .with_yes_button(ButtonLabel::new("[Y]es", 'y'))
@@ -321,37 +318,23 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
     }
 }
 
-fn ui(f: &mut Frame, mut app: App) {
+fn ui(f: &mut Frame, app: &mut App) {
     let rects = Layout::vertical([Constraint::Min(5), Constraint::Length(3)]).split(f.size());
-    let app2 = &mut app;
 
-    if app.show_remove_popup {
-        render_remove_popup(f, app);
+    render_table(f, app, rects[0]);
+    render_scrollbar(f, app, rects[0]);
+    render_footer(f, app, rects[1]);
+
+    if app.remove_popup.is_opened() {
+        let popup = ConfirmDialog::default()
+            .borders(Borders::ALL)
+            .bg(Color::Black)
+            .border_type(BorderType::Rounded)
+            .button_style(Style::default())
+            .selected_button_style(Style::default().yellow().underlined().bold());
+        f.render_stateful_widget(popup, rects[0], &mut app.remove_popup)
     }
 
-    render_table(f, app2, rects[0]);
-    render_scrollbar(f, app2, rects[0]);
-    render_footer(f, app2, rects[1]);
-
-}
-
-fn render_remove_popup(f: &mut Frame, mut app: App) {
-    app.remove_popup = app
-        .remove_popup
-        .modal(false)
-        .with_title(Span::styled("Remove Streak", Style::default().fg(Color::Red)))
-        .with_text(Text::from(vec![
-            Line::from("Are you sure you want to remove this streak?"),
-            Line::from(Span::styled(
-                "This action cannot be undone.",
-                Style::default().fg(Color::DarkGray),
-            )),
-        ]))
-        .with_yes_button(ButtonLabel::new("[Y]es", 'y'))
-        .with_no_button(ButtonLabel::new("No", 'n'))
-        .with_yes_button_selected(false)
-        .with_listener(Some(app.popup_tx.clone()));
-    app.remove_popup = app.remove_popup.open();
 }
 
 fn render_table(f: &mut Frame, app: &mut App, area: Rect) {
