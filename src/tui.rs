@@ -28,7 +28,7 @@ const PALETTES: [tailwind::Palette; 4] = [
     tailwind::RED,
 ];
 
-const INFO_TEXT: &str = "[Q]uit | (↑) move up | (↓) move down | [C]heck in | [R]emove";
+const INFO_TEXT: &str = "[Q]uit | (↑) move up | (↓) move down | [C]heck in | [A]dd | [R]emove";
 const ITEM_HEIGHT: usize = 4;
 
 
@@ -60,24 +60,29 @@ impl TableColors {
 
 struct App {
     state: TableState,
-    items: Vec<Streak>,
+    items: Vec<Data>,
     longest_item_lens: [usize; 5],
     scroll_state: ScrollbarState,
     colors: TableColors,
-    color_index: usize,
+    db: Database,
 }
 
 impl App {
     fn new() -> Self {
         let mut db = Database::new(&get_database_url()).expect("Failed to load database");
-        let data_vec = db.get_all().unwrap_or(vec![]);
+        let data_vec: Vec<Data> = db.get_all()
+            .unwrap_or_default()
+            .into_iter()
+            .map(Data::from)
+            .collect();
+
         Self {
             state: TableState::default().with_selected(0),
             items: data_vec.clone(),
             longest_item_lens: constraint_len_calculator(&data_vec).into(),
             scroll_state: ScrollbarState::default(),
             colors: TableColors::new(&PALETTES[0]),
-            color_index: 0,
+            db
         }
     }
 
@@ -106,6 +111,7 @@ impl App {
     }
 }
 
+#[derive(Debug, Clone)]
 struct Data {
     task: String,
     frequency: String,
@@ -114,9 +120,24 @@ struct Data {
     total_checkins: String,
 }
 
+impl From<Streak> for Data {
+    fn from(value: Streak) -> Self {
+        Self::new(value)
+    }
+}
+
 impl Data {
+    const fn ref_array(&self) -> [&String; 5] {
+        [
+            &self.task,
+            &self.frequency,
+            &self.emoji,
+            &self.last_checkin,
+            &self.total_checkins
+        ]
+    }
+
     fn new(streak: Streak) -> Self {
-        let streak = streak.to_owned();
         Self {
             task: streak.task.clone(),
             frequency: streak.frequency.to_string(),
@@ -130,26 +151,33 @@ impl Data {
             total_checkins: streak.total_checkins.to_string()
         }
     }
-}
 
-impl Streak {
-    fn ref_array(&self) -> [&String; 5] {
-        let data = Data::new(self.clone());
-        [
-            &data.task,
-            &data.frequency,
-            &data.emoji,
-            &data.last_checkin,
-            &data.total_checkins
-        ]
+    fn task(&self) -> &str {
+        &self.task
+    }
+
+    fn frequency(&self) -> &str {
+        &self.frequency
+    }
+
+    fn emoji(&self) -> &str {
+        &self.emoji
+    }
+
+    fn last_checkin(&self) -> &str {
+        &self.last_checkin
+    }
+
+    fn total_checkins(&self) -> &str {
+        &self.total_checkins
     }
 }
 
-fn constraint_len_calculator(items: &[Streak]) -> (usize, usize, usize, usize, usize) {
+fn constraint_len_calculator(items: &[Data]) -> (usize, usize, usize, usize, usize) {
     // Streak, Frequcency, Emoji, Last Checkin, Total Checkins
     let streak_len = items
         .iter()
-        .map(Streak.task)
+        .map(Data::task)
         .flat_map(str::lines)
         .map(UnicodeWidthStr::width)
         .max()
@@ -157,28 +185,28 @@ fn constraint_len_calculator(items: &[Streak]) -> (usize, usize, usize, usize, u
 
     let frequency_len = items
         .iter()
-        .map(Streak.frequency)
+        .map(Data::frequency)
         .map(UnicodeWidthStr::width)
         .max()
         .unwrap_or(0);
 
     let emoji_len = items
         .iter()
-        .map(Streak.emoji)
+        .map(Data::emoji)
         .map(UnicodeWidthStr::width)
         .max()
         .unwrap_or(0);
 
     let last_checkin_len = items
         .iter()
-        .map(Streak.last_checkin)
+        .map(Data::last_checkin)
         .map(UnicodeWidthStr::width)
         .max()
         .unwrap_or(0);
 
     let total_checkins_len = items
         .iter()
-        .map(Streak.total_checkins)
+        .map(Data::total_checkins)
         .map(UnicodeWidthStr::width)
         .max()
         .unwrap_or(0);
@@ -221,6 +249,14 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                     KeyCode::Char('q') | KeyCode::Esc => return Ok(()),
                     KeyCode::Char('j') | KeyCode::Down => app.next(),
                     KeyCode::Char('k') | KeyCode::Up => app.previous(),
+                    KeyCode::Char('c') => {
+                        let selected = app.state.selected().unwrap();
+                        let mut streak = app.db.get_one(selected as u32).unwrap();
+                        streak.checkin();
+                        let _ = app.db.update(selected as u32, &streak);
+                        let _ = app.db.save();
+                        app.items[selected] = Data::from(streak);
+                    },
                     _ => {}
                 }
             }
@@ -259,10 +295,10 @@ fn render_table(f: &mut Frame, app: &mut App, area: Rect) {
         };
         let item = data.ref_array();
         item.into_iter()
-            .map(|content| Cell::from(Text::from(format!("\n{content}\n"))))
+            .map(|content| Cell::from(Text::from(format!("{content}\n"))))
             .collect::<Row>()
             .style(Style::new().fg(app.colors.row_fg).bg(color))
-            .height(4)
+            .height(1)
     });
 
     let table = Table::new(
@@ -277,7 +313,7 @@ fn render_table(f: &mut Frame, app: &mut App, area: Rect) {
     )
     .header(header)
     .highlight_style(selected_style)
-    .highlight_symbol(Text::from(">>"))
+    .highlight_symbol(Text::from("> "))
     .bg(app.colors.buffer_bg)
     .highlight_spacing(HighlightSpacing::Always);
     f.render_stateful_widget(table, area, &mut app.state);

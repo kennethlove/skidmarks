@@ -67,9 +67,9 @@ impl Database {
         Ok(())
     }
 
-    pub fn update(&mut self, idx: u32, streak: Streak) -> Result<(), std::io::Error> {
+    pub fn update(&mut self, idx: u32, streak: &Streak) -> Result<(), std::io::Error> {
         let mut streaks = self.streaks.lock().unwrap();
-        streaks[idx as usize] = streak;
+        streaks[idx as usize] = streak.clone();
         Ok(())
     }
 

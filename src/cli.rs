@@ -39,7 +39,7 @@ enum Commands {
     #[command(about = "Remove a streak", long_about = None, short_flag = 'r')]
     Remove { idx: u32 },
     #[command(about = "Switch to TUI", long_about = None, short_flag = 't')]
-    TUI,
+    Tui,
 }
 
 /// Create a new daily streak item
@@ -68,25 +68,22 @@ fn get_all(mut db: Database) -> Vec<Streak> {
 
 /// Get one single streak
 fn get_one(db: &mut Database, idx: u32) -> Option<Streak>{
-    match db.get_one(idx) {
-        Some(streak) => Some(streak.clone()),
-        None => None,
+    if let Some(streak) = db.get_one(idx) {
+        return Some(streak.clone())
     }
+    None
 }
 
 /// Check in to a streak today
 fn checkin(db: &mut Database, idx: u32) -> Result<(), Box<dyn std::error::Error>> {
     let mut streak = get_one(db, idx).unwrap();
-    match streak.last_checkin {
-        Some(check_in) => {
-            if check_in == Local::now().date_naive() {
-                return Ok(())
-            }
+    if let Some(check_in) = streak.last_checkin {
+        if check_in == Local::now().date_naive() {
+            return Ok(())
         }
-        None => ()
     }
     streak.checkin();
-    db.update(idx, streak)?;
+    db.update(idx, &streak)?;
     db.save()?;
     Ok(())
 }
@@ -200,7 +197,7 @@ pub fn parse() {
             let trash = Emoji("🗑️", "");
             println!("{trash} {response}")
         }
-        Commands::TUI => {
+        Commands::Tui => {
             tui::main().expect("Couldn't launch TUI")
         }
     }
