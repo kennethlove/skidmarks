@@ -83,7 +83,7 @@ impl App {
             items: data_vec.clone(),
             longest_item_lens: constraint_len_calculator(&data_vec).into(),
             scroll_state: ScrollbarState::default(),
-            colors: TableColors::new(&PALETTES[0]),
+            colors: TableColors::new(&PALETTES[1]),
             db,
             show_remove_popup: false,
             show_add_popup: false,
@@ -232,7 +232,7 @@ fn constraint_len_calculator(items: &[Data]) -> (usize, usize, usize, usize, usi
         .unwrap_or(0);
 
     #[allow(clippy::cast_possible_truncation)]
-    (streak_len as usize, frequency_len as usize, emoji_len as usize, last_checkin_len as usize, total_checkins_len as usize)
+    (streak_len as usize - 40, frequency_len as usize, emoji_len as usize, last_checkin_len as usize, total_checkins_len as usize)
 }
 
 pub fn main() -> io::Result<()> {
@@ -321,10 +321,10 @@ fn render_table(f: &mut Frame, app: &mut App, area: Rect) {
     let table = Table::new(
         rows,
         [
-            Constraint::Length(app.longest_item_lens[0] as u16 + 1),
-            Constraint::Min(app.longest_item_lens[1] as u16 + 1),
+            Constraint::Length(app.longest_item_lens[0] as u16 - 15),
+            Constraint::Min(app.longest_item_lens[1] as u16),
             Constraint::Min(app.longest_item_lens[2] as u16),
-            Constraint::Min(app.longest_item_lens[3] as u16),
+            Constraint::Length(app.longest_item_lens[3] as u16),
             Constraint::Min(app.longest_item_lens[4] as u16),
         ]
     )
