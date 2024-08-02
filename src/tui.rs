@@ -2,24 +2,22 @@ use std::io;
 use crate::db::Database;
 use crate::cli::get_database_url;
 use crate::streaks::Streak;
-use derive_setters::Setters;
 use style::palette::tailwind;
 use ratatui::{
     backend::{Backend, CrosstermBackend},
-    buffer::Buffer,
     crossterm::{
         event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind},
         execute,
         terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
-        ExecutableCommand
     },
     layout::{Constraint, Layout, Margin, Rect},
+    prelude::*,
     style::{self, Color, Modifier, Style, Stylize},
     terminal::{Frame, Terminal},
     text::{Line, Span, Text},
     widgets::{
-        Block, Borders, BorderType, Cell, Clear, HighlightSpacing, Paragraph, Row, Scrollbar, ScrollbarOrientation,
-        ScrollbarState, Table, TableState, Widget, Wrap,
+        Block, Borders, BorderType, Cell, HighlightSpacing, Paragraph, Row, Scrollbar, ScrollbarOrientation,
+        ScrollbarState, Table, TableState,
     },
 };
 use tui_confirm_dialog::{ButtonLabel, ConfirmDialog, ConfirmDialogState, Listener};
@@ -71,6 +69,7 @@ struct App {
     colors: TableColors,
     db: Database,
     remove_popup: ConfirmDialogState,
+    create_popup: ConfirmDialogState,
     popup_tx: std::sync::mpsc::Sender<Listener>,
     popup_rx: std::sync::mpsc::Receiver<Listener>,
 }
@@ -94,6 +93,7 @@ impl App {
             colors: TableColors::new(&PALETTES[1]),
             db,
             remove_popup: ConfirmDialogState::default(),
+            create_popup: ConfirmDialogState::default(),
             popup_tx: tx,
             popup_rx: rx,
         }
@@ -280,18 +280,35 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
         terminal.draw(|f| ui(f, &mut app))?;
 
         if let Event::Key(key) = event::read()? {
-            if app.remove_popup.is_opened() && app.remove_popup.handle(key) {
+            if app.remove_popup.is_opened() && app.remove_popup.handle(key) ||
+            app.create_popup.is_opened() && app.create_popup.handle(key) {
                 continue;
             }
 
             if key.kind == KeyEventKind::Press {
                 match key.code {
-                    KeyCode::Char('q') | KeyCode::Esc => return Ok(()),
+                    KeyCode::Char('q') => return Ok(()),
                     KeyCode::Char('j') | KeyCode::Down => app.next(),
                     KeyCode::Char('k') | KeyCode::Up => app.previous(),
                     KeyCode::Char('c') => app.check_in(),
+                    KeyCode::Esc => {
+                        app.remove_popup = app.remove_popup.close();
+                        app.create_popup = app.create_popup.close();
+                    },
                     KeyCode::Char('a') => {
-                        // Add a new streak
+                        app.create_popup = app
+                            .create_popup
+                            .modal(false)
+                            .with_title(Span::styled("Add Streak", Style::default().fg(Color::Green)))
+                            .with_text(Text::from(vec![
+                                Line::from("Enter the task name:"),
+                                Line::from("Enter the frequency:"),
+                            ]))
+                            .with_yes_button(ButtonLabel::new("[S]ave", 's'))
+                            .with_no_button(ButtonLabel::new("[C]ancel", 'c'))
+                            .with_yes_button_selected(false)
+                            .with_listener(Some(app.popup_tx.clone()));
+                        app.create_popup = app.create_popup.open();
                     },
                     KeyCode::Char('r') => {
                         app.remove_popup = app
@@ -306,7 +323,7 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                                 )),
                             ]))
                             .with_yes_button(ButtonLabel::new("[Y]es", 'y'))
-                            .with_no_button(ButtonLabel::new("No", 'n'))
+                            .with_no_button(ButtonLabel::new("[N]o", 'n'))
                             .with_yes_button_selected(false)
                             .with_listener(Some(app.popup_tx.clone()));
                         app.remove_popup = app.remove_popup.open();
@@ -325,6 +342,8 @@ fn ui(f: &mut Frame, app: &mut App) {
     render_scrollbar(f, app, rects[0]);
     render_footer(f, app, rects[1]);
 
+    let popup_rect = centered_rect(60, 40, f.size());
+
     if app.remove_popup.is_opened() {
         let popup = ConfirmDialog::default()
             .borders(Borders::ALL)
@@ -332,9 +351,18 @@ fn ui(f: &mut Frame, app: &mut App) {
             .border_type(BorderType::Rounded)
             .button_style(Style::default())
             .selected_button_style(Style::default().yellow().underlined().bold());
-        f.render_stateful_widget(popup, rects[0], &mut app.remove_popup)
+        f.render_stateful_widget(popup, popup_rect, &mut app.remove_popup)
     }
 
+    if app.create_popup.is_opened() {
+        let popup = ConfirmDialog::default()
+            .borders(Borders::ALL)
+            .bg(Color::Black)
+            .border_type(BorderType::Rounded)
+            .button_style(Style::default())
+            .selected_button_style(Style::default().yellow().underlined().bold());
+        f.render_stateful_widget(popup, popup_rect, &mut app.create_popup)
+    }
 }
 
 fn render_table(f: &mut Frame, app: &mut App, area: Rect) {
@@ -378,11 +406,11 @@ fn render_table(f: &mut Frame, app: &mut App, area: Rect) {
     let table = Table::new(
         rows,
         [
-            Constraint::Length(app.longest_item_lens[0] as u16),
-            Constraint::Min(app.longest_item_lens[1] as u16),
-            Constraint::Min(app.longest_item_lens[2] as u16),
-            Constraint::Length(app.longest_item_lens[3] as u16),
-            Constraint::Min(app.longest_item_lens[4] as u16),
+            Constraint::Length(app.longest_item_lens[0] as u16), // task
+            Constraint::Min(app.longest_item_lens[1] as u16 + 2), // frequency
+            Constraint::Min(app.longest_item_lens[2] as u16), // emoji
+            Constraint::Length(app.longest_item_lens[3] as u16 + 2), // last checkin
+            Constraint::Min(app.longest_item_lens[4] as u16), // total checkins
         ]
     )
     .header(header)
@@ -417,4 +445,27 @@ fn render_footer(f: &mut Frame, app: &App, area: Rect) {
                 .border_style(Style::new().fg(app.colors.footer_border_color)),
         );
     f.render_widget(info_footer, area);
+}
+
+/// helper function to create a centered rect using up certain percentage of the available rect `r`
+fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
+    // Cut the given rectangle into three vertical pieces
+    let popup_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Percentage((100 - percent_y) / 2),
+            Constraint::Percentage(percent_y),
+            Constraint::Percentage((100 - percent_y) / 2),
+        ])
+        .split(r);
+
+    // Then cut the middle vertical piece into three width-wise pieces
+    Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Percentage((100 - percent_x) / 2),
+            Constraint::Percentage(percent_x),
+            Constraint::Percentage((100 - percent_x) / 2),
+        ])
+        .split(popup_layout[1])[1] // Return the middle chunk
 }
