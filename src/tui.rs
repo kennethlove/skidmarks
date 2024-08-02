@@ -2,24 +2,29 @@ use std::io;
 use crate::db::Database;
 use crate::cli::get_database_url;
 use crate::streaks::Streak;
+use derive_setters::Setters;
 use style::palette::tailwind;
 use ratatui::{
     backend::{Backend, CrosstermBackend},
+    buffer::Buffer,
     crossterm::{
         event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind},
         execute,
         terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+        ExecutableCommand
     },
     layout::{Constraint, Layout, Margin, Rect},
     style::{self, Color, Modifier, Style, Stylize},
     terminal::{Frame, Terminal},
-    text::{Line, Text},
+    text::{Line, Span, Text},
     widgets::{
-        Block, BorderType, Cell, HighlightSpacing, Paragraph, Row, Scrollbar, ScrollbarOrientation,
-        ScrollbarState, Table, TableState,
+        Block, Borders, BorderType, Cell, Clear, HighlightSpacing, Paragraph, Row, Scrollbar, ScrollbarOrientation,
+        ScrollbarState, Table, TableState, Widget, Wrap,
     },
 };
+use tui_confirm_dialog::{ButtonLabel, ConfirmDialog, ConfirmDialogState, Listener};
 use unicode_width::UnicodeWidthStr;
+
 
 const PALETTES: [tailwind::Palette; 4] = [
     tailwind::BLUE,
@@ -66,11 +71,15 @@ struct App {
     colors: TableColors,
     db: Database,
     show_remove_popup: bool,
-    show_add_popup: bool,
+    remove_popup: ConfirmDialogState,
+    popup_tx: std::sync::mpsc::Sender<Listener>,
+    popup_rx: std::sync::mpsc::Receiver<Listener>,
 }
 
 impl App {
     fn new() -> Self {
+        let (tx, rx) = std::sync::mpsc::channel();
+
         let mut db = Database::new(&get_database_url()).expect("Failed to load database");
         let data_vec: Vec<Data> = db.get_all()
             .unwrap_or_default()
@@ -86,7 +95,9 @@ impl App {
             colors: TableColors::new(&PALETTES[1]),
             db,
             show_remove_popup: false,
-            show_add_popup: false,
+            remove_popup: ConfirmDialogState::default(),
+            popup_tx: tx,
+            popup_rx: rx,
         }
     }
 
@@ -123,8 +134,9 @@ impl App {
         self.items[selected] = Data::from(streak);
     }
 
-    pub fn remove(&mut self ) {
+    pub fn remove(&mut self) {
         let selected = self.state.selected().unwrap();
+
         let _ = self.db.delete(selected as u32);
         let _ = self.db.save();
         self.items.remove(selected);
@@ -261,9 +273,19 @@ pub fn main() -> io::Result<()> {
 
 fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<()> {
     loop {
+        if let Ok(res) = app.popup_rx.try_recv() {
+            if res.0 == app.remove_popup.id {
+                dbg!("dialog closed with result: ", res.1);
+            }
+        }
+
         terminal.draw(|f| ui(f, &mut app))?;
 
         if let Event::Key(key) = event::read()? {
+            if app.remove_popup.is_opened() && app.remove_popup.handle(key) {
+                continue;
+            }
+
             if key.kind == KeyEventKind::Press {
                 match key.code {
                     KeyCode::Char('q') | KeyCode::Esc => return Ok(()),
@@ -273,7 +295,25 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                     KeyCode::Char('a') => {
                         // Add a new streak
                     },
-                    KeyCode::Char('r') => app.remove(),
+                    KeyCode::Char('r') => {
+                        app.show_remove_popup = true;
+                        app.remove_popup = app
+                            .remove_popup
+                            .modal(false)
+                            .with_title(Span::styled("Remove Streak", Style::default().fg(Color::Red)))
+                            .with_text(Text::from(vec![
+                                Line::from("Are you sure you want to remove this streak?"),
+                                Line::from(Span::styled(
+                                    "This action cannot be undone.",
+                                    Style::default().fg(Color::DarkGray),
+                                )),
+                            ]))
+                            .with_yes_button(ButtonLabel::new("[Y]es", 'y'))
+                            .with_no_button(ButtonLabel::new("No", 'n'))
+                            .with_yes_button_selected(false)
+                            .with_listener(Some(app.popup_tx.clone()));
+                        app.remove_popup = app.remove_popup.open();
+                    },
                     _ => {}
                 }
             }
@@ -281,13 +321,37 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
     }
 }
 
-fn ui(f: &mut Frame, app: &mut App) {
+fn ui(f: &mut Frame, mut app: App) {
     let rects = Layout::vertical([Constraint::Min(5), Constraint::Length(3)]).split(f.size());
+    let app2 = &mut app;
 
-    render_table(f, app, rects[0]);
-    render_scrollbar(f, app, rects[0]);
-    render_footer(f, app, rects[1]);
+    if app.show_remove_popup {
+        render_remove_popup(f, app);
+    }
 
+    render_table(f, app2, rects[0]);
+    render_scrollbar(f, app2, rects[0]);
+    render_footer(f, app2, rects[1]);
+
+}
+
+fn render_remove_popup(f: &mut Frame, mut app: App) {
+    app.remove_popup = app
+        .remove_popup
+        .modal(false)
+        .with_title(Span::styled("Remove Streak", Style::default().fg(Color::Red)))
+        .with_text(Text::from(vec![
+            Line::from("Are you sure you want to remove this streak?"),
+            Line::from(Span::styled(
+                "This action cannot be undone.",
+                Style::default().fg(Color::DarkGray),
+            )),
+        ]))
+        .with_yes_button(ButtonLabel::new("[Y]es", 'y'))
+        .with_no_button(ButtonLabel::new("No", 'n'))
+        .with_yes_button_selected(false)
+        .with_listener(Some(app.popup_tx.clone()));
+    app.remove_popup = app.remove_popup.open();
 }
 
 fn render_table(f: &mut Frame, app: &mut App, area: Rect) {
@@ -310,12 +374,22 @@ fn render_table(f: &mut Frame, app: &mut App, area: Rect) {
             0 => app.colors.normal_row_color,
             _ => app.colors.alt_row_color,
         };
-        let item = data.ref_array();
+        let mut item = data.ref_array();
+        let text = item[0].clone();
+
+        let mut wrapped_text = String::new();
+        let wrapped_lines = textwrap::wrap(text.as_str(), 60);
+        let num_lines: u16 = wrapped_lines.len().try_into().unwrap();
+        for line in wrapped_lines {
+            wrapped_text.push_str(&format!("{}\n", line));
+        }
+
+        item[0] = &wrapped_text;
         item.into_iter()
-            .map(|content| Cell::from(Text::from(format!("{content}\n"))))
+            .map(|content| Cell::from(Text::from(content.to_string())))
             .collect::<Row>()
             .style(Style::new().fg(app.colors.row_fg).bg(color))
-            .height(1)
+            .height(num_lines)
     });
 
     let table = Table::new(
