@@ -361,7 +361,7 @@ fn render_table(f: &mut Frame, app: &mut App, area: Rect) {
         let text = item[0].clone();
 
         let mut wrapped_text = String::new();
-        let wrapped_lines = textwrap::wrap(text.as_str(), 60);
+        let wrapped_lines = textwrap::wrap(text.as_str(), app.longest_item_lens[0]);
         let num_lines: u16 = wrapped_lines.len().try_into().unwrap();
         for line in wrapped_lines {
             wrapped_text.push_str(&format!("{}\n", line));
@@ -378,7 +378,7 @@ fn render_table(f: &mut Frame, app: &mut App, area: Rect) {
     let table = Table::new(
         rows,
         [
-            Constraint::Length(app.longest_item_lens[0] as u16 - 15),
+            Constraint::Length(app.longest_item_lens[0] as u16),
             Constraint::Min(app.longest_item_lens[1] as u16),
             Constraint::Min(app.longest_item_lens[2] as u16),
             Constraint::Length(app.longest_item_lens[3] as u16),
