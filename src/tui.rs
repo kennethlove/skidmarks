@@ -65,6 +65,8 @@ struct App {
     scroll_state: ScrollbarState,
     colors: TableColors,
     db: Database,
+    show_remove_popup: bool,
+    show_add_popup: bool,
 }
 
 impl App {
@@ -82,7 +84,9 @@ impl App {
             longest_item_lens: constraint_len_calculator(&data_vec).into(),
             scroll_state: ScrollbarState::default(),
             colors: TableColors::new(&PALETTES[0]),
-            db
+            db,
+            show_remove_popup: false,
+            show_add_popup: false,
         }
     }
 
@@ -110,19 +114,20 @@ impl App {
         self.scroll_state = self.scroll_state.position(i * ITEM_HEIGHT);
     }
 
-    pub fn check_in(&mut self, idx: usize) {
-        let idx = idx as u32;
-        let mut streak = self.db.get_one(idx).unwrap();
+    pub fn check_in(&mut self) {
+        let selected = self.state.selected().unwrap();
+        let mut streak = self.db.get_one(selected as u32).unwrap();
         streak.checkin();
-        let _ = self.db.update(idx, &streak);
+        let _ = self.db.update(selected as u32, &streak);
         let _ = self.db.save();
-        self.items[idx as usize] = Data::from(streak);
+        self.items[selected] = Data::from(streak);
     }
 
-    pub fn remove(&mut self, idx: usize) {
-        let _ = self.db.delete(idx as u32);
+    pub fn remove(&mut self ) {
+        let selected = self.state.selected().unwrap();
+        let _ = self.db.delete(selected as u32);
         let _ = self.db.save();
-        self.items.remove(idx);
+        self.items.remove(selected);
     }
 }
 
@@ -264,17 +269,11 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                     KeyCode::Char('q') | KeyCode::Esc => return Ok(()),
                     KeyCode::Char('j') | KeyCode::Down => app.next(),
                     KeyCode::Char('k') | KeyCode::Up => app.previous(),
-                    KeyCode::Char('c') => {
-                        let selected = app.state.selected().unwrap();
-                        app.check_in(selected);
-                    },
+                    KeyCode::Char('c') => app.check_in(),
                     KeyCode::Char('a') => {
                         // Add a new streak
                     },
-                    KeyCode::Char('r') => {
-                        let selected = app.state.selected().unwrap();
-                        app.remove(selected);
-                    },
+                    KeyCode::Char('r') => app.remove(),
                     _ => {}
                 }
             }
