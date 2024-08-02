@@ -110,7 +110,6 @@ fn build_table(streaks: Vec<Streak>) -> String {
     for streak in streaks.iter() {
         let mut wrapped_text = String::new();
         let wrapped_lines = textwrap::wrap(&streak.task.as_str(), 60);
-        let num_lines: u16 = wrapped_lines.len().try_into().unwrap();
         for line in wrapped_lines {
             wrapped_text.push_str(&format!("{}\n", line));
         }
