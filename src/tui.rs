@@ -28,7 +28,7 @@ const PALETTES: [tailwind::Palette; 4] = [
     tailwind::RED,
 ];
 
-const INFO_TEXT: &str = "[Q]uit | (↑) move up | (↓) move down | [C]heck in | [A]dd | [R]emove";
+const INFO_TEXT: &str = "[Q]uit | [↑] [↓] Select | [C]heck in | [A]dd | [R]emove";
 const ITEM_HEIGHT: usize = 4;
 
 
