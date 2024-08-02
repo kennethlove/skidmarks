@@ -275,6 +275,9 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
             if res.0 == app.remove_popup.id && res.1 == Some(true) {
                 app.remove();
             }
+            if res.0 == app.create_popup.id && res.1 == Some(true) {
+                app.create_popup = app.create_popup.close();
+            }
         }
 
         terminal.draw(|f| ui(f, &mut app))?;
