@@ -76,7 +76,6 @@ struct App {
     colors: TableColors,
     db: Database,
     remove_popup: ConfirmDialogState,
-    create_popup: ConfirmDialogState,
     popup_tx: std::sync::mpsc::Sender<Listener>,
     popup_rx: std::sync::mpsc::Receiver<Listener>,
     task_input: Input,
@@ -104,7 +103,6 @@ impl App {
             colors: TableColors::new(&PALETTES[1]),
             db,
             remove_popup: ConfirmDialogState::default(),
-            create_popup: ConfirmDialogState::default(),
             popup_tx: tx,
             popup_rx: rx,
             task_input: Input::default(),
@@ -114,12 +112,21 @@ impl App {
         }
     }
 
+    pub fn refresh(&mut self) {
+        let data_vec: Vec<Data> = self.db.get_all()
+            .unwrap_or_default()
+            .into_iter()
+            .map(Data::from)
+            .collect();
+
+        self.items = data_vec;
+    }
+
     pub fn next(&mut self) {
         let i = match self.state.selected() {
             Some(i) => {
-                if i >= self.items.len().saturating_sub(1) { 0 }
-                else { i + 1 }
-            },
+                if i >= self.items.len().saturating_sub(1) { 0 } else { i + 1 }
+            }
             _ => 0,
         };
         self.state.select(Some(i));
@@ -129,9 +136,8 @@ impl App {
     pub fn previous(&mut self) {
         let i = match self.state.selected() {
             Some(i) => {
-                if i == 0 { self.items.len().saturating_sub(1) }
-                else { i - 1 }
-            },
+                if i == 0 { self.items.len().saturating_sub(1) } else { i - 1 }
+            }
             _ => 0,
         };
         self.state.select(Some(i));
@@ -153,6 +159,28 @@ impl App {
         let _ = self.db.delete(selected as u32);
         let _ = self.db.save();
         self.items.remove(selected);
+    }
+
+    pub fn add_task(&mut self) {
+        let mut streak: Streak = Streak::default();
+        let task: Vec<&str> = vec![];
+        let mut output: String = String::new();
+
+        for message in &self.messages {
+            match message.to_lowercase().as_str() {
+                "daily" => { streak.frequency = Frequency::Daily }
+                "weekly" => { streak.frequency = Frequency::Weekly }
+                _ => {
+                    streak.task = format!("{message}");
+                }
+            }
+        }
+
+        self.db.add(streak).unwrap();
+        self.db.save().unwrap();
+
+        self.input_mode = InputMode::Normal;
+        self.refresh();
     }
 }
 
@@ -193,7 +221,7 @@ impl Data {
                     None => "None".to_string()
                 }
             },
-            total_checkins: streak.total_checkins.to_string()
+            total_checkins: streak.total_checkins.to_string(),
         }
     }
 
@@ -257,8 +285,7 @@ fn constraint_len_calculator(items: &[Data]) -> (usize, usize, usize, usize, usi
         .unwrap_or(0);
 
     #[allow(clippy::cast_possible_truncation)]
-    let streak_length = streak_len.saturating_sub(40);
-    (streak_length, frequency_len, emoji_len, last_checkin_len, total_checkins_len)
+    (streak_len, frequency_len, emoji_len, last_checkin_len, total_checkins_len)
 }
 
 pub fn main() -> io::Result<()> {
@@ -308,10 +335,10 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                                 continue;
                             }
                             app.check_in()
-                        },
+                        }
                         KeyCode::Char('a') => {
                             app.input_mode = InputMode::AddingTask;
-                        },
+                        }
                         KeyCode::Char('r') => {
                             if app.db.num_tasks() == 0 {
                                 continue;
@@ -332,37 +359,48 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                                 .with_yes_button_selected(false)
                                 .with_listener(Some(app.popup_tx.clone()));
                             app.remove_popup = app.remove_popup.open();
-                        },
+                        }
                         _ => {}
                     },
-                    InputMode::AddingTask => match key.code {
-                        KeyCode::Enter => {
-                            app.messages.push(app.task_input.value().into());
-                            app.task_input.reset();
-                        },
-                        KeyCode::Esc => {
-                            app.input_mode = InputMode::Normal;
-                        },
-                        KeyCode::Tab => {
-                            app.input_mode = InputMode::AddingFreq;
-                        },
-                        _ => {
-                            app.task_input.handle_event(&Event::Key(key));
-                        }
-                    },
-                    InputMode::AddingFreq => match key.code {
-                        KeyCode::Enter => {
-                            app.messages.push(app.frequency_input.value().into());
-                            app.frequency_input.reset();
-                        },
-                        KeyCode::Esc => {
-                            app.input_mode = InputMode::Normal;
-                        },
-                        KeyCode::Tab => {
-                            app.input_mode = InputMode::AddingTask;
-                        },
-                        _ => {
-                            app.frequency_input.handle_event(&Event::Key(key));
+                    _ => {
+                        match app.input_mode {
+                            InputMode::AddingTask => match key.code {
+                                KeyCode::Enter => {
+                                    app.messages.push(app.task_input.value().into());
+                                    if app.messages.len() == 2 {
+                                        app.add_task();
+                                    }
+                                },
+                                KeyCode::Esc => {
+                                    app.input_mode = InputMode::Normal;
+                                }
+                                KeyCode::Tab => {
+                                    app.messages.push(app.task_input.value().into());
+                                    app.input_mode = InputMode::AddingFreq;
+                                }
+                                _ => {
+                                    app.task_input.handle_event(&Event::Key(key));
+                                }
+                            },
+                            InputMode::AddingFreq => match key.code {
+                                KeyCode::Enter => {
+                                    app.messages.push(app.frequency_input.value().into());
+                                    if app.messages.len() == 2 {
+                                        app.add_task();
+                                    }
+                                },
+                                KeyCode::Esc => {
+                                    app.input_mode = InputMode::Normal;
+                                }
+                                KeyCode::Tab => {
+                                    app.messages.push(app.frequency_input.value().into());
+                                    app.input_mode = InputMode::AddingTask;
+                                }
+                                _ => {
+                                    app.frequency_input.handle_event(&Event::Key(key));
+                                }
+                            }
+                            _ => {}
                         }
                     }
                 }
@@ -375,7 +413,7 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                 match key.code {
                     KeyCode::Esc => {
                         app.remove_popup = app.remove_popup.close();
-                    },
+                    }
                     _ => {}
                 }
             }
@@ -390,7 +428,7 @@ fn ui(f: &mut Frame, app: &mut App) {
         InputMode::Normal => {
             render_table(f, app, rects[0]);
             render_scrollbar(f, app, rects[0]);
-        },
+        }
         InputMode::AddingTask => render_fields(f, app, rects[0]),
         InputMode::AddingFreq => render_fields(f, app, rects[0]),
     };
@@ -450,7 +488,6 @@ fn render_task_field(f: &mut Frame, app: &mut App, area: Rect, scroll: usize) {
         }
         _ => {}
     }
-
 }
 
 fn render_frequency_field(f: &mut Frame, app: &mut App, area: Rect, scroll: usize) {
@@ -474,7 +511,6 @@ fn render_frequency_field(f: &mut Frame, app: &mut App, area: Rect, scroll: usiz
         }
         _ => {}
     }
-
 }
 
 fn render_table(f: &mut Frame, app: &mut App, area: Rect) {
@@ -518,18 +554,18 @@ fn render_table(f: &mut Frame, app: &mut App, area: Rect) {
     let table = Table::new(
         rows,
         [
-            Constraint::Length(app.longest_item_lens[0] as u16), // task
+            Constraint::Length(app.longest_item_lens[0] as u16 + 10), // task
             Constraint::Min(app.longest_item_lens[1] as u16 + 2), // frequency
             Constraint::Min(app.longest_item_lens[2] as u16), // emoji
             Constraint::Length(app.longest_item_lens[3] as u16 + 2), // last checkin
             Constraint::Min(app.longest_item_lens[4] as u16), // total checkins
-        ]
+        ],
     )
-    .header(header)
-    .highlight_style(selected_style)
-    .highlight_symbol(Text::from("> "))
-    .bg(app.colors.buffer_bg)
-    .highlight_spacing(HighlightSpacing::Always);
+        .header(header)
+        .highlight_style(selected_style)
+        .highlight_symbol(Text::from("> "))
+        .bg(app.colors.buffer_bg)
+        .highlight_spacing(HighlightSpacing::Always);
     f.render_stateful_widget(table, area, &mut app.state);
 }
 

@@ -129,6 +129,17 @@ impl Streak {
     }
 }
 
+impl Default for Streak {
+    fn default() -> Self {
+        Self {
+            task: "".to_string(),
+            frequency: Frequency::Daily,
+            last_checkin: None,
+            total_checkins: 0,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
