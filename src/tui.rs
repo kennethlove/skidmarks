@@ -163,8 +163,6 @@ impl App {
 
     pub fn add_task(&mut self) {
         let mut streak: Streak = Streak::default();
-        let task: Vec<&str> = vec![];
-        let mut output: String = String::new();
 
         for message in &self.messages {
             match message.to_lowercase().as_str() {
