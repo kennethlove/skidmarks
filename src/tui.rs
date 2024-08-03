@@ -1,7 +1,7 @@
 use std::io;
 use crate::db::Database;
 use crate::cli::get_database_url;
-use crate::streaks::Streak;
+use crate::streaks::{Frequency, Streak};
 use style::palette::tailwind;
 use ratatui::{
     backend::{Backend, CrosstermBackend},
@@ -21,8 +21,15 @@ use ratatui::{
     },
 };
 use tui_confirm_dialog::{ButtonLabel, ConfirmDialog, ConfirmDialogState, Listener};
+use tui_input::backend::crossterm::EventHandler;
+use tui_input::Input;
 use unicode_width::UnicodeWidthStr;
 
+enum InputMode {
+    Normal,
+    AddingTask,
+    AddingFreq,
+}
 
 const PALETTES: [tailwind::Palette; 4] = [
     tailwind::BLUE,
@@ -31,7 +38,7 @@ const PALETTES: [tailwind::Palette; 4] = [
     tailwind::RED,
 ];
 
-const INFO_TEXT: &str = "[Q]uit | [↑] [↓] Select | [C]heck in | [A]dd | [R]emove";
+const INFO_TEXT: &str = "[↑] [↓] Select";
 const ITEM_HEIGHT: usize = 4;
 
 
@@ -72,6 +79,10 @@ struct App {
     create_popup: ConfirmDialogState,
     popup_tx: std::sync::mpsc::Sender<Listener>,
     popup_rx: std::sync::mpsc::Receiver<Listener>,
+    task_input: Input,
+    frequency_input: Input,
+    input_mode: InputMode,
+    messages: Vec<String>,
 }
 
 impl App {
@@ -96,16 +107,20 @@ impl App {
             create_popup: ConfirmDialogState::default(),
             popup_tx: tx,
             popup_rx: rx,
+            task_input: Input::default(),
+            frequency_input: Input::default(),
+            input_mode: InputMode::Normal,
+            messages: Vec::new(),
         }
     }
 
     pub fn next(&mut self) {
         let i = match self.state.selected() {
             Some(i) => {
-                if i >= self.items.len() - 1 { 0 }
+                if i >= self.items.len().saturating_sub(1) { 0 }
                 else { i + 1 }
             },
-            None => 0,
+            _ => 0,
         };
         self.state.select(Some(i));
         self.scroll_state = self.scroll_state.position(i * ITEM_HEIGHT);
@@ -114,10 +129,10 @@ impl App {
     pub fn previous(&mut self) {
         let i = match self.state.selected() {
             Some(i) => {
-                if i == 0 { self.items.len() - 1 }
+                if i == 0 { self.items.len().saturating_sub(1) }
                 else { i - 1 }
             },
-            None => 0,
+            _ => 0,
         };
         self.state.select(Some(i));
         self.scroll_state = self.scroll_state.position(i * ITEM_HEIGHT);
@@ -204,7 +219,7 @@ impl Data {
 }
 
 fn constraint_len_calculator(items: &[Data]) -> (usize, usize, usize, usize, usize) {
-    // Streak, Frequcency, Emoji, Last Checkin, Total Checkins
+    // Streak, Frequency, Emoji, Last Checkin, Total Checkins
     let streak_len = items
         .iter()
         .map(Data::task)
@@ -242,7 +257,8 @@ fn constraint_len_calculator(items: &[Data]) -> (usize, usize, usize, usize, usi
         .unwrap_or(0);
 
     #[allow(clippy::cast_possible_truncation)]
-    (streak_len as usize - 40, frequency_len as usize, emoji_len as usize, last_checkin_len as usize, total_checkins_len as usize)
+    let streak_length = streak_len.saturating_sub(40);
+    (streak_length, frequency_len, emoji_len, last_checkin_len, total_checkins_len)
 }
 
 pub fn main() -> io::Result<()> {
@@ -273,63 +289,92 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
     loop {
         if let Ok(res) = app.popup_rx.try_recv() {
             if res.0 == app.remove_popup.id && res.1 == Some(true) {
+                app.input_mode = InputMode::Normal;
                 app.remove();
-            }
-            if res.0 == app.create_popup.id && res.1 == Some(true) {
-                app.create_popup = app.create_popup.close();
             }
         }
 
         terminal.draw(|f| ui(f, &mut app))?;
 
         if let Event::Key(key) = event::read()? {
-            if app.remove_popup.is_opened() && app.remove_popup.handle(key) ||
-            app.create_popup.is_opened() && app.create_popup.handle(key) {
+            if key.kind == KeyEventKind::Press {
+                match app.input_mode {
+                    InputMode::Normal => match key.code {
+                        KeyCode::Char('q') => return Ok(()),
+                        KeyCode::Char('j') | KeyCode::Down => app.next(),
+                        KeyCode::Char('k') | KeyCode::Up => app.previous(),
+                        KeyCode::Char('c') => {
+                            if app.db.num_tasks() == 0 {
+                                continue;
+                            }
+                            app.check_in()
+                        },
+                        KeyCode::Char('a') => {
+                            app.input_mode = InputMode::AddingTask;
+                        },
+                        KeyCode::Char('r') => {
+                            if app.db.num_tasks() == 0 {
+                                continue;
+                            }
+                            app.remove_popup = app
+                                .remove_popup
+                                .modal(false)
+                                .with_title(Span::styled("Remove Streak", Style::default().fg(Color::Red)))
+                                .with_text(Text::from(vec![
+                                    Line::from("Are you sure you want to remove this streak?"),
+                                    Line::from(Span::styled(
+                                        "This action cannot be undone.",
+                                        Style::default().fg(Color::Red),
+                                    )),
+                                ]))
+                                .with_yes_button(ButtonLabel::new("[Y]es", 'y'))
+                                .with_no_button(ButtonLabel::new("[N]o", 'n'))
+                                .with_yes_button_selected(false)
+                                .with_listener(Some(app.popup_tx.clone()));
+                            app.remove_popup = app.remove_popup.open();
+                        },
+                        _ => {}
+                    },
+                    InputMode::AddingTask => match key.code {
+                        KeyCode::Enter => {
+                            app.messages.push(app.task_input.value().into());
+                            app.task_input.reset();
+                        },
+                        KeyCode::Esc => {
+                            app.input_mode = InputMode::Normal;
+                        },
+                        KeyCode::Tab => {
+                            app.input_mode = InputMode::AddingFreq;
+                        },
+                        _ => {
+                            app.task_input.handle_event(&Event::Key(key));
+                        }
+                    },
+                    InputMode::AddingFreq => match key.code {
+                        KeyCode::Enter => {
+                            app.messages.push(app.frequency_input.value().into());
+                            app.frequency_input.reset();
+                        },
+                        KeyCode::Esc => {
+                            app.input_mode = InputMode::Normal;
+                        },
+                        KeyCode::Tab => {
+                            app.input_mode = InputMode::AddingTask;
+                        },
+                        _ => {
+                            app.frequency_input.handle_event(&Event::Key(key));
+                        }
+                    }
+                }
+            }
+            if app.remove_popup.is_opened() && app.remove_popup.handle(key) {
                 continue;
             }
 
             if key.kind == KeyEventKind::Press {
                 match key.code {
-                    KeyCode::Char('q') => return Ok(()),
-                    KeyCode::Char('j') | KeyCode::Down => app.next(),
-                    KeyCode::Char('k') | KeyCode::Up => app.previous(),
-                    KeyCode::Char('c') => app.check_in(),
                     KeyCode::Esc => {
                         app.remove_popup = app.remove_popup.close();
-                        app.create_popup = app.create_popup.close();
-                    },
-                    KeyCode::Char('a') => {
-                        app.create_popup = app
-                            .create_popup
-                            .modal(false)
-                            .with_title(Span::styled("Add Streak", Style::default().fg(Color::Green)))
-                            .with_text(Text::from(vec![
-                                Line::from("Enter the task name:"),
-                                Line::from("Enter the frequency:"),
-                            ]))
-                            .with_yes_button(ButtonLabel::new("[S]ave", 's'))
-                            .with_no_button(ButtonLabel::new("[C]ancel", 'c'))
-                            .with_yes_button_selected(false)
-                            .with_listener(Some(app.popup_tx.clone()));
-                        app.create_popup = app.create_popup.open();
-                    },
-                    KeyCode::Char('r') => {
-                        app.remove_popup = app
-                            .remove_popup
-                            .modal(false)
-                            .with_title(Span::styled("Remove Streak", Style::default().fg(Color::Red)))
-                            .with_text(Text::from(vec![
-                                Line::from("Are you sure you want to remove this streak?"),
-                                Line::from(Span::styled(
-                                    "This action cannot be undone.",
-                                    Style::default().fg(Color::Red),
-                                )),
-                            ]))
-                            .with_yes_button(ButtonLabel::new("[Y]es", 'y'))
-                            .with_no_button(ButtonLabel::new("[N]o", 'n'))
-                            .with_yes_button_selected(false)
-                            .with_listener(Some(app.popup_tx.clone()));
-                        app.remove_popup = app.remove_popup.open();
                     },
                     _ => {}
                 }
@@ -341,8 +386,14 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
 fn ui(f: &mut Frame, app: &mut App) {
     let rects = Layout::vertical([Constraint::Min(5), Constraint::Length(3)]).split(f.size());
 
-    render_table(f, app, rects[0]);
-    render_scrollbar(f, app, rects[0]);
+    match app.input_mode {
+        InputMode::Normal => {
+            render_table(f, app, rects[0]);
+            render_scrollbar(f, app, rects[0]);
+        },
+        InputMode::AddingTask => render_fields(f, app, rects[0]),
+        InputMode::AddingFreq => render_fields(f, app, rects[0]),
+    };
     render_footer(f, app, rects[1]);
 
     let popup_rect = centered_rect(60, 40, f.size());
@@ -356,16 +407,74 @@ fn ui(f: &mut Frame, app: &mut App) {
             .selected_button_style(Style::default().yellow().underlined().bold());
         f.render_stateful_widget(popup, popup_rect, &mut app.remove_popup)
     }
+}
 
-    if app.create_popup.is_opened() {
-        let popup = ConfirmDialog::default()
-            .borders(Borders::ALL)
-            .bg(Color::Black)
-            .border_type(BorderType::Rounded)
-            .button_style(Style::default())
-            .selected_button_style(Style::default().yellow().underlined().bold());
-        f.render_stateful_widget(popup, popup_rect, &mut app.create_popup)
+fn render_fields(f: &mut Frame, app: &mut App, area: Rect) {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .margin(2)
+        .constraints(
+            [
+                Constraint::Length(3),
+                Constraint::Length(3),
+                Constraint::Min(1),
+            ].as_ref(),
+        )
+        .split(area);
+
+    let width = chunks[0].width.max(3) - 3;
+    let scroll = app.task_input.visual_scroll(width as usize);
+
+    render_task_field(f, app, chunks[0], scroll);
+    render_frequency_field(f, app, chunks[1], scroll);
+}
+
+fn render_task_field(f: &mut Frame, app: &mut App, area: Rect, scroll: usize) {
+    let task = Paragraph::new(app.task_input.value())
+        .style(match app.input_mode {
+            InputMode::AddingTask => Style::default().fg(Color::Yellow),
+            _ => Style::default()
+        })
+        .scroll((0, scroll as u16))
+        .block(Block::default().borders(Borders::ALL).title("Task"));
+    f.render_widget(task, area);
+
+    match app.input_mode {
+        InputMode::AddingTask => {
+            f.set_cursor(
+                area.x
+                    + ((app.task_input.visual_cursor()).max(scroll) - scroll) as u16
+                    + 1,
+                area.y + 1,
+            )
+        }
+        _ => {}
     }
+
+}
+
+fn render_frequency_field(f: &mut Frame, app: &mut App, area: Rect, scroll: usize) {
+    let freq = Paragraph::new(app.frequency_input.value())
+        .style(match app.input_mode {
+            InputMode::AddingFreq => Style::default().fg(Color::Yellow),
+            _ => Style::default()
+        })
+        .scroll((0, scroll as u16))
+        .block(Block::default().borders(Borders::ALL).title("Frequency"));
+    f.render_widget(freq, area);
+
+    match app.input_mode {
+        InputMode::AddingFreq => {
+            f.set_cursor(
+                area.x
+                    + ((app.frequency_input.visual_cursor()).max(scroll) - scroll) as u16
+                    + 1,
+                area.y + 1,
+            )
+        }
+        _ => {}
+    }
+
 }
 
 fn render_table(f: &mut Frame, app: &mut App, area: Rect) {
@@ -444,10 +553,40 @@ fn render_footer(f: &mut Frame, app: &App, area: Rect) {
         .centered()
         .block(
             Block::bordered()
+                .borders(Borders::TOP)
                 .border_type(BorderType::Double)
                 .border_style(Style::new().fg(app.colors.footer_border_color)),
         );
     f.render_widget(info_footer, area);
+
+    let (msg, style) = match app.input_mode {
+        InputMode::Normal => (
+            vec![
+                Span::raw("Press "),
+                Span::styled("Q", Style::default().add_modifier(Modifier::ITALIC)),
+                Span::raw(" to exit, "),
+                Span::styled("A", Style::default().add_modifier(Modifier::ITALIC)),
+                Span::raw(" to add a streak, "),
+                Span::styled("C", Style::default().add_modifier(Modifier::ITALIC)),
+                Span::raw(" to check in to a streak"),
+            ],
+            Style::default(),
+        ),
+        InputMode::AddingTask => (
+            vec![
+                Span::raw("Press "),
+                Span::styled("Esc", Style::default().add_modifier(Modifier::BOLD)),
+                Span::raw(" to stop adding, "),
+                Span::styled("Enter", Style::default().add_modifier(Modifier::BOLD)),
+                Span::raw(" to add streak"),
+            ],
+            Style::default(),
+        ),
+        _ => (vec![], Style::default()),
+    };
+    let text = Text::from(Line::from(msg)).style(style);
+    let help_message = Paragraph::new(text).alignment(Alignment::Center);
+    f.render_widget(help_message, area);
 }
 
 /// helper function to create a centered rect using up certain percentage of the available rect `r`

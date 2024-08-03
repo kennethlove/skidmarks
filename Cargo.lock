@@ -1156,6 +1156,7 @@ dependencies = [
  "serde",
  "tabled",
  "textwrap",
+ "tui-input",
  "tui_confirm_dialog",
  "unicode-width",
 ]
@@ -1333,6 +1334,16 @@ name = "time-core"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ef927ca75afb808a4d64dd374f00a2adf8d0fcff8e7b184af886c3c87ec4a3f3"
+
+[[package]]
+name = "tui-input"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9b02e86628a225c39b2602863f244a01668184149928ceb410e47a8022d7597e"
+dependencies = [
+ "crossterm",
+ "unicode-width",
+]
 
 [[package]]
 name = "tui_confirm_dialog"

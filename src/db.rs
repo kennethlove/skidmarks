@@ -38,6 +38,10 @@ impl Database {
         Ok(())
     }
 
+    pub fn num_tasks(&self) -> usize {
+        self.streaks.lock().unwrap().len()
+    }
+
     fn load_database(filename: &str) -> Result<Vec<Streak>, std::io::Error> {
         let ronned = std::fs::read_to_string(filename)?;
         let ronned: Vec<Streak> = ron::de::from_str(&ronned).expect("Couldn't load database.");
