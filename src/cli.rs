@@ -7,7 +7,8 @@ use dirs;
 use tabled::{builder::Builder, settings::Style as TabledStyle};
 use crate::{
     db::Database,
-    streaks::{Frequency, Streak, Status},
+    streaks::{Frequency, Streak},
+    tui,
 };
 
 #[derive(Debug, Parser)]
@@ -37,6 +38,8 @@ enum Commands {
     CheckIn { idx: u32 },
     #[command(about = "Remove a streak", long_about = None, short_flag = 'r')]
     Remove { idx: u32 },
+    #[command(about = "Switch to TUI", long_about = None, short_flag = 't')]
+    Tui,
 }
 
 /// Create a new daily streak item
@@ -56,50 +59,38 @@ fn new_weekly(name: String, db: &mut Database) -> Result<Streak, Box<dyn std::er
 }
 
 /// Get all streaks
-fn get_all(db: &mut Database) -> Vec<Streak> {
-    let streaks = db.streaks.lock();
-    match streaks {
-        Ok(streaks) => {
-            if streaks.is_empty() {
-                Vec::<Streak>::new()
-            } else {
-                streaks.clone()
-            }
-        }
-        Err(e) => panic!("Error getting streaks: {}", e),
+fn get_all(mut db: Database) -> Vec<Streak> {
+    match db.get_all() {
+        Some(streaks) => streaks.clone(),
+        None => Vec::<Streak>::new()
     }
 }
 
 /// Get one single streak
-fn get_one(db: &mut Database, idx: u32) -> Streak {
-    db.streaks
-        .lock()
-        .unwrap()
-        .get(idx as usize)
-        .unwrap()
-        .clone()
+fn get_one(db: &mut Database, idx: u32) -> Option<Streak>{
+    if let Some(streak) = db.get_one(idx) {
+        return Some(streak.clone())
+    }
+    None
 }
 
 /// Check in to a streak today
 fn checkin(db: &mut Database, idx: u32) -> Result<(), Box<dyn std::error::Error>> {
-    let mut streak = get_one(db, idx);
-    match streak.last_checkin {
-        Some(check_in) => {
-            if check_in == Local::now().date_naive() {
-                return Ok(())
-            }
+    let mut streak = get_one(db, idx).unwrap();
+    if let Some(check_in) = streak.last_checkin {
+        if check_in == Local::now().date_naive() {
+            return Ok(())
         }
-        None => ()
     }
     streak.checkin();
-    db.update(idx, streak)?;
+    db.update(idx, &streak)?;
     db.save()?;
     Ok(())
 }
 
 /// Remove a streak
 fn delete(db: &mut Database, idx: u32) -> Result<(), Box<dyn std::error::Error>> {
-    db.streaks.lock().unwrap().remove(idx as usize);
+    db.delete(idx)?;
     db.save()?;
     Ok(())
 }
@@ -117,13 +108,14 @@ fn build_table(streaks: Vec<Streak>) -> String {
     ]);
 
     for streak in streaks.iter() {
-        let streak_name = Style::new().bold().paint(&streak.task);
+        let mut wrapped_text = String::new();
+        let wrapped_lines = textwrap::wrap(&streak.task.as_str(), 60);
+        for line in wrapped_lines {
+            wrapped_text.push_str(&format!("{}\n", line));
+        }
+
+        let streak_name = Style::new().bold().paint(wrapped_text);
         let frequency = Style::new().paint(format!("{}", &streak.frequency));
-        let checked_in = match streak.clone().status() {
-            Status::Done => Emoji("✅", "Yes"),
-            Status::Missed => Emoji("❌", "No"),
-            Status::Waiting => Emoji("⏳", "Waiting"),
-        };
         let check_in = match &streak.last_checkin {
             Some(date) => date.to_string(),
             None => "None".to_string()
@@ -133,7 +125,7 @@ fn build_table(streaks: Vec<Streak>) -> String {
         builder.push_record([
             streak_name.to_string(),
             frequency.to_string(),
-            checked_in.to_string(),
+            streak.emoji_status(),
             last_checkin.to_string(),
             total_checkins.to_string()
         ]);
@@ -146,8 +138,7 @@ fn build_table(streaks: Vec<Streak>) -> String {
         .to_string()
 }
 
-/// Parses command line options
-pub fn parse() {
+pub fn get_database_url() -> String {
     let cli = Cli::parse();
     let mut db_url: String = "skidmarks.ron".to_string();
     if cli.database_url != "" {
@@ -159,6 +150,13 @@ pub fn parse() {
         Some('~') => db_url,
         _ => format!("{}/{db_url}", dirs::data_local_dir().unwrap().display())
     };
+    db_url
+}
+
+/// Parses command line options
+pub fn parse() {
+    let cli = Cli::parse();
+    let db_url = get_database_url();
     let mut db = Database::new(db_url.as_str()).expect("Could not load database");
     let response_style = Style::new().bold().fg(Color::Green);
     match &cli.command {
@@ -177,17 +175,17 @@ pub fn parse() {
             }
         },
         Commands::List => {
-            let streak_list = get_all(&mut db);
+            let streak_list = get_all(db);
             println!("{}", build_table(streak_list));
         }
         Commands::Get { idx } => {
             let streak = get_one(&mut db, *idx);
-            println!("{}", build_table(vec![streak]));
+            println!("{}", build_table(vec![streak.unwrap()]));
         }
         Commands::CheckIn { idx } => match checkin(&mut db, *idx) {
             Ok(_) => {
                 let streak = get_one(&mut db, *idx);
-                let name = &streak.task;
+                let name = &streak.unwrap().task;
                 let response = response_style.paint(format!("Checked in on the {name} streak!")).to_string();
                 let star = Emoji("🌟", "");
                 println!("{star} {response}")
@@ -200,10 +198,13 @@ pub fn parse() {
         Commands::Remove { idx } => {
             let streak = get_one(&mut db, *idx).clone();
             let _ = delete(&mut db, *idx);
-            let name = &streak.task;
+            let name = &streak.unwrap().task;
             let response = response_style.paint(format!(r#"Removed the "{name}" streak"#)).to_string();
             let trash = Emoji("🗑️", "");
             println!("{trash} {response}")
+        }
+        Commands::Tui => {
+            tui::main().expect("Couldn't launch TUI")
         }
     }
 }

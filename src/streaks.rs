@@ -19,11 +19,38 @@ impl Display for Frequency {
     }
 }
 
+impl Frequency {
+    pub fn from_str(s: &str) -> Self {
+        match s {
+            "daily" => Frequency::Daily,
+            "weekly" => Frequency::Weekly,
+            _ => panic!("Invalid frequency"),
+        }
+    }
+
+    pub fn to_string(&self) -> String {
+        match self {
+            Frequency::Daily => "daily".to_string(),
+            Frequency::Weekly => "weekly".to_string(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum Status {
     Waiting,
     Done,
     Missed,
+}
+
+impl Display for Status {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Status::Waiting => write!(f, "waiting"),
+            Status::Done => write!(f, "done"),
+            Status::Missed => write!(f, "missed"),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -90,6 +117,25 @@ impl Streak {
             Status::Done
         } else {
             Status::Waiting
+        }
+    }
+
+    pub fn emoji_status(&self) -> String {
+        match self.status() {
+            Status::Done => "✅".to_string(),
+            Status::Missed => "❌".to_string(),
+            Status::Waiting => "⏳".to_string(),
+        }
+    }
+}
+
+impl Default for Streak {
+    fn default() -> Self {
+        Self {
+            task: "".to_string(),
+            frequency: Frequency::Daily,
+            last_checkin: None,
+            total_checkins: 0,
         }
     }
 }

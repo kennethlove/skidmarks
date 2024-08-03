@@ -38,6 +38,10 @@ impl Database {
         Ok(())
     }
 
+    pub fn num_tasks(&self) -> usize {
+        self.streaks.lock().unwrap().len()
+    }
+
     fn load_database(filename: &str) -> Result<Vec<Streak>, std::io::Error> {
         let ronned = std::fs::read_to_string(filename)?;
         let ronned: Vec<Streak> = ron::de::from_str(&ronned).expect("Couldn't load database.");
@@ -67,9 +71,9 @@ impl Database {
         Ok(())
     }
 
-    pub fn update(&mut self, idx: u32, streak: Streak) -> Result<(), std::io::Error> {
+    pub fn update(&mut self, idx: u32, streak: &Streak) -> Result<(), std::io::Error> {
         let mut streaks = self.streaks.lock().unwrap();
-        streaks[idx as usize] = streak;
+        streaks[idx as usize] = streak.clone();
         Ok(())
     }
 
@@ -83,10 +87,31 @@ impl Database {
         Self::create_if_missing(filename)?;
         let existing_db = Self::load_database(filename)?;
         let new_db = Self {
+
             streaks: Mutex::new(existing_db.clone()),
             filename: filename.to_string(),
         };
         Ok(new_db)
+    }
+
+    pub fn get_all(&mut self) -> Option<Vec<Streak>> {
+        let streaks = self.streaks.lock();
+        match streaks {
+            Ok(streaks) => {
+                if streaks.is_empty() {
+                    Some(Vec::<Streak>::new())
+                } else {
+                    Some(streaks.clone())
+                }
+            }
+            _ => None,
+        }
+    }
+
+    pub fn get_one(&mut self, idx: u32) -> Option<Streak> {
+        let streaks = self.get_all()?;
+        let streak = streaks.get(idx as usize);
+        Some(streak.unwrap().clone())
     }
 }
 
