@@ -7,7 +7,8 @@ use dirs;
 use tabled::{builder::Builder, settings::Style as TabledStyle};
 use crate::{
     db::Database,
-    streaks::{Frequency, Streak},
+    gui,
+    streak::{Frequency, Streak},
     tui,
 };
 
@@ -32,7 +33,7 @@ enum Commands {
         #[clap(short, long)]
         name: String,
     },
-    #[command(about = "Get a single streak", long_about = None, short_flag='g')]
+    #[command(about = "Get one streak", long_about = None, short_flag='o')]
     Get { idx: u32 },
     #[command(about = "Check in to a streak", long_about = None, short_flag = 'c')]
     CheckIn { idx: u32 },
@@ -40,6 +41,8 @@ enum Commands {
     Remove { idx: u32 },
     #[command(about = "Switch to TUI", long_about = None, short_flag = 't')]
     Tui,
+    #[command(about = "Launch GUI", long_about = None, short_flag = 'g')]
+    Gui,
 }
 
 /// Create a new daily streak item
@@ -111,7 +114,7 @@ fn build_table(streaks: Vec<Streak>) -> String {
         let mut wrapped_text = String::new();
         let wrapped_lines = textwrap::wrap(&streak.task.as_str(), 60);
         for line in wrapped_lines {
-            wrapped_text.push_str(&format!("{}\n", line));
+            wrapped_text.push_str(&format!("{line}"));
         }
 
         let streak_name = Style::new().bold().paint(wrapped_text);
@@ -205,6 +208,9 @@ pub fn parse() {
         }
         Commands::Tui => {
             tui::main().expect("Couldn't launch TUI")
+        }
+        Commands::Gui => {
+            gui::main()
         }
     }
 }

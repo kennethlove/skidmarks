@@ -4,8 +4,9 @@ use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 
-#[derive(Clone, Debug, PartialEq, ValueEnum, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, ValueEnum, Serialize, Deserialize)]
 pub enum Frequency {
+    #[default]
     Daily,
     Weekly,
 }
@@ -53,11 +54,15 @@ impl Display for Status {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Streak {
+    #[serde(default)]
     pub task: String,
+    #[serde(default)]
     pub frequency: Frequency,
+    // #[serde(with = "chrono::serde::ts_seconds_option")]
     pub last_checkin: Option<NaiveDate>,
+    #[serde(default)]
     pub total_checkins: u32,
 }
 
@@ -190,7 +195,7 @@ mod tests {
         streak.total_checkins = 1;
 
         streak.checkin();
-        assert!(streak.last_checkin.unwrap() != old_date);
+        assert_ne!(streak.last_checkin.unwrap(), old_date);
         assert_eq!(streak.total_checkins, 2);
     }
 

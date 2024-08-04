@@ -1,4 +1,4 @@
-use crate::streaks::Streak;
+use crate::streak::Streak;
 use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::sync::Mutex;

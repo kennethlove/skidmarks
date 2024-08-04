@@ -1,7 +1,7 @@
 use std::io;
 use crate::db::Database;
 use crate::cli::get_database_url;
-use crate::streaks::{Frequency, Streak};
+use crate::streak::{Frequency, Streak};
 use style::palette::tailwind;
 use ratatui::{
     backend::{Backend, CrosstermBackend},
