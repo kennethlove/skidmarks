@@ -1,4 +1,7 @@
-use chrono::{DateTime, Utc};
+#![allow(non_snake_case)]
+
+use std::thread::Scope;
+use chrono::{DateTime, Local, Utc};
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 use crate::{
@@ -11,30 +14,42 @@ pub fn main() {
     launch(App);
 }
 
-fn get_streaks() -> Result<Vec<Streak>, std::io::Error> {
-    let mut db = Database::new(&get_database_url()).unwrap();
-    Ok(db.get_all().unwrap())
-}
-
-fn check_in(streak_id: usize) {
-    let mut db = Database::new(&get_database_url()).unwrap();
-    let mut streak = db.get_one(streak_id as u32).unwrap();
-    streak.checkin();
-    let _ = db.update(streak_id as u32, &streak);
-    let _ = db.save();
+#[component]
+fn StreaksTable() -> Element {
+    let mut db = use_context::<Database>();
+    rsx! {
+        table {
+            class: "table",
+            width: "100%",
+            thead {
+                tr {
+                    th { "Task" }
+                    th { "Frequency" }
+                    th { "Status" }
+                    th { "Last Check In" }
+                    th { "Total Check Ins" }
+                    th {
+                        colspan: 2,
+                        "Tools"
+                    }
+                }
+            }
+            tbody {
+                for (i, streak) in db.get_all().unwrap().into_iter().enumerate() {
+                    StreakListing { streak_id: i }
+                }
+            }
+        }
+    }
 }
 
 #[component]
-fn StreakListing(streak_id: usize, streak: ReadOnlySignal<Streak>) -> Element {
-    let Streak {
-        task,
-        frequency,
-        last_checkin,
-        total_checkins,
-        ..
-    } = streak();
+fn StreakListing(streak_id: usize) -> Element {
+    let mut db = use_context::<Database>();
+    let initial_streak = db.get_one(streak_id as u32).unwrap();
+    let mut streak = use_signal(|| initial_streak);
 
-    let date = match last_checkin {
+    let date = match streak().last_checkin {
         Some(date) => date.format("%Y-%m-%d").to_string(),
         None => "Never".to_string()
     };
@@ -42,21 +57,27 @@ fn StreakListing(streak_id: usize, streak: ReadOnlySignal<Streak>) -> Element {
 
     rsx! {
         tr {
-            td { "{task}"}
-            td { "{frequency}" }
+            td { "{streak().task}"}
+            td { "{streak().frequency}" }
             td { "{emoji}" }
             td { "{date}" }
-            td { "{total_checkins}"}
+            td { "{streak().total_checkins}"}
             td {
                 button {
-                    class: "button is-primary",
-                    onclick: move |_| { check_in(streak_id) },
+                    class: "button is-primary is-small",
+                    onclick: move |_| {
+                        let mut updated_streak = ((*streak))().clone();
+                        updated_streak.checkin();
+                        db.update(streak_id as u32, &updated_streak).unwrap();
+                        db.save().unwrap();
+                        streak.set(updated_streak);
+                    },
                     "CHECK IN"
                 }
             }
             td {
                 button {
-                    class: "button is-danger",
+                    class: "button is-danger is-small",
                     "REMOVE"
                 }
             }
@@ -64,42 +85,16 @@ fn StreakListing(streak_id: usize, streak: ReadOnlySignal<Streak>) -> Element {
     }
 }
 
+#[component]
 fn Streaks() -> Element {
-    let streaks = get_streaks();
-
-    match &streaks {
-        Ok(streaks) => {
-            rsx! {
-                table {
-                    class: "table",
-                    width: "100%",
-                    thead {
-                        tr {
-                            th { "Task" }
-                            th { "Frequency" }
-                            th { "Status" }
-                            th { "Last Check In" }
-                            th { "Total Check Ins" }
-                            th {
-                                colspan: 2,
-                                "Tools"
-                            }
-                        }
-                    }
-                    tbody {
-                        for (i, streak) in streaks.into_iter().enumerate() {
-                            StreakListing { streak_id: i, streak: streak.clone() }
-                        }
-                    }
-                }
-            }
-
-        }
-        Err(e) => rsx! { "error: {e}" }
+    rsx! {
+        StreaksTable { }
     }
 }
 
 fn App() -> Element {
+    use_context_provider(|| Database::new(&get_database_url()).unwrap());
+
     rsx! {
         link {
             rel: "stylesheet",
