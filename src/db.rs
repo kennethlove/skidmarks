@@ -1,15 +1,32 @@
 use crate::streak::Streak;
 use std::fs::{File, OpenOptions};
 use std::io::Write;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 lazy_static::lazy_static! {
     static ref FILE_LOCK: Mutex<()> = Mutex::new(());
 }
 
+#[derive(Debug)]
 pub struct Database {
     pub filename: String,
-    pub streaks: Mutex<Vec<Streak>>,
+    pub streaks: Arc<Mutex<Vec<Streak>>>,
+}
+
+impl Clone for Database {
+    fn clone(&self) -> Self {
+        Self {
+            filename: self.filename.clone(),
+            streaks: self.streaks.clone(),
+        }
+    }
+}
+
+impl PartialEq for Database {
+    fn eq(&self, other: &Self) -> bool {
+        self.filename == other.filename &&
+            *self.streaks.lock().unwrap() == *other.streaks.lock().unwrap()
+    }
 }
 
 impl Database {
@@ -88,7 +105,7 @@ impl Database {
         let existing_db = Self::load_database(filename)?;
         let new_db = Self {
 
-            streaks: Mutex::new(existing_db.clone()),
+            streaks: Arc::new(Mutex::new(existing_db.clone())),
             filename: filename.to_string(),
         };
         Ok(new_db)
@@ -118,7 +135,7 @@ impl Database {
 impl Default for Database {
     fn default() -> Self {
         Self {
-            streaks: Mutex::new(Vec::new()),
+            streaks: Arc::new(Mutex::new(Vec::new())),
             filename: "skidmarks.ron".to_string(),
         }
     }
