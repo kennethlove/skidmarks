@@ -11,13 +11,21 @@ pub fn main() {
     launch(App);
 }
 
-pub fn get_streaks() -> Result<Vec<Streak>, std::io::Error> {
-    let db = Database::new(&get_database_url());
-    Ok(db.unwrap().get_all().unwrap())
+fn get_streaks() -> Result<Vec<Streak>, std::io::Error> {
+    let mut db = Database::new(&get_database_url()).unwrap();
+    Ok(db.get_all().unwrap())
+}
+
+fn check_in(streak_id: usize) {
+    let mut db = Database::new(&get_database_url()).unwrap();
+    let mut streak = db.get_one(streak_id as u32).unwrap();
+    streak.checkin();
+    let _ = db.update(streak_id as u32, &streak);
+    let _ = db.save();
 }
 
 #[component]
-fn StreakListing(streak: ReadOnlySignal<Streak>) -> Element {
+fn StreakListing(streak_id: usize, streak: ReadOnlySignal<Streak>) -> Element {
     let Streak {
         task,
         frequency,
@@ -26,7 +34,10 @@ fn StreakListing(streak: ReadOnlySignal<Streak>) -> Element {
         ..
     } = streak();
 
-    let date = streak().last_checkin?.format("%Y-%m-%d");
+    let date = match last_checkin {
+        Some(date) => date.format("%Y-%m-%d").to_string(),
+        None => "Never".to_string()
+    };
     let emoji = streak().emoji_status();
 
     rsx! {
@@ -39,6 +50,7 @@ fn StreakListing(streak: ReadOnlySignal<Streak>) -> Element {
             td {
                 button {
                     class: "button is-primary",
+                    onclick: move |_| { check_in(streak_id) },
                     "CHECK IN"
                 }
             }
@@ -75,8 +87,8 @@ fn Streaks() -> Element {
                         }
                     }
                     tbody {
-                        for streak in streaks {
-                            StreakListing { streak: streak.clone() }
+                        for (i, streak) in streaks.into_iter().enumerate() {
+                            StreakListing { streak_id: i, streak: streak.clone() }
                         }
                     }
                 }

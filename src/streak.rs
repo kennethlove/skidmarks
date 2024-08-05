@@ -60,7 +60,6 @@ pub struct Streak {
     pub task: String,
     #[serde(default)]
     pub frequency: Frequency,
-    // #[serde(with = "chrono::serde::ts_seconds_option")]
     pub last_checkin: Option<NaiveDate>,
     #[serde(default)]
     pub total_checkins: u32,
