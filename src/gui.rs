@@ -1,12 +1,9 @@
 #![allow(non_snake_case)]
 
+use crate::streak::Streak;
+use crate::{cli::get_database_url, db::Database};
 use dioxus::prelude::*;
 use native_dialog::{MessageDialog, MessageType};
-use crate::{
-    cli::get_database_url,
-    db::Database,
-};
-use crate::streak::Streak;
 
 pub fn main() {
     launch(App);
@@ -49,7 +46,6 @@ fn check_in(streak_id: usize) -> Streak {
     db.save().unwrap();
 
     streak
-
 }
 
 #[component]
@@ -57,13 +53,15 @@ fn StreakListing(streak_id: usize) -> Element {
     let mut db = use_context::<Database>();
     let initial_streak = match db.get_one(streak_id as u32) {
         Some(streak) => streak,
-        None => { return None; }
+        None => {
+            return None;
+        }
     };
     let mut streak = use_signal(|| initial_streak);
 
     let date = match streak().last_checkin {
         Some(date) => date.format("%Y-%m-%d").to_string(),
-        None => "Never".to_string()
+        None => "Never".to_string(),
     };
     let emoji = streak().emoji_status();
 
@@ -95,9 +93,19 @@ fn StreakListing(streak_id: usize) -> Element {
                             .show_confirm().unwrap();
 
                         if yes {
-                            db.delete(streak_id as u32).unwrap();
-                            db.save().unwrap();
-                            streak.write();
+                            match db.delete(streak_id as u32) {
+                                Ok(_) => {
+                                    db.save().unwrap();
+                                    streak.set(Streak::default());
+                                },
+                                Err(e) => {
+                                    MessageDialog::new()
+                                        .set_type(MessageType::Error)
+                                        .set_title("Error")
+                                        .set_text(&format!("Error deleting streak: {}", e))
+                                        .show_alert().unwrap();
+                                }
+                            }
                         }
                     },
                     "REMOVE"
@@ -110,7 +118,14 @@ fn StreakListing(streak_id: usize) -> Element {
 #[component]
 fn Streaks() -> Element {
     rsx! {
-        StreaksTable { }
+        div {
+            class: "panel-block",
+            StreaksTable { }
+        }
+        div {
+            class: "panel-block",
+            NewStreak { }
+        }
     }
 }
 
@@ -130,42 +145,69 @@ fn App() -> Element {
                     class: "panel-heading",
                     "Skidmarks"
                 }
-                p {
-                    class: "panel-tabs",
-                    a {
-                        class: "is-active",
-                        "All"
-                    }
-                    a {
-                        "To Do"
-                    }
-                    a {
-                        "Done"
-                    }
-                }
                 div {
                     class: "panel-block",
                     p {
                         class: "control",
                         input {
-                            class: "input is-link",
+                            class: "input",
                             r#type: "search",
                             placeholder: "Search"
                         }
                     }
                 }
-                div {
-                    class: "panel-block",
-                    Streaks { }
-                }
-                div {
-                    class: "panel-block",
-                    a {
-                        class: "button is-small",
-                        "Add New"
-                    }
-                }
+                Streaks { }
             }
+        }
+    }
+}
+
+#[component]
+fn NewStreak() -> Element {
+    let mut db = use_context::<Database>();
+    let mut new_streak = use_signal(|| "".to_string());
+    let mut new_streak_type = use_signal(|| "Daily".to_string());
+
+    rsx! {
+        input {
+            class: "input",
+            r#type: "text",
+            placeholder: "New Streak",
+            oninput: move |evt| new_streak.set(evt.value().clone())
+        }
+        div {
+            class: "select",
+            select {
+                class: "select",
+                oninput: move |evt| {
+                    new_streak_type.set(evt.data.value().clone())
+                },
+                option {
+                    "Daily"
+                }
+                option {
+                    "Weekly"
+                },
+            }
+        }
+        button {
+            class: "button",
+            onclick: move |_| {
+                let new = match new_streak_type().as_str() {
+                    "Daily" => {
+                        let streak = Streak::new_daily(new_streak().clone());
+                        streak
+                    },
+                    "Weekly" => {
+                        let streak = Streak::new_weekly(new_streak().clone());
+                        streak
+                    },
+                    _ => { Streak::default() }
+                };
+                db.add(new.clone()).unwrap();
+                db.save().unwrap();
+            },
+            "Add New"
         }
     }
 }
