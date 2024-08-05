@@ -96,6 +96,12 @@ impl Database {
 
     pub fn delete(&mut self, idx: u32) -> Result<(), std::io::Error> {
         let mut streaks = self.streaks.lock().unwrap();
+        if idx as usize >= streaks.len() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "Index out of bounds",
+            ));
+        }
         streaks.remove(idx as usize);
         Ok(())
     }
