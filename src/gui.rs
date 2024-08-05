@@ -1,14 +1,12 @@
 #![allow(non_snake_case)]
 
-use std::thread::Scope;
-use chrono::{DateTime, Local, Utc};
 use dioxus::prelude::*;
-use serde::{Deserialize, Serialize};
+use native_dialog::{MessageDialog, MessageType};
 use crate::{
     cli::get_database_url,
     db::Database,
-    streak::{Streak, Frequency, Status}
 };
+use crate::streak::Streak;
 
 pub fn main() {
     launch(App);
@@ -16,7 +14,7 @@ pub fn main() {
 
 #[component]
 fn StreaksTable() -> Element {
-    let mut db = use_context::<Database>();
+    let db = use_context::<Database>();
     rsx! {
         table {
             class: "table",
@@ -35,7 +33,7 @@ fn StreaksTable() -> Element {
                 }
             }
             tbody {
-                for (i, streak) in db.get_all().unwrap().into_iter().enumerate() {
+                for i in 0..db.num_tasks() {
                     StreakListing { streak_id: i }
                 }
             }
@@ -43,10 +41,24 @@ fn StreaksTable() -> Element {
     }
 }
 
+fn check_in(streak_id: usize) -> Streak {
+    let mut db = use_context::<Database>();
+    let mut streak = db.get_one(streak_id as u32).unwrap();
+    streak.checkin();
+    db.update(streak_id as u32, &streak).unwrap();
+    db.save().unwrap();
+
+    streak
+
+}
+
 #[component]
 fn StreakListing(streak_id: usize) -> Element {
     let mut db = use_context::<Database>();
-    let initial_streak = db.get_one(streak_id as u32).unwrap();
+    let initial_streak = match db.get_one(streak_id as u32) {
+        Some(streak) => streak,
+        None => { return None; }
+    };
     let mut streak = use_signal(|| initial_streak);
 
     let date = match streak().last_checkin {
@@ -66,10 +78,7 @@ fn StreakListing(streak_id: usize) -> Element {
                 button {
                     class: "button is-primary is-small",
                     onclick: move |_| {
-                        let mut updated_streak = ((*streak))().clone();
-                        updated_streak.checkin();
-                        db.update(streak_id as u32, &updated_streak).unwrap();
-                        db.save().unwrap();
+                        let updated_streak = check_in(streak_id);
                         streak.set(updated_streak);
                     },
                     "CHECK IN"
@@ -78,6 +87,19 @@ fn StreakListing(streak_id: usize) -> Element {
             td {
                 button {
                     class: "button is-danger is-small",
+                    onclick: move |_| {
+                        let yes = MessageDialog::new()
+                            .set_type(MessageType::Info)
+                            .set_title("Delete Streak")
+                            .set_text("Are you sure you want to delete this streak?")
+                            .show_confirm().unwrap();
+
+                        if yes {
+                            db.delete(streak_id as u32).unwrap();
+                            db.save().unwrap();
+                            streak.write();
+                        }
+                    },
                     "REMOVE"
                 }
             }
