@@ -23,6 +23,7 @@ dioxus = { version = "0.5", features = ["desktop", "router"] }
 dirs = "5.0.1"
 futures = "0.3.30"
 lazy_static = "1.5.0"
+native-dialog = "0.7.0"
 ratatui = "0.27.0"
 reqwest = { version = "0.12.5", features = ["json"] }
 ron = "0.8.1"
