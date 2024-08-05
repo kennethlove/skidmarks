@@ -128,7 +128,10 @@ impl Database {
     pub fn get_one(&mut self, idx: u32) -> Option<Streak> {
         let streaks = self.get_all()?;
         let streak = streaks.get(idx as usize);
-        Some(streak.unwrap().clone())
+        match streak {
+            Some(streak) => Some(streak.clone()),
+            None => None,
+        }
     }
 }
 
