@@ -1,9 +1,11 @@
 use std::collections::HashMap;
-use crate::streak::Streak;
 use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::sync::{Arc, Mutex};
+
 use uuid::Uuid;
+
+use crate::streak::Streak;
 
 lazy_static::lazy_static! {
     static ref FILE_LOCK: Mutex<()> = Mutex::new(());
@@ -13,7 +15,7 @@ lazy_static::lazy_static! {
 pub struct Database {
     pub filename: String,
     // pub streaks: Arc<Mutex<Vec<Streak>>>,
-    pub streaks: Arc<Mutex<HashMap<Uuid, Streak>>>
+    pub streaks: Arc<Mutex<HashMap<Uuid, Streak>>>,
 }
 
 impl Clone for Database {
@@ -27,14 +29,15 @@ impl Clone for Database {
 
 impl PartialEq for Database {
     fn eq(&self, other: &Self) -> bool {
-        self.filename == other.filename &&
-            *self.streaks.lock().unwrap() == *other.streaks.lock().unwrap()
+        self.filename == other.filename
+            && *self.streaks.lock().unwrap() == *other.streaks.lock().unwrap()
     }
 }
 
 impl Database {
     fn create_if_missing(filename: &str) -> Result<(), std::io::Error> {
-        let data = "[]".as_bytes();
+        // let data = "[]".as_bytes();
+        let data = "{}".as_bytes();
         let metadata = match std::fs::metadata(filename) {
             Ok(meta) => meta,
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
@@ -63,8 +66,10 @@ impl Database {
     }
 
     fn load_database(filename: &str) -> Result<HashMap<Uuid, Streak>, std::io::Error> {
+        Self::create_if_missing(filename)?;
         let ronned = std::fs::read_to_string(filename)?;
-        let ronned: HashMap<Uuid, Streak> = ron::de::from_str(&ronned).expect("Couldn't load database.");
+        let ronned: HashMap<Uuid, Streak> =
+            ron::de::from_str(&ronned).unwrap_or_else(|_| HashMap::<Uuid, Streak>::new());
         Ok(ronned)
     }
 
@@ -88,13 +93,13 @@ impl Database {
     pub fn add(&mut self, streak: Streak) -> Result<(), std::io::Error> {
         let mut streaks = self.streaks.lock().unwrap();
         let id = streak.id.clone();
-        streaks[&id] = streak;
+        streaks.insert(id, streak);
         Ok(())
     }
 
     pub fn update(&mut self, id: Uuid, streak: Streak) -> Result<(), std::io::Error> {
         let mut streaks = self.streaks.lock().unwrap();
-        let mut old_streak = streaks.get(&id).unwrap();
+        let mut old_streak: &mut Streak = streaks.get_mut(&id).unwrap();
         let _ = old_streak.update(streak);
         Ok(())
     }
@@ -110,7 +115,6 @@ impl Database {
         Self::create_if_missing(filename)?;
         let existing_db = Self::load_database(filename)?;
         let new_db = Self {
-
             streaks: Arc::new(Mutex::new(existing_db.clone())),
             filename: filename.to_string(),
         };
@@ -132,7 +136,8 @@ impl Database {
     }
 
     pub fn get_one(&mut self, id: Uuid) -> Option<Streak> {
-        let streak = self.streaks.lock().unwrap().get(&id);
+        let streaks = self.streaks.lock().unwrap();
+        let streak = streaks.get(&id);
         match streak {
             Some(streak) => Some(streak.clone()),
             None => None,
@@ -151,8 +156,9 @@ impl Default for Database {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use assert_fs::prelude::*;
+
+    use super::*;
 
     #[test]
     fn test_create_if_missing() {
@@ -196,7 +202,6 @@ mod tests {
         temp.close().unwrap();
     }
 
-
     #[test]
     fn test_save_database() {
         let temp = assert_fs::TempDir::new().unwrap();
@@ -208,7 +213,8 @@ mod tests {
         db.add(streak).unwrap();
         db.save().unwrap();
 
-        let expected_content = r#"[(task:"brush teeth",frequency:Daily,last_checkin:None,total_checkins:0)]"#;
+        let expected_content =
+            r#"[(task:"brush teeth",frequency:Daily,last_checkin:None,total_checkins:0)]"#;
 
         let result = std::fs::read_to_string(file_path);
         assert_eq!(result.unwrap(), expected_content);

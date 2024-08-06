@@ -1,8 +1,9 @@
+use std::fmt::Display;
+
 #[allow(unused_imports)]
 use chrono::{Local, NaiveDate};
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
-use std::fmt::Display;
 use uuid::Uuid;
 
 #[derive(Clone, Debug, Default, PartialEq, ValueEnum, Serialize, Deserialize)]
@@ -92,6 +93,9 @@ impl Streak {
 
     pub fn checkin(&mut self) {
         let date = Local::now().date_naive();
+        if self.last_checkin.is_some() && self.last_checkin.unwrap() == date {
+            return;
+        }
         self.last_checkin = Some(date);
         self.total_checkins += 1;
     }
@@ -159,8 +163,9 @@ impl Default for Streak {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use chrono::{NaiveDate, TimeDelta};
+
+    use super::*;
 
     #[test]
     fn status_waiting() {

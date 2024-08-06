@@ -1,8 +1,5 @@
 use std::io;
-use crate::db::Database;
-use crate::cli::get_database_url;
-use crate::streak::{Frequency, Streak};
-use style::palette::tailwind;
+
 use ratatui::{
     backend::{Backend, CrosstermBackend},
     crossterm::{
@@ -16,14 +13,19 @@ use ratatui::{
     terminal::{Frame, Terminal},
     text::{Line, Span, Text},
     widgets::{
-        Block, Borders, BorderType, Cell, HighlightSpacing, Paragraph, Row, Scrollbar, ScrollbarOrientation,
-        ScrollbarState, Table, TableState,
+        Block, Borders, BorderType, Cell, HighlightSpacing, Paragraph, Row, Scrollbar,
+        ScrollbarOrientation, ScrollbarState, Table, TableState,
     },
 };
+use style::palette::tailwind;
 use tui_confirm_dialog::{ButtonLabel, ConfirmDialog, ConfirmDialogState, Listener};
 use tui_input::backend::crossterm::EventHandler;
 use tui_input::Input;
 use unicode_width::UnicodeWidthStr;
+
+use crate::cli::get_database_url;
+use crate::db::Database;
+use crate::streak::{Frequency, Streak};
 
 enum InputMode {
     Normal,
@@ -40,7 +42,6 @@ const PALETTES: [tailwind::Palette; 4] = [
 
 const INFO_TEXT: &str = "[↑] [↓] Select";
 const ITEM_HEIGHT: usize = 4;
-
 
 struct TableColors {
     buffer_bg: Color,
@@ -89,7 +90,8 @@ impl App {
         let (tx, rx) = std::sync::mpsc::channel();
 
         let mut db = Database::new(&get_database_url()).expect("Failed to load database");
-        let data_vec: Vec<Data> = db.get_all()
+        let data_vec: Vec<Data> = db
+            .get_all()
             .unwrap_or_default()
             .into_values()
             .into_iter()
@@ -114,7 +116,9 @@ impl App {
     }
 
     pub fn refresh(&mut self) {
-        let data_vec: Vec<Data> = self.db.get_all()
+        let data_vec: Vec<Data> = self
+            .db
+            .get_all()
             .unwrap_or_default()
             .into_values()
             .into_iter()
@@ -127,7 +131,11 @@ impl App {
     pub fn next(&mut self) {
         let i = match self.state.selected() {
             Some(i) => {
-                if i >= self.items.len().saturating_sub(1) { 0 } else { i + 1 }
+                if i >= self.items.len().saturating_sub(1) {
+                    0
+                } else {
+                    i + 1
+                }
             }
             _ => 0,
         };
@@ -138,7 +146,11 @@ impl App {
     pub fn previous(&mut self) {
         let i = match self.state.selected() {
             Some(i) => {
-                if i == 0 { self.items.len().saturating_sub(1) } else { i - 1 }
+                if i == 0 {
+                    self.items.len().saturating_sub(1)
+                } else {
+                    i - 1
+                }
             }
             _ => 0,
         };
@@ -148,17 +160,34 @@ impl App {
 
     pub fn check_in(&mut self) {
         let selected = self.state.selected().unwrap();
-        let mut streak = self.db.get_one(selected as u32).unwrap();
+        let mut streak = self
+            .db
+            .get_all()
+            .unwrap()
+            .into_values()
+            .collect::<Vec<Streak>>()
+            .get(selected)
+            .unwrap()
+            .clone();
         streak.checkin();
-        let _ = self.db.update(selected as u32, &streak);
+        let _ = self.db.update(streak.id, streak.clone());
         let _ = self.db.save();
         self.items[selected] = Data::from(streak);
     }
 
     pub fn remove(&mut self) {
         let selected = self.state.selected().unwrap();
+        let mut streak = self
+            .db
+            .get_all()
+            .unwrap()
+            .into_values()
+            .collect::<Vec<Streak>>()
+            .get(selected)
+            .unwrap()
+            .clone();
 
-        let _ = self.db.delete(selected as u32);
+        let _ = self.db.delete(streak.id);
         let _ = self.db.save();
         self.items.remove(selected);
     }
@@ -168,8 +197,8 @@ impl App {
 
         for message in &self.messages {
             match message.to_lowercase().as_str() {
-                "daily" => { streak.frequency = Frequency::Daily }
-                "weekly" => { streak.frequency = Frequency::Weekly }
+                "daily" => streak.frequency = Frequency::Daily,
+                "weekly" => streak.frequency = Frequency::Weekly,
                 _ => {
                     streak.task = format!("{message}");
                 }
@@ -206,7 +235,7 @@ impl Data {
             &self.frequency,
             &self.emoji,
             &self.last_checkin,
-            &self.total_checkins
+            &self.total_checkins,
         ]
     }
 
@@ -218,7 +247,7 @@ impl Data {
             last_checkin: {
                 match streak.last_checkin {
                     Some(checkin) => checkin.to_string(),
-                    None => "None".to_string()
+                    None => "None".to_string(),
                 }
             },
             total_checkins: streak.total_checkins.to_string(),
@@ -285,7 +314,13 @@ fn constraint_len_calculator(items: &[Data]) -> (usize, usize, usize, usize, usi
         .unwrap_or(0);
 
     #[allow(clippy::cast_possible_truncation)]
-    (streak_len, frequency_len, emoji_len, last_checkin_len, total_checkins_len)
+    (
+        streak_len,
+        frequency_len,
+        emoji_len,
+        last_checkin_len,
+        total_checkins_len,
+    )
 }
 
 pub fn main() -> io::Result<()> {
@@ -346,7 +381,10 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                             app.remove_popup = app
                                 .remove_popup
                                 .modal(false)
-                                .with_title(Span::styled("Remove Streak", Style::default().fg(Color::Red)))
+                                .with_title(Span::styled(
+                                    "Remove Streak",
+                                    Style::default().fg(Color::Red),
+                                ))
                                 .with_text(Text::from(vec![
                                     Line::from("Are you sure you want to remove this streak?"),
                                     Line::from(Span::styled(
@@ -362,47 +400,45 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                         }
                         _ => {}
                     },
-                    _ => {
-                        match app.input_mode {
-                            InputMode::AddingTask => match key.code {
-                                KeyCode::Enter => {
-                                    app.messages.push(app.task_input.value().into());
-                                    if app.messages.len() == 2 {
-                                        app.add_task();
-                                    }
-                                },
-                                KeyCode::Esc => {
-                                    app.input_mode = InputMode::Normal;
-                                }
-                                KeyCode::Tab => {
-                                    app.messages.push(app.task_input.value().into());
-                                    app.input_mode = InputMode::AddingFreq;
-                                }
-                                _ => {
-                                    app.task_input.handle_event(&Event::Key(key));
-                                }
-                            },
-                            InputMode::AddingFreq => match key.code {
-                                KeyCode::Enter => {
-                                    app.messages.push(app.frequency_input.value().into());
-                                    if app.messages.len() == 2 {
-                                        app.add_task();
-                                    }
-                                },
-                                KeyCode::Esc => {
-                                    app.input_mode = InputMode::Normal;
-                                }
-                                KeyCode::Tab => {
-                                    app.messages.push(app.frequency_input.value().into());
-                                    app.input_mode = InputMode::AddingTask;
-                                }
-                                _ => {
-                                    app.frequency_input.handle_event(&Event::Key(key));
+                    _ => match app.input_mode {
+                        InputMode::AddingTask => match key.code {
+                            KeyCode::Enter => {
+                                app.messages.push(app.task_input.value().into());
+                                if app.messages.len() == 2 {
+                                    app.add_task();
                                 }
                             }
-                            _ => {}
-                        }
-                    }
+                            KeyCode::Esc => {
+                                app.input_mode = InputMode::Normal;
+                            }
+                            KeyCode::Tab => {
+                                app.messages.push(app.task_input.value().into());
+                                app.input_mode = InputMode::AddingFreq;
+                            }
+                            _ => {
+                                app.task_input.handle_event(&Event::Key(key));
+                            }
+                        },
+                        InputMode::AddingFreq => match key.code {
+                            KeyCode::Enter => {
+                                app.messages.push(app.frequency_input.value().into());
+                                if app.messages.len() == 2 {
+                                    app.add_task();
+                                }
+                            }
+                            KeyCode::Esc => {
+                                app.input_mode = InputMode::Normal;
+                            }
+                            KeyCode::Tab => {
+                                app.messages.push(app.frequency_input.value().into());
+                                app.input_mode = InputMode::AddingTask;
+                            }
+                            _ => {
+                                app.frequency_input.handle_event(&Event::Key(key));
+                            }
+                        },
+                        _ => {}
+                    },
                 }
             }
             if app.remove_popup.is_opened() && app.remove_popup.handle(key) {
@@ -421,11 +457,17 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
     }
 }
 
+fn clear_inputs(task_input: &mut Input, frequency_input: &mut Input) {
+    task_input.reset();
+    frequency_input.reset();
+}
+
 fn ui(f: &mut Frame, app: &mut App) {
     let rects = Layout::vertical([Constraint::Min(5), Constraint::Length(3)]).split(f.size());
 
     match app.input_mode {
         InputMode::Normal => {
+            clear_inputs(&mut app.task_input, &mut app.frequency_input);
             render_table(f, app, rects[0]);
             render_scrollbar(f, app, rects[0]);
         }
@@ -442,7 +484,7 @@ fn ui(f: &mut Frame, app: &mut App) {
             .bg(Color::Black)
             .border_type(BorderType::Rounded)
             .button_style(Style::default())
-            .selected_button_style(Style::default().yellow().underlined().bold());
+            .selected_button_style(Style::default().fg(Color::Yellow));
         f.render_stateful_widget(popup, popup_rect, &mut app.remove_popup)
     }
 }
@@ -456,7 +498,8 @@ fn render_fields(f: &mut Frame, app: &mut App, area: Rect) {
                 Constraint::Length(3),
                 Constraint::Length(3),
                 Constraint::Min(1),
-            ].as_ref(),
+            ]
+            .as_ref(),
         )
         .split(area);
 
@@ -471,21 +514,17 @@ fn render_task_field(f: &mut Frame, app: &mut App, area: Rect, scroll: usize) {
     let task = Paragraph::new(app.task_input.value())
         .style(match app.input_mode {
             InputMode::AddingTask => Style::default().fg(Color::Yellow),
-            _ => Style::default()
+            _ => Style::default(),
         })
         .scroll((0, scroll as u16))
         .block(Block::default().borders(Borders::ALL).title("Task"));
     f.render_widget(task, area);
 
     match app.input_mode {
-        InputMode::AddingTask => {
-            f.set_cursor(
-                area.x
-                    + ((app.task_input.visual_cursor()).max(scroll) - scroll) as u16
-                    + 1,
-                area.y + 1,
-            )
-        }
+        InputMode::AddingTask => f.set_cursor(
+            area.x + (app.task_input.visual_cursor().max(scroll) - scroll) as u16 + 1,
+            area.y + 1,
+        ),
         _ => {}
     }
 }
@@ -494,21 +533,17 @@ fn render_frequency_field(f: &mut Frame, app: &mut App, area: Rect, scroll: usiz
     let freq = Paragraph::new(app.frequency_input.value())
         .style(match app.input_mode {
             InputMode::AddingFreq => Style::default().fg(Color::Yellow),
-            _ => Style::default()
+            _ => Style::default(),
         })
         .scroll((0, scroll as u16))
         .block(Block::default().borders(Borders::ALL).title("Frequency"));
     f.render_widget(freq, area);
 
     match app.input_mode {
-        InputMode::AddingFreq => {
-            f.set_cursor(
-                area.x
-                    + ((app.frequency_input.visual_cursor()).max(scroll) - scroll) as u16
-                    + 1,
-                area.y + 1,
-            )
-        }
+        InputMode::AddingFreq => f.set_cursor(
+            area.x + ((app.frequency_input.visual_cursor()).max(scroll) - scroll) as u16 + 1,
+            area.y + 1,
+        ),
         _ => {}
     }
 }
@@ -555,17 +590,17 @@ fn render_table(f: &mut Frame, app: &mut App, area: Rect) {
         rows,
         [
             Constraint::Length(app.longest_item_lens[0] as u16 + 10), // task
-            Constraint::Min(app.longest_item_lens[1] as u16 + 2), // frequency
-            Constraint::Min(app.longest_item_lens[2] as u16), // emoji
-            Constraint::Length(app.longest_item_lens[3] as u16 + 2), // last checkin
-            Constraint::Min(app.longest_item_lens[4] as u16), // total checkins
+            Constraint::Min(app.longest_item_lens[1] as u16 + 2),     // frequency
+            Constraint::Min(app.longest_item_lens[2] as u16),         // emoji
+            Constraint::Length(app.longest_item_lens[3] as u16 + 2),  // last checkin
+            Constraint::Min(app.longest_item_lens[4] as u16),         // total checkins
         ],
     )
-        .header(header)
-        .highlight_style(selected_style)
-        .highlight_symbol(Text::from("> "))
-        .bg(app.colors.buffer_bg)
-        .highlight_spacing(HighlightSpacing::Always);
+    .header(header)
+    .highlight_style(selected_style)
+    .highlight_symbol(Text::from("> "))
+    .bg(app.colors.buffer_bg)
+    .highlight_spacing(HighlightSpacing::Always);
     f.render_stateful_widget(table, area, &mut app.state);
 }
 
