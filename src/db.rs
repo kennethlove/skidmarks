@@ -90,6 +90,16 @@ impl Database {
         Ok(())
     }
 
+    pub fn create_from_string(filename: &str, data: &str) -> Result<Self, std::io::Error> {
+        let db = Self::new(filename)?;
+        let streaks: HashMap<Uuid, Streak> = ron::de::from_str(data).unwrap();
+        let mut db_streaks = db.streaks.lock().unwrap();
+        for (id, streak) in streaks {
+            db_streaks.insert(id, streak);
+        }
+        Ok(db.clone())
+    }
+
     pub fn add(&mut self, streak: Streak) -> Result<(), std::io::Error> {
         let mut streaks = self.streaks.lock().unwrap();
         let id = streak.id.clone();
@@ -99,7 +109,7 @@ impl Database {
 
     pub fn update(&mut self, id: Uuid, streak: Streak) -> Result<(), std::io::Error> {
         let mut streaks = self.streaks.lock().unwrap();
-        let mut old_streak: &mut Streak = streaks.get_mut(&id).unwrap();
+        let old_streak: &mut Streak = streaks.get_mut(&id).unwrap();
         let _ = old_streak.update(streak);
         Ok(())
     }
@@ -143,6 +153,15 @@ impl Database {
             None => None,
         }
     }
+
+    pub fn get_by_index(&mut self, index: usize) -> Option<Streak> {
+        let streaks = self.streaks.lock().unwrap();
+        let streak = streaks.values().nth(index);
+        match streak {
+            Some(streak) => Some(streak.clone()),
+            None => None,
+        }
+    }
 }
 
 impl Default for Database {
@@ -160,8 +179,9 @@ mod tests {
 
     use super::*;
 
+    const DATABASE_PRELOAD: &str = r#" {"00e8a16c-0edd-4e90-8c3f-2ee7aa6a2210":(id:"00e8a16c-0edd-4e90-8c3f-2ee7aa6a2210",task:"Poop",frequency:Daily,last_checkin:Some("2024-08-06"),total_checkins:1),"77cbbb3f-2690-45a9-9a30-94a53556d93e":(id:"77cbbb3f-2690-45a9-9a30-94a53556d93e",task:"Take a walk",frequency:Daily,last_checkin:Some("2024-08-06"),total_checkins:1),"af1f4cc5-87b1-40b1-9fa3-2e0344d35d3b":(id:"af1f4cc5-87b1-40b1-9fa3-2e0344d35d3b",task:"Eat brekkie",frequency:Daily,last_checkin:Some("2024-08-06"),total_checkins:1)}"#;
     #[test]
-    fn test_create_if_missing() {
+    fn create_if_missing() {
         let temp = assert_fs::TempDir::new().unwrap();
         let db_file = temp.child("test_create_if_missing.ron");
 
@@ -173,24 +193,32 @@ mod tests {
     }
 
     #[test]
-    fn test_load_database() {
+    fn create_from_string() {
         let temp = assert_fs::TempDir::new().unwrap();
-        let db_file = temp.child("test_load_database.ron");
-        let _ = Database::new(db_file.to_str().unwrap()).unwrap();
+        let db_file = temp.child("test_create_from_string.ron");
 
-        db_file
-            .write_str(r#"[(task:"brush teeth",frequency:Daily,last_checkin:Some("2024-07-26"),total_checkins:1)]"#)
-            .unwrap();
-
-        let result = Database::load_database(db_file.to_str().unwrap());
+        let result = Database::create_from_string(db_file.to_str().unwrap(), DATABASE_PRELOAD);
         assert!(result.is_ok());
-        assert!(result.unwrap().len() == 1);
+        assert_eq!(result.unwrap().num_tasks(), 3);
 
         temp.close().unwrap();
     }
 
     #[test]
-    fn test_load_database_empty() {
+    fn load_database() {
+        let temp = assert_fs::TempDir::new().unwrap();
+        let db_file = temp.child("test_load_database.ron");
+
+        let result = Database::create_from_string(db_file.to_str().unwrap(), DATABASE_PRELOAD);
+
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().num_tasks(), 3);
+
+        temp.close().unwrap();
+    }
+
+    #[test]
+    fn load_database_empty() {
         let temp = assert_fs::TempDir::new().unwrap();
         let db_file = temp.child("test_load_database_empty.ron");
         let _ = Database::new(db_file.to_str().unwrap()).unwrap();
@@ -203,21 +231,130 @@ mod tests {
     }
 
     #[test]
-    fn test_save_database() {
+    fn save_database() {
         let temp = assert_fs::TempDir::new().unwrap();
         let db_file = temp.child("test_save_database.ron");
         let file_path = db_file.to_str().unwrap();
 
         let mut db = Database::new(file_path).unwrap();
         let streak = Streak::new_daily("brush teeth".to_string());
-        db.add(streak).unwrap();
+        db.add(streak.clone()).unwrap();
         db.save().unwrap();
 
-        let expected_content =
-            r#"[(task:"brush teeth",frequency:Daily,last_checkin:None,total_checkins:0)]"#;
+        let expected_content = format!(
+            r#"{{"{}":(id:"{}",task:"{}",frequency:Daily,last_checkin:{:?},total_checkins:{})}}"#,
+            streak.id, streak.id, streak.task, streak.last_checkin, streak.total_checkins
+        );
 
         let result = std::fs::read_to_string(file_path);
         assert_eq!(result.unwrap(), expected_content);
+
+        temp.close().unwrap();
+    }
+
+    #[test]
+    fn add_streak() {
+        let temp = assert_fs::TempDir::new().unwrap();
+        let db_file = temp.child("test_add_streak.ron");
+        let file_path = db_file.to_str().unwrap();
+
+        let mut db = Database::new(file_path).unwrap();
+        let streak = Streak::new_daily("brush teeth".to_string());
+        db.add(streak.clone()).unwrap();
+
+        let result = db.get_all().unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result.get(&streak.id).unwrap(), &streak);
+
+        temp.close().unwrap();
+    }
+
+    #[test]
+    fn update_streak() {
+        let temp = assert_fs::TempDir::new().unwrap();
+        let db_file = temp.child("test_update_streak.ron");
+        let file_path = db_file.to_str().unwrap();
+
+        let mut db = Database::new(file_path).unwrap();
+        let mut streak = Streak::new_daily("brush teeth".to_string());
+        db.add(streak.clone()).unwrap();
+
+        streak.task = "floss".to_string();
+        db.update(streak.id, streak.clone()).unwrap();
+
+        let result = db.get_all().unwrap();
+        assert_eq!(result.len(), 1);
+        assert_eq!(result.get(&streak.id).unwrap().task, "floss");
+
+        temp.close().unwrap();
+    }
+
+    #[test]
+    fn delete_streak() {
+        let temp = assert_fs::TempDir::new().unwrap();
+        let db_file = temp.child("test_delete_streak.ron");
+        let file_path = db_file.to_str().unwrap();
+
+        let mut db = Database::new(file_path).unwrap();
+        let streak = Streak::new_daily("brush teeth".to_string());
+        db.add(streak.clone()).unwrap();
+
+        db.delete(streak.id).unwrap();
+
+        let result = db.get_all().unwrap();
+        assert!(result.is_empty());
+
+        temp.close().unwrap();
+    }
+
+    #[test]
+    fn get_all_streaks() {
+        let temp = assert_fs::TempDir::new().unwrap();
+        let db_file = temp.child("test_get_all_streaks.ron");
+        let file_path = db_file.to_str().unwrap();
+
+        let mut db = Database::new(file_path).unwrap();
+        let streak1 = Streak::new_daily("brush teeth".to_string());
+        let streak2 = Streak::new_daily("floss".to_string());
+        db.add(streak1.clone()).unwrap();
+        db.add(streak2.clone()).unwrap();
+
+        let result = db.get_all().unwrap();
+        assert_eq!(result.len(), 2);
+        assert_eq!(result.get(&streak1.id).unwrap(), &streak1);
+        assert_eq!(result.get(&streak2.id).unwrap(), &streak2);
+
+        temp.close().unwrap();
+    }
+
+    #[test]
+    fn get_one_streak() {
+        let temp = assert_fs::TempDir::new().unwrap();
+        let db_file = temp.child("test_get_one_streak.ron");
+        let file_path = db_file.to_str().unwrap();
+
+        let mut db = Database::new(file_path).unwrap();
+        let streak1 = Streak::new_daily("brush teeth".to_string());
+        let streak2 = Streak::new_daily("floss".to_string());
+        db.add(streak1.clone()).unwrap();
+        db.add(streak2.clone()).unwrap();
+
+        let result = db.get_one(streak1.id).unwrap();
+        assert_eq!(result, streak1);
+
+        temp.close().unwrap();
+    }
+
+    #[test]
+    fn get_streak_by_index() {
+        let temp = assert_fs::TempDir::new().unwrap();
+        let db_file = temp.child("test_get_streak_by_index.ron");
+        let file_path = db_file.to_str().unwrap();
+
+        let mut db = Database::create_from_string(file_path, DATABASE_PRELOAD).unwrap();
+        let result = db.get_by_index(1).unwrap();
+        let expected = db.streaks.lock().unwrap().values().nth(1).unwrap().clone();
+        assert_eq!(expected, result);
 
         temp.close().unwrap();
     }

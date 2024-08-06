@@ -1,5 +1,6 @@
 use std::collections::HashMap;
-use ansi_term::{Style, Color};
+
+use ansi_term::{Color, Style};
 #[allow(unused_imports)]
 use chrono::{Local, NaiveDate};
 use clap::{Parser, Subcommand};
@@ -7,6 +8,7 @@ use console::Emoji;
 use dirs;
 use tabled::{builder::Builder, settings::Style as TabledStyle};
 use uuid::Uuid;
+
 use crate::{
     db::Database,
     gui,
@@ -36,11 +38,11 @@ enum Commands {
         name: String,
     },
     #[command(about = "Get one streak", long_about = None, short_flag='o')]
-    Get { id: Uuid },
+    Get { idx: u32 },
     #[command(about = "Check in to a streak", long_about = None, short_flag = 'c')]
-    CheckIn { id: Uuid },
+    CheckIn { idx: u32 },
     #[command(about = "Remove a streak", long_about = None, short_flag = 'r')]
-    Remove { id: Uuid },
+    Remove { idx: u32 },
     #[command(about = "Switch to TUI", long_about = None, short_flag = 't')]
     Tui,
     #[command(about = "Launch GUI", long_about = None, short_flag = 'g')]
@@ -67,34 +69,43 @@ fn new_weekly(name: String, db: &mut Database) -> Result<Streak, Box<dyn std::er
 fn get_all(mut db: Database) -> HashMap<Uuid, Streak> {
     match db.get_all() {
         Some(streaks) => streaks.clone(),
-        None => HashMap::<Uuid, Streak>::new()
+        None => HashMap::<Uuid, Streak>::new(),
     }
 }
 
 /// Get one single streak
-fn get_one(db: &mut Database, id: Uuid) -> Option<Streak>{
+#[allow(dead_code)]
+fn get_one(db: &mut Database, id: Uuid) -> Option<Streak> {
     if let Some(streak) = db.streaks.lock().unwrap().get(&id) {
-        return Some(streak.clone())
+        return Some(streak.clone());
+    }
+    None
+}
+
+fn get_one_by_index(db: &mut Database, idx: usize) -> Option<Streak> {
+    if let Some(streak) = db.get_by_index(idx) {
+        return Some(streak);
     }
     None
 }
 
 /// Check in to a streak today
-fn checkin(db: &mut Database, id: Uuid) -> Result<(), Box<dyn std::error::Error>> {
-    let mut streak = get_one(db, id).unwrap();
+fn checkin(db: &mut Database, idx: usize) -> Result<(), Box<dyn std::error::Error>> {
+    let mut streak = get_one_by_index(db, idx).unwrap();
     if let Some(check_in) = streak.last_checkin {
         if check_in == Local::now().date_naive() {
-            return Ok(())
+            return Ok(());
         }
     }
     streak.checkin();
-    db.update(id, streak)?;
+    db.update(streak.id, streak)?;
     db.save()?;
     Ok(())
 }
 
 /// Remove a streak
-fn delete(db: &mut Database, id: Uuid) -> Result<(), Box<dyn std::error::Error>> {
+fn delete(db: &mut Database, id: usize) -> Result<(), Box<dyn std::error::Error>> {
+    let id = get_one_by_index(db, id).unwrap().id;
     db.delete(id)?;
     db.save()?;
     Ok(())
@@ -109,10 +120,10 @@ fn build_table(streaks: HashMap<Uuid, Streak>) -> String {
         header_style.paint("Freq").to_string(),
         header_style.paint("Status").to_string(),
         header_style.paint("Last Check In").to_string(),
-        header_style.paint("Total").to_string()
+        header_style.paint("Total").to_string(),
     ]);
 
-    for (id, streak) in streaks.iter() {
+    for (_id, streak) in streaks.iter() {
         let mut wrapped_text = String::new();
         let wrapped_lines = textwrap::wrap(&streak.task.as_str(), 60);
         for line in wrapped_lines {
@@ -123,16 +134,18 @@ fn build_table(streaks: HashMap<Uuid, Streak>) -> String {
         let frequency = Style::new().paint(format!("{}", &streak.frequency));
         let check_in = match &streak.last_checkin {
             Some(date) => date.to_string(),
-            None => "None".to_string()
+            None => "None".to_string(),
         };
         let last_checkin = Style::new().bold().paint(format!("{:^13}", check_in));
-        let total_checkins = Style::new().bold().paint(format!("{:^5}", &streak.total_checkins));
+        let total_checkins = Style::new()
+            .bold()
+            .paint(format!("{:^5}", &streak.total_checkins));
         builder.push_record([
             streak_name.to_string(),
             frequency.to_string(),
             streak.emoji_status(),
             last_checkin.to_string(),
-            total_checkins.to_string()
+            total_checkins.to_string(),
         ]);
     }
 
@@ -153,7 +166,7 @@ pub fn get_database_url() -> String {
     let db_url = match db_url.chars().nth(0) {
         Some('/') => db_url,
         Some('~') => db_url,
-        _ => format!("{}/{db_url}", dirs::data_local_dir().unwrap().display())
+        _ => format!("{}/{db_url}", dirs::data_local_dir().unwrap().display()),
     };
     db_url
 }
@@ -168,13 +181,17 @@ pub fn parse() {
         Commands::Add { name, frequency } => match frequency {
             Frequency::Daily => {
                 let streak = new_daily(name.to_string(), &mut db).unwrap();
-                let response = response_style.paint("Created a new daily streak:").to_string();
+                let response = response_style
+                    .paint("Created a new daily streak:")
+                    .to_string();
                 let tada = Emoji("🎉", "");
                 println!("{tada} {response} {}", streak.task);
             }
             Frequency::Weekly => {
                 let streak = new_weekly(name.to_string(), &mut db).unwrap();
-                let response = response_style.paint("Created a new weekly streak:").to_string();
+                let response = response_style
+                    .paint("Created a new weekly streak:")
+                    .to_string();
                 let tada = Emoji("🎉", "");
                 println!("{tada} {response} {}", streak.task);
             }
@@ -183,45 +200,49 @@ pub fn parse() {
             let streak_list = get_all(db);
             println!("{}", build_table(streak_list));
         }
-        Commands::Get { id } => {
-            let streak = get_one(&mut db, *id).unwrap();
+        Commands::Get { idx } => {
+            let streak = db.get_by_index(*idx as usize).unwrap();
             let mut hash = HashMap::<Uuid, Streak>::new();
-            hash.insert(*id, streak);
+            hash.insert(streak.id, streak);
             println!("{}", build_table(hash));
         }
-        Commands::CheckIn { id } => match checkin(&mut db, *id) {
+        Commands::CheckIn { idx } => match checkin(&mut db, *idx as usize) {
             Ok(_) => {
-                let streak = get_one(&mut db, *id);
-                let name = &streak.unwrap().task;
-                let response = response_style.paint(format!("Checked in on the {name} streak!")).to_string();
+                let streak = db.get_by_index(*idx as usize).unwrap();
+                let name = &streak.task;
+                let response = response_style
+                    .paint(format!("Checked in on the {name} streak!"))
+                    .to_string();
                 let star = Emoji("🌟", "");
                 println!("{star} {response}")
             }
             Err(e) => {
-                let response = Style::new().bold().fg(Color::Red).paint("Error checking in:");
+                let response = Style::new()
+                    .bold()
+                    .fg(Color::Red)
+                    .paint("Error checking in:");
                 eprintln!("{response} {}", e)
-            },
+            }
         },
-        Commands::Remove { id } => {
-            let streak = get_one(&mut db, *id).clone();
-            let _ = delete(&mut db, *id);
-            let name = &streak.unwrap().task;
-            let response = response_style.paint(format!(r#"Removed the "{name}" streak"#)).to_string();
+        Commands::Remove { idx } => {
+            let streak = db.get_by_index(*idx as usize).unwrap();
+            let _ = delete(&mut db, *idx as usize);
+            let name = &streak.task;
+            let response = response_style
+                .paint(format!(r#"Removed the "{name}" streak"#))
+                .to_string();
             let trash = Emoji("🗑️", "");
             println!("{trash} {response}")
         }
-        Commands::Tui => {
-            tui::main().expect("Couldn't launch TUI")
-        }
-        Commands::Gui => {
-            gui::main()
-        }
+        Commands::Tui => tui::main().expect("Couldn't launch TUI"),
+        Commands::Gui => gui::main(),
     }
 }
 
 #[cfg(test)]
 mod tests {
     use std::sync::Mutex;
+
     use assert_cmd::Command;
     use assert_fs::TempDir;
 
@@ -264,7 +285,11 @@ mod tests {
         let mut cmd = Command::cargo_bin("skidmarks").unwrap();
         let add_assert = cmd
             .arg("--database-url")
-            .arg(format!("{}{}", temp.path().display(), "test-new-weekly.ron"))
+            .arg(format!(
+                "{}{}",
+                temp.path().display(),
+                "test-new-weekly.ron"
+            ))
             .arg("add")
             .arg("--name")
             .arg("Test Streak")

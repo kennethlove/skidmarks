@@ -160,15 +160,7 @@ impl App {
 
     pub fn check_in(&mut self) {
         let selected = self.state.selected().unwrap();
-        let mut streak = self
-            .db
-            .get_all()
-            .unwrap()
-            .into_values()
-            .collect::<Vec<Streak>>()
-            .get(selected)
-            .unwrap()
-            .clone();
+        let mut streak = self.db.get_by_index(selected).unwrap();
         streak.checkin();
         let _ = self.db.update(streak.id, streak.clone());
         let _ = self.db.save();
@@ -177,7 +169,7 @@ impl App {
 
     pub fn remove(&mut self) {
         let selected = self.state.selected().unwrap();
-        let mut streak = self
+        let streak = self
             .db
             .get_all()
             .unwrap()
