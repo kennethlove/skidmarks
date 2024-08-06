@@ -48,6 +48,12 @@ fn check_in(streak_id: Uuid) -> Streak {
     streak
 }
 
+fn add_streak(streak: Streak) {
+    let mut db = use_context::<Database>();
+    db.add(streak).unwrap();
+    db.save().unwrap();
+}
+
 #[component]
 fn StreakListing(streak: Streak) -> Element {
     let mut db = use_context::<Database>();
@@ -83,14 +89,13 @@ fn StreakListing(streak: Streak) -> Element {
                         let yes = MessageDialog::new()
                             .set_type(MessageType::Info)
                             .set_title("Delete Streak")
-                            .set_text("Are you sure you want to delete this streak?")
+                            .set_text(&format!("Are you sure you want to delete {}?", streak().task))
                             .show_confirm()
                             .unwrap();
                         if yes {
                             match db.delete(streak().id) {
                                 Ok(_) => {
                                     db.save().unwrap();
-                                    streak.set(Streak::default());
                                 }
                                 Err(e) => {
                                     MessageDialog::new()
@@ -176,8 +181,7 @@ fn NewStreak() -> Element {
                     }
                     _ => Streak::default(),
                 };
-                db.add(new.clone()).unwrap();
-                db.save().unwrap();
+                add_streak(new);
             },
             "Add New"
         }

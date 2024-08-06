@@ -102,8 +102,7 @@ impl Database {
 
     pub fn add(&mut self, streak: Streak) -> Result<(), std::io::Error> {
         let mut streaks = self.streaks.lock().unwrap();
-        let id = streak.id.clone();
-        streaks.insert(id, streak);
+        streaks.insert(streak.id.clone(), streak);
         Ok(())
     }
 

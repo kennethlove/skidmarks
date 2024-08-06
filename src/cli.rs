@@ -251,7 +251,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_all() {
+    fn get_all() {
         let temp = TempDir::new().unwrap();
 
         let mut cmd = Command::cargo_bin("skidmarks").unwrap();
@@ -264,7 +264,7 @@ mod tests {
     }
 
     #[test]
-    fn test_new_daily_command() {
+    fn new_daily_command() {
         let temp = TempDir::new().unwrap();
         let mut cmd = Command::cargo_bin("skidmarks").unwrap();
         let add_assert = cmd
@@ -280,7 +280,7 @@ mod tests {
     }
 
     #[test]
-    fn test_new_weekly_command() {
+    fn new_weekly_command() {
         let temp = TempDir::new().unwrap();
         let mut cmd = Command::cargo_bin("skidmarks").unwrap();
         let add_assert = cmd
