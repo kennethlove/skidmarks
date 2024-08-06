@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use ansi_term::{Style, Color};
 #[allow(unused_imports)]
 use chrono::{Local, NaiveDate};
@@ -5,6 +6,7 @@ use clap::{Parser, Subcommand};
 use console::Emoji;
 use dirs;
 use tabled::{builder::Builder, settings::Style as TabledStyle};
+use uuid::Uuid;
 use crate::{
     db::Database,
     gui,
@@ -34,11 +36,11 @@ enum Commands {
         name: String,
     },
     #[command(about = "Get one streak", long_about = None, short_flag='o')]
-    Get { idx: u32 },
+    Get { id: Uuid },
     #[command(about = "Check in to a streak", long_about = None, short_flag = 'c')]
-    CheckIn { idx: u32 },
+    CheckIn { id: Uuid },
     #[command(about = "Remove a streak", long_about = None, short_flag = 'r')]
-    Remove { idx: u32 },
+    Remove { id: Uuid },
     #[command(about = "Switch to TUI", long_about = None, short_flag = 't')]
     Tui,
     #[command(about = "Launch GUI", long_about = None, short_flag = 'g')]
@@ -48,7 +50,7 @@ enum Commands {
 /// Create a new daily streak item
 fn new_daily(name: String, db: &mut Database) -> Result<Streak, Box<dyn std::error::Error>> {
     let streak = Streak::new_daily(name);
-    db.streaks.lock().unwrap().push(streak.clone());
+    db.streaks.lock().unwrap().insert(streak.id, streak.clone());
     db.save()?;
     Ok(streak)
 }
@@ -56,50 +58,50 @@ fn new_daily(name: String, db: &mut Database) -> Result<Streak, Box<dyn std::err
 /// Create a new weekly streak item
 fn new_weekly(name: String, db: &mut Database) -> Result<Streak, Box<dyn std::error::Error>> {
     let streak = Streak::new_weekly(name);
-    db.streaks.lock().unwrap().push(streak.clone());
+    db.streaks.lock().unwrap().insert(streak.id, streak.clone());
     db.save()?;
     Ok(streak)
 }
 
 /// Get all streaks
-fn get_all(mut db: Database) -> Vec<Streak> {
+fn get_all(mut db: Database) -> HashMap<Uuid, Streak> {
     match db.get_all() {
         Some(streaks) => streaks.clone(),
-        None => Vec::<Streak>::new()
+        None => HashMap::<Uuid, Streak>::new()
     }
 }
 
 /// Get one single streak
-fn get_one(db: &mut Database, idx: u32) -> Option<Streak>{
-    if let Some(streak) = db.get_one(idx) {
+fn get_one(db: &mut Database, id: Uuid) -> Option<Streak>{
+    if let Some(streak) = db.streaks.lock().unwrap().get(&id) {
         return Some(streak.clone())
     }
     None
 }
 
 /// Check in to a streak today
-fn checkin(db: &mut Database, idx: u32) -> Result<(), Box<dyn std::error::Error>> {
-    let mut streak = get_one(db, idx).unwrap();
+fn checkin(db: &mut Database, id: Uuid) -> Result<(), Box<dyn std::error::Error>> {
+    let mut streak = get_one(db, id).unwrap();
     if let Some(check_in) = streak.last_checkin {
         if check_in == Local::now().date_naive() {
             return Ok(())
         }
     }
     streak.checkin();
-    db.update(idx, &streak)?;
+    db.update(id, streak)?;
     db.save()?;
     Ok(())
 }
 
 /// Remove a streak
-fn delete(db: &mut Database, idx: u32) -> Result<(), Box<dyn std::error::Error>> {
-    db.delete(idx)?;
+fn delete(db: &mut Database, id: Uuid) -> Result<(), Box<dyn std::error::Error>> {
+    db.delete(id)?;
     db.save()?;
     Ok(())
 }
 
 /// Builds table of streaks from list
-fn build_table(streaks: Vec<Streak>) -> String {
+fn build_table(streaks: HashMap<Uuid, Streak>) -> String {
     let mut builder = Builder::new();
     let header_style = Style::new().italic();
     builder.push_record([
@@ -110,7 +112,7 @@ fn build_table(streaks: Vec<Streak>) -> String {
         header_style.paint("Total").to_string()
     ]);
 
-    for streak in streaks.iter() {
+    for (id, streak) in streaks.iter() {
         let mut wrapped_text = String::new();
         let wrapped_lines = textwrap::wrap(&streak.task.as_str(), 60);
         for line in wrapped_lines {
@@ -181,13 +183,15 @@ pub fn parse() {
             let streak_list = get_all(db);
             println!("{}", build_table(streak_list));
         }
-        Commands::Get { idx } => {
-            let streak = get_one(&mut db, *idx);
-            println!("{}", build_table(vec![streak.unwrap()]));
+        Commands::Get { id } => {
+            let streak = get_one(&mut db, *id).unwrap();
+            let mut hash = HashMap::<Uuid, Streak>::new();
+            hash.insert(*id, streak);
+            println!("{}", build_table(hash));
         }
-        Commands::CheckIn { idx } => match checkin(&mut db, *idx) {
+        Commands::CheckIn { id } => match checkin(&mut db, *id) {
             Ok(_) => {
-                let streak = get_one(&mut db, *idx);
+                let streak = get_one(&mut db, *id);
                 let name = &streak.unwrap().task;
                 let response = response_style.paint(format!("Checked in on the {name} streak!")).to_string();
                 let star = Emoji("🌟", "");
@@ -198,9 +202,9 @@ pub fn parse() {
                 eprintln!("{response} {}", e)
             },
         },
-        Commands::Remove { idx } => {
-            let streak = get_one(&mut db, *idx).clone();
-            let _ = delete(&mut db, *idx);
+        Commands::Remove { id } => {
+            let streak = get_one(&mut db, *id).clone();
+            let _ = delete(&mut db, *id);
             let name = &streak.unwrap().task;
             let response = response_style.paint(format!(r#"Removed the "{name}" streak"#)).to_string();
             let trash = Emoji("🗑️", "");

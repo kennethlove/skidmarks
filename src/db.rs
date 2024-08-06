@@ -1,7 +1,9 @@
+use std::collections::HashMap;
 use crate::streak::Streak;
 use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::sync::{Arc, Mutex};
+use uuid::Uuid;
 
 lazy_static::lazy_static! {
     static ref FILE_LOCK: Mutex<()> = Mutex::new(());
@@ -10,7 +12,8 @@ lazy_static::lazy_static! {
 #[derive(Debug)]
 pub struct Database {
     pub filename: String,
-    pub streaks: Arc<Mutex<Vec<Streak>>>,
+    // pub streaks: Arc<Mutex<Vec<Streak>>>,
+    pub streaks: Arc<Mutex<HashMap<Uuid, Streak>>>
 }
 
 impl Clone for Database {
@@ -59,14 +62,14 @@ impl Database {
         self.streaks.lock().unwrap().len()
     }
 
-    fn load_database(filename: &str) -> Result<Vec<Streak>, std::io::Error> {
+    fn load_database(filename: &str) -> Result<HashMap<Uuid, Streak>, std::io::Error> {
         let ronned = std::fs::read_to_string(filename)?;
-        let ronned: Vec<Streak> = ron::de::from_str(&ronned).expect("Couldn't load database.");
+        let ronned: HashMap<Uuid, Streak> = ron::de::from_str(&ronned).expect("Couldn't load database.");
         Ok(ronned)
     }
 
     fn save_database(&self, filename: &str) {
-        let streaks: Vec<Streak> = self.streaks.lock().unwrap().clone();
+        let streaks: HashMap<Uuid, Streak> = self.streaks.lock().unwrap().clone();
         let ronned = ron::ser::to_string(&streaks).unwrap();
         let mut file = OpenOptions::new()
             .write(true)
@@ -84,25 +87,22 @@ impl Database {
 
     pub fn add(&mut self, streak: Streak) -> Result<(), std::io::Error> {
         let mut streaks = self.streaks.lock().unwrap();
-        streaks.push(streak);
+        let id = streak.id.clone();
+        streaks[&id] = streak;
         Ok(())
     }
 
-    pub fn update(&mut self, idx: u32, streak: &Streak) -> Result<(), std::io::Error> {
+    pub fn update(&mut self, id: Uuid, streak: Streak) -> Result<(), std::io::Error> {
         let mut streaks = self.streaks.lock().unwrap();
-        streaks[idx as usize] = streak.clone();
+        let mut old_streak = streaks.get(&id).unwrap();
+        let _ = old_streak.update(streak);
         Ok(())
     }
 
-    pub fn delete(&mut self, idx: u32) -> Result<(), std::io::Error> {
+    pub fn delete(&mut self, id: Uuid) -> Result<(), std::io::Error> {
         let mut streaks = self.streaks.lock().unwrap();
-        if idx as usize >= streaks.len() {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "Index out of bounds",
-            ));
-        }
-        streaks.remove(idx as usize);
+        streaks.remove(&id);
+
         Ok(())
     }
 
@@ -117,12 +117,12 @@ impl Database {
         Ok(new_db)
     }
 
-    pub fn get_all(&mut self) -> Option<Vec<Streak>> {
+    pub fn get_all(&mut self) -> Option<HashMap<Uuid, Streak>> {
         let streaks = self.streaks.lock();
         match streaks {
             Ok(streaks) => {
                 if streaks.is_empty() {
-                    Some(Vec::<Streak>::new())
+                    Some(HashMap::<Uuid, Streak>::new())
                 } else {
                     Some(streaks.clone())
                 }
@@ -131,9 +131,8 @@ impl Database {
         }
     }
 
-    pub fn get_one(&mut self, idx: u32) -> Option<Streak> {
-        let streaks = self.get_all()?;
-        let streak = streaks.get(idx as usize);
+    pub fn get_one(&mut self, id: Uuid) -> Option<Streak> {
+        let streak = self.streaks.lock().unwrap().get(&id);
         match streak {
             Some(streak) => Some(streak.clone()),
             None => None,
@@ -144,7 +143,7 @@ impl Database {
 impl Default for Database {
     fn default() -> Self {
         Self {
-            streaks: Arc::new(Mutex::new(Vec::new())),
+            streaks: Arc::new(Mutex::new(HashMap::<Uuid, Streak>::new())),
             filename: "skidmarks.ron".to_string(),
         }
     }

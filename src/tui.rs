@@ -91,6 +91,7 @@ impl App {
         let mut db = Database::new(&get_database_url()).expect("Failed to load database");
         let data_vec: Vec<Data> = db.get_all()
             .unwrap_or_default()
+            .into_values()
             .into_iter()
             .map(Data::from)
             .collect();
@@ -115,6 +116,7 @@ impl App {
     pub fn refresh(&mut self) {
         let data_vec: Vec<Data> = self.db.get_all()
             .unwrap_or_default()
+            .into_values()
             .into_iter()
             .map(Data::from)
             .collect();

@@ -37,3 +37,4 @@ unicode-width = "0.1.13"
 
 # Debug
 dioxus-logger = "0.5.1"
+uuid = { version = "1.10.0", features = ["serde", "v4", "fast-rng"] }
