@@ -13,18 +13,23 @@ categories = ["command-line-utilities"]
 ansi_term = "0.12.1"
 assert_cmd = "2.0.15"
 assert_fs = "1.1.2"
+async-recursion = "1.1.1"
 catppuccin = { version = "2.4.0", features = ["ratatui"] }
 chrono = { version = "0.4.38", features = ["serde"] }
 clap = { version = "4.5.11", features = ["derive"] }
 console = "0.15.8"
 derive_setters = "0.1.6"
 dirs = "5.0.1"
+futures = "0.3.30"
 lazy_static = "1.5.0"
 ratatui = "0.27.0"
+reqwest = { version = "0.12.5", features = ["json"] }
 ron = "0.8.1"
 serde = { version = "1.0.204", features = ["derive"] }
+serde_json = "1.0.122"
 tabled = { version = "0.15.0", features = ["ansi"] }
 textwrap = { version = "0.16.1" }
 tui-input = "0.9.0"
 tui_confirm_dialog = "0.2.2"
 unicode-width = "0.1.13"
+uuid = { version = "1.10.0", features = ["serde", "v4", "fast-rng"] }

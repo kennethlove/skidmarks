@@ -1,11 +1,14 @@
+use std::fmt::Display;
+
 #[allow(unused_imports)]
 use chrono::{Local, NaiveDate};
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
-use std::fmt::Display;
+use uuid::Uuid;
 
-#[derive(Clone, Debug, PartialEq, ValueEnum, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, ValueEnum, Serialize, Deserialize)]
 pub enum Frequency {
+    #[default]
     Daily,
     Weekly,
 }
@@ -53,17 +56,23 @@ impl Display for Status {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Streak {
+    pub id: Uuid,
+    #[serde(default)]
     pub task: String,
+    #[serde(default)]
     pub frequency: Frequency,
     pub last_checkin: Option<NaiveDate>,
+    #[serde(default)]
     pub total_checkins: u32,
 }
 
 impl Streak {
     pub fn new_daily(name: String) -> Self {
+        let id = Uuid::new_v4();
         Self {
+            id,
             task: name,
             frequency: Frequency::Daily,
             last_checkin: None,
@@ -72,7 +81,9 @@ impl Streak {
     }
 
     pub fn new_weekly(name: String) -> Self {
+        let id = Uuid::new_v4();
         Self {
+            id,
             task: name,
             frequency: Frequency::Weekly,
             last_checkin: None,
@@ -82,6 +93,9 @@ impl Streak {
 
     pub fn checkin(&mut self) {
         let date = Local::now().date_naive();
+        if self.last_checkin.is_some() && self.last_checkin.unwrap() == date {
+            return;
+        }
         self.last_checkin = Some(date);
         self.total_checkins += 1;
     }
@@ -127,11 +141,18 @@ impl Streak {
             Status::Waiting => "⏳".to_string(),
         }
     }
+
+    pub fn update(&mut self, new_self: Streak) {
+        self.task = new_self.task;
+        self.last_checkin = new_self.last_checkin;
+        self.total_checkins = new_self.total_checkins;
+    }
 }
 
 impl Default for Streak {
     fn default() -> Self {
         Self {
+            id: Uuid::new_v4(),
             task: "".to_string(),
             frequency: Frequency::Daily,
             last_checkin: None,
@@ -142,8 +163,9 @@ impl Default for Streak {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use chrono::{NaiveDate, TimeDelta};
+
+    use super::*;
 
     #[test]
     fn status_waiting() {
@@ -190,7 +212,7 @@ mod tests {
         streak.total_checkins = 1;
 
         streak.checkin();
-        assert!(streak.last_checkin.unwrap() != old_date);
+        assert_ne!(streak.last_checkin.unwrap(), old_date);
         assert_eq!(streak.total_checkins, 2);
     }
 
