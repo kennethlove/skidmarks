@@ -12,6 +12,7 @@ use uuid::Uuid;
 
 use crate::{
     db::Database,
+    gui,
     streak::{Frequency, Streak},
     tui,
 };
@@ -45,6 +46,8 @@ enum Commands {
     Remove { idx: u32 },
     #[command(about = "Switch to TUI", long_about = None, short_flag = 't')]
     Tui,
+    #[command(about = "Switch to GUI", long_about = None, short_flag = 'g')]
+    Gui,
 }
 
 /// Create a new daily streak item
@@ -229,6 +232,7 @@ pub fn parse() {
             println!("{trash} {response}")
         }
         Commands::Tui => tui::main().expect("Couldn't launch TUI"),
+        Commands::Gui => gui::main().expect("Couldn't launch GUI"),
     }
 }
 
