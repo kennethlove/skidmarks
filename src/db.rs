@@ -1,11 +1,11 @@
+use crate::gui::Filter;
+use crate::streak::Streak;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::sync::{Arc, Mutex};
-
 use uuid::Uuid;
-
-use crate::streak::Streak;
 
 lazy_static::lazy_static! {
     static ref FILE_LOCK: Mutex<()> = Mutex::new(());
@@ -169,6 +169,84 @@ impl Default for Database {
             streaks: Arc::new(Mutex::new(HashMap::<Uuid, Streak>::new())),
             filename: "skidmarks.ron".to_string(),
         }
+    }
+}
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct SavedState {
+    pub input_value: String,
+    pub filter: Filter,
+    pub tasks: Vec<crate::gui::Task>,
+}
+
+#[derive(Clone, Debug)]
+pub enum LoadError {
+    File,
+    Format,
+}
+
+#[derive(Clone, Debug)]
+pub enum SaveError {
+    File,
+    Write,
+    Format,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl SavedState {
+    fn path() -> std::path::PathBuf {
+        let mut path = if let Some(project_dirs) =
+            directories_next::ProjectDirs::from("com", "thekennethlove", "Skidmarks")
+        {
+            project_dirs.data_dir().into()
+        } else {
+            std::env::current_dir().unwrap_or_default()
+        };
+
+        path.push("skidmarks.ron");
+
+        path
+    }
+
+    pub async fn load() -> Result<SavedState, LoadError> {
+        use async_std::prelude::*;
+
+        let mut contents = String::new();
+
+        let mut file = async_std::fs::File::open(Self::path())
+            .await
+            .map_err(|_| LoadError::File)?;
+
+        file.read_to_string(&mut contents)
+            .await
+            .map_err(|_| LoadError::File)?;
+
+        ron::de::from_str(&contents).map_err(|_| LoadError::Format)
+    }
+
+    pub async fn save(self) -> Result<(), SaveError> {
+        use async_std::prelude::*;
+
+        let ron = ron::ser::to_string(&self).map_err(|_| SaveError::Format)?;
+
+        let path = Self::path();
+
+        if let Some(dir) = path.parent() {
+            async_std::fs::create_dir_all(dir)
+                .await
+                .map_err(|_| SaveError::File)?;
+        }
+
+        {
+            let mut file = async_std::fs::File::create(path)
+                .await
+                .map_err(|_| SaveError::File)?;
+
+            file.write_all(ron.as_bytes())
+                .await
+                .map_err(|_| SaveError::Write)?;
+        }
+
+        Ok(())
     }
 }
 

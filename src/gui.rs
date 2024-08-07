@@ -1,17 +1,15 @@
+use crate::db::{LoadError, SaveError, SavedState};
 use iced::alignment::{self, Alignment};
 use iced::font::{self, Font};
 use iced::keyboard;
 use iced::theme::{self, Theme};
 use iced::widget::{
-    self, button, checkbox, column, container, keyed_column, row, scrollable,
-    text, text_input, Text
+    self, button, checkbox, column, container, keyed_column, row, scrollable, text, text_input,
+    Text,
 };
 use iced::window;
 use iced::{Application, Color, Command, Element, Length, Settings, Size, Subscription};
-
 use once_cell::sync::Lazy;
-use ratatui::layout::Constraint::Length;
-use ron::Error::Message;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -60,8 +58,8 @@ enum Message {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-struct Task {
-    #[serde(default="Uuid::new_v4")]
+pub struct Task {
+    #[serde(default = "Uuid::new_v4")]
     id: Uuid,
     description: String,
     completed: bool,
@@ -96,7 +94,7 @@ pub enum Filter {
     #[default]
     All,
     Active,
-    Completed
+    Completed,
 }
 
 impl Filter {
@@ -106,88 +104,6 @@ impl Filter {
             Filter::Active => !task.completed,
             Filter::Completed => task.completed,
         }
-    }
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-struct SavedState {
-    input_value: String,
-    filter: Filter,
-    tasks: Vec<Task>,
-}
-
-#[derive(Clone, Debug)]
-enum LoadError {
-    File,
-    Format,
-}
-
-#[derive(Clone, Debug)]
-enum SaveError {
-    File,
-    Write,
-    Format,
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-impl SavedState {
-    fn path() -> std::path::PathBuf {
-        let mut path = if let Some(project_dirs) =
-            directories_next::ProjectDirs::from("rs", "Iced", "Todos")
-        {
-            project_dirs.data_dir().into()
-        } else {
-            std::env::current_dir().unwrap_or_default()
-        };
-
-        path.push("todos.json");
-
-        path
-    }
-
-    async fn load() -> Result<SavedState, LoadError> {
-        use async_std::prelude::*;
-
-        let mut contents = String::new();
-
-        let mut file = async_std::fs::File::open(Self::path())
-            .await
-            .map_err(|_| LoadError::File)?;
-
-        file.read_to_string(&mut contents)
-            .await
-            .map_err(|_| LoadError::File)?;
-
-        serde_json::from_str(&contents).map_err(|_| LoadError::Format)
-    }
-
-    async fn save(self) -> Result<(), SaveError> {
-        use async_std::prelude::*;
-
-        let json = serde_json::to_string_pretty(&self)
-            .map_err(|_| SaveError::Format)?;
-
-        let path = Self::path();
-
-        if let Some(dir) = path.parent() {
-            async_std::fs::crate_dir_all(dir)
-                .await
-                .map_err(|_| SaveError::File)?;
-        }
-
-        {
-            let mut file = async_std::fs::File::create(path)
-                .await
-                .map_err(|_| SaveError::File)?;
-
-            file.write_all(json.as_bytes())
-                .await
-                .map_err(|_| SaveError::Write)?;
-        }
-
-        async_std::task::sleep(std::time::Duration::from_secs(2)).await;
-
-        Ok(())
     }
 }
 
@@ -212,10 +128,10 @@ fn loading_message<'a>() -> Element<'a, Message> {
             .horizontal_alignment(alignment::Horizontal::Center)
             .size(50),
     )
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .center_y()
-        .into()
+    .width(Length::Fill)
+    .height(Length::Fill)
+    .center_y()
+    .into()
 }
 
 fn empty_message(message: &str) -> Element<'_, Message> {
@@ -226,9 +142,9 @@ fn empty_message(message: &str) -> Element<'_, Message> {
             .horizontal_alignment(alignment::Horizontal::Center)
             .style(Color::from([0.7, 0.7, 0.7])),
     )
-        .height(200)
-        .center_y()
-        .into()
+    .height(200)
+    .center_y()
+    .into()
 }
 
 fn view_controls(tasks: &[Task], current_filter: Filter) -> Element<Message> {
@@ -260,9 +176,9 @@ fn view_controls(tasks: &[Task], current_filter: Filter) -> Element<Message> {
         .width(Length::Shrink)
         .spacing(10)
     ]
-        .spacing(20)
-        .align_items(Alignment::Center)
-        .into()
+    .spacing(20)
+    .align_items(Alignment::Center)
+    .into()
 }
 
 impl Application for Todos {
@@ -322,9 +238,7 @@ impl Application for Todos {
                     }
                     Message::CreateTask => {
                         if !state.input_value.is_empty() {
-                            state
-                                .tasks
-                                .push(Task::new(state.input_value.clone()));
+                            state.tasks.push(Task::new(state.input_value.clone()));
                             state.input_value.clear();
                         }
                         Command::none()
@@ -371,9 +285,7 @@ impl Application for Todos {
                             widget::focus_next()
                         }
                     }
-                    Message::ToggleFullscreen(mode) => {
-                        window::change_mode(window::Id::MAIN, mode)
-                    }
+                    Message::ToggleFullscreen(mode) => window::change_mode(window::Id::MAIN, mode),
                     _ => Command::none(),
                 };
 
@@ -391,7 +303,7 @@ impl Application for Todos {
                             filter: state.filter,
                             tasks: state.tasks.clone(),
                         }
-                            .save(),
+                        .save(),
                         Message::Saved,
                     )
                 } else {
@@ -407,11 +319,11 @@ impl Application for Todos {
         match self {
             Todos::Loading => loading_message(),
             Todos::Loaded(State {
-                              input_value,
-                              filter,
-                              tasks,
-                              ..
-                          }) => {
+                input_value,
+                filter,
+                tasks,
+                ..
+            }) => {
                 let title = text("todos")
                     .width(Length::Fill)
                     .size(100)
@@ -426,33 +338,29 @@ impl Application for Todos {
                     .size(30);
 
                 let controls = view_controls(tasks, *filter);
-                let filtered_tasks =
-                    tasks.iter().filter(|task| filter.matches(task));
+                let filtered_tasks = tasks.iter().filter(|task| filter.matches(task));
 
                 let tasks: Element<_> = if filtered_tasks.count() > 0 {
                     keyed_column(
                         tasks
                             .iter()
                             .enumerate()
-                            .filter(|_, task| filter.matches(task))
+                            .filter(|(_, task)| filter.matches(task))
                             .map(|(i, task)| {
                                 (
                                     task.id,
-                                    task.view(i).map(move |message| {
-                                        Message::TaskMessage(i, message)
-                                    }),
+                                    task.view(i)
+                                        .map(move |message| Message::TaskMessage(i, message)),
                                 )
                             }),
                     )
-                        .spacing(10)
-                        .into()
+                    .spacing(10)
+                    .into()
                 } else {
                     empty_message(match filter {
                         Filter::All => "You have not created a task yet...",
                         Filter::Active => "All your tasks are done! :D",
-                        Filter::Completed => {
-                            "You have not completed a task yet..."
-                        }
+                        Filter::Completed => "You have not completed a task yet...",
                     })
                 };
 
@@ -486,5 +394,84 @@ impl Application for Todos {
                 _ => None,
             }
         })
+    }
+}
+
+impl Task {
+    fn text_input_id(i: usize) -> text_input::Id {
+        text_input::Id::new(format!("task-{i}"))
+    }
+
+    fn new(description: String) -> Self {
+        Task {
+            id: Uuid::new_v4(),
+            description,
+            completed: false,
+            state: TaskState::Idle,
+        }
+    }
+
+    fn update(&mut self, message: TaskMessage) {
+        match message {
+            TaskMessage::Completed(completed) => {
+                self.completed = completed;
+            }
+            TaskMessage::Edit => {
+                self.state = TaskState::Editing;
+            }
+            TaskMessage::DescriptionEdited(new_description) => {
+                self.description = new_description;
+            }
+            TaskMessage::FinishEdition => {
+                if !self.description.is_empty() {
+                    self.state = TaskState::Idle;
+                }
+            }
+            TaskMessage::Delete => {}
+        }
+    }
+
+    fn view(&self, i: usize) -> Element<TaskMessage> {
+        match &self.state {
+            TaskState::Idle => {
+                let checkbox = checkbox(&self.description, self.completed)
+                    .on_toggle(TaskMessage::Completed)
+                    .width(Length::Fill)
+                    .text_shaping(text::Shaping::Advanced);
+
+                row![
+                    checkbox,
+                    button(edit_icon())
+                        .on_press(TaskMessage::Edit)
+                        .padding(10)
+                        .style(theme::Button::Text),
+                ]
+                .spacing(20)
+                .align_items(Alignment::Center)
+                .into()
+            }
+            TaskState::Editing => {
+                let text_input = text_input("Describe your task...", &self.description)
+                    .id(Self::text_input_id(i))
+                    .on_input(TaskMessage::DescriptionEdited)
+                    .on_submit(TaskMessage::FinishEdition)
+                    .padding(10);
+
+                row![
+                    text_input,
+                    button(
+                        row![delete_icon(), "Delete"]
+                            .spacing(10)
+                            .align_items(Alignment::Center)
+                    )
+                    .on_press(TaskMessage::Delete)
+                    .padding(10)
+                    .style(theme::Button::Destructive)
+                ]
+                .spacing(20)
+                .align_items(Alignment::Center)
+                .into()
+            }
+        }
     }
 }
