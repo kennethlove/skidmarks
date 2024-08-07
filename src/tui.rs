@@ -13,7 +13,7 @@ use ratatui::{
     terminal::{Frame, Terminal},
     text::{Line, Span, Text},
     widgets::{
-        Block, Borders, BorderType, Cell, HighlightSpacing, Paragraph, Row, Scrollbar,
+        Block, BorderType, Borders, Cell, HighlightSpacing, Paragraph, Row, Scrollbar,
         ScrollbarOrientation, ScrollbarState, Table, TableState,
     },
 };
@@ -485,14 +485,11 @@ fn render_fields(f: &mut Frame, app: &mut App, area: Rect) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .margin(2)
-        .constraints(
-            [
-                Constraint::Length(3),
-                Constraint::Length(3),
-                Constraint::Min(1),
-            ]
-            .as_ref(),
-        )
+        .constraints([
+            Constraint::Length(3),
+            Constraint::Length(3),
+            Constraint::Min(1),
+        ])
         .split(area);
 
     let width = chunks[0].width.max(3) - 3;
