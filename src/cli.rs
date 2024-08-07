@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::path::Path;
 
 use ansi_term::{Color, Style};
 #[allow(unused_imports)]
@@ -11,7 +12,6 @@ use uuid::Uuid;
 
 use crate::{
     db::Database,
-    gui,
     streak::{Frequency, Streak},
     tui,
 };
@@ -45,8 +45,6 @@ enum Commands {
     Remove { idx: u32 },
     #[command(about = "Switch to TUI", long_about = None, short_flag = 't')]
     Tui,
-    #[command(about = "Launch GUI", long_about = None, short_flag = 'g')]
-    Gui,
 }
 
 /// Create a new daily streak item
@@ -158,17 +156,13 @@ fn build_table(streaks: HashMap<Uuid, Streak>) -> String {
 
 pub fn get_database_url() -> String {
     let cli = Cli::parse();
-    let mut db_url: String = "skidmarks.ron".to_string();
+    let db_url: String = "skidmarks.ron".to_string();
     if cli.database_url != "" {
-        db_url = cli.database_url.to_string();
+        cli.database_url.to_string()
+    } else {
+        let path = Path::new(&dirs::data_local_dir().unwrap()).join(&db_url);
+        path.to_string_lossy().to_string()
     }
-    // Feels hacky, fix with `clio`?
-    let db_url = match db_url.chars().nth(0) {
-        Some('/') => db_url,
-        Some('~') => db_url,
-        _ => format!("{}/{db_url}", dirs::data_local_dir().unwrap().display()),
-    };
-    db_url
 }
 
 /// Parses command line options
@@ -235,7 +229,6 @@ pub fn parse() {
             println!("{trash} {response}")
         }
         Commands::Tui => tui::main().expect("Couldn't launch TUI"),
-        Commands::Gui => gui::main(),
     }
 }
 
