@@ -42,7 +42,7 @@ enum Commands {
     #[command(about = "Check in to a streak", long_about = None, short_flag = 'c')]
     CheckIn { ident: String },
     #[command(about = "Remove a streak", long_about = None, short_flag = 'r')]
-    Remove { idx: u32 },
+    Remove { ident: String },
     #[command(about = "Switch to TUI", long_about = None, short_flag = 't')]
     Tui,
 }
@@ -110,8 +110,8 @@ fn checkin(db: &mut Database, ident: &str) -> Result<(), Box<dyn std::error::Err
 }
 
 /// Remove a streak
-fn delete(db: &mut Database, id: usize) -> Result<(), Box<dyn std::error::Error>> {
-    let id = get_one_by_index(db, id).unwrap().id;
+fn delete(db: &mut Database, ident: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let id = get_one_by_id(db, ident).unwrap().id;
     db.delete(id)?;
     db.save()?;
     Ok(())
@@ -230,9 +230,9 @@ pub fn parse() {
                 eprintln!("{response} {}", e)
             }
         },
-        Commands::Remove { idx } => {
-            let streak = db.get_by_index(*idx as usize).unwrap();
-            let _ = delete(&mut db, *idx as usize);
+        Commands::Remove { ident } => {
+            let streak = db.get_by_id(&ident).unwrap();
+            let _ = delete(&mut db, &ident);
             let name = &streak.task;
             let response = response_style.paint("Removed:").to_string();
             let trash = Emoji("🗑️", "");
