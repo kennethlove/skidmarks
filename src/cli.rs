@@ -38,7 +38,7 @@ enum Commands {
         name: String,
     },
     #[command(about = "Get one streak", long_about = None, short_flag='o')]
-    Get { idx: u32 },
+    Get { ident: String },
     #[command(about = "Check in to a streak", long_about = None, short_flag = 'c')]
     CheckIn { ident: String },
     #[command(about = "Remove a streak", long_about = None, short_flag = 'r')]
@@ -209,8 +209,8 @@ pub fn parse() {
             let streak_list = get_all(db);
             println!("{}", build_table(streak_list));
         }
-        Commands::Get { idx } => {
-            let streak = db.get_by_index(*idx as usize).unwrap();
+        Commands::Get { ident } => {
+            let streak = db.get_by_id(&ident).unwrap();
             let mut hash = HashMap::<Uuid, Streak>::new();
             hash.insert(streak.id, streak);
             println!("{}", build_table(hash));
