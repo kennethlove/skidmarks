@@ -65,6 +65,10 @@ pub struct Streak {
     pub frequency: Frequency,
     pub last_checkin: Option<NaiveDate>,
     #[serde(default)]
+    pub current_streak: u32,
+    #[serde(default)]
+    pub longest_streak: u32,
+    #[serde(default)]
     pub total_checkins: u32,
 }
 
@@ -76,6 +80,8 @@ impl Streak {
             task: name,
             frequency: Frequency::Daily,
             last_checkin: None,
+            current_streak: 0,
+            longest_streak: 0,
             total_checkins: 0,
         }
     }
@@ -87,6 +93,8 @@ impl Streak {
             task: name,
             frequency: Frequency::Weekly,
             last_checkin: None,
+            current_streak: 0,
+            longest_streak: 0,
             total_checkins: 0,
         }
     }
@@ -97,6 +105,10 @@ impl Streak {
             return;
         }
         self.last_checkin = Some(date);
+        self.current_streak += 1;
+        if self.current_streak > self.longest_streak {
+            self.longest_streak = self.current_streak;
+        }
         self.total_checkins += 1;
     }
 
@@ -143,9 +155,9 @@ impl Streak {
     }
 
     pub fn update(&mut self, new_self: Streak) {
-        self.task = new_self.task;
-        self.last_checkin = new_self.last_checkin;
-        self.total_checkins = new_self.total_checkins;
+        let id = self.id;
+        *self = new_self;
+        self.id = id;
     }
 }
 
@@ -156,6 +168,8 @@ impl Default for Streak {
             task: "".to_string(),
             frequency: Frequency::Daily,
             last_checkin: None,
+            current_streak: 0,
+            longest_streak: 0,
             total_checkins: 0,
         }
     }
