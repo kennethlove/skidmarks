@@ -3,7 +3,6 @@ use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::sync::{Arc, Mutex};
 
-use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::streak::Streak;
@@ -68,22 +67,22 @@ impl Database {
 
     fn load_database(filename: &str) -> Result<HashMap<Uuid, Streak>, std::io::Error> {
         Self::create_if_missing(filename)?;
-        let ronned = std::fs::read_to_string(filename)?;
-        let ronned: HashMap<Uuid, Streak> =
-            ron::de::from_str(&ronned).unwrap_or_else(|_| HashMap::<Uuid, Streak>::new());
-        Ok(ronned)
+        let contents = std::fs::read_to_string(filename)?;
+        let decoded: HashMap<Uuid, Streak> =
+            ron::de::from_str(&contents).unwrap_or_else(|_| HashMap::<Uuid, Streak>::new());
+        Ok(decoded)
     }
 
     fn save_database(&self, filename: &str) {
         let streaks: HashMap<Uuid, Streak> = self.streaks.lock().unwrap().clone();
-        let ronned = ron::ser::to_string(&streaks).unwrap();
+        let encoded = ron::ser::to_string(&streaks).unwrap();
         let mut file = OpenOptions::new()
             .write(true)
             .truncate(true)
             .open(filename)
             .unwrap();
         let _lock = FILE_LOCK.lock().unwrap();
-        file.write_all(ronned.as_bytes()).unwrap();
+        file.write_all(encoded.as_bytes()).unwrap();
     }
 
     pub fn save(&self) -> Result<(), std::io::Error> {
@@ -157,6 +156,17 @@ impl Database {
     pub fn get_by_index(&mut self, index: usize) -> Option<Streak> {
         let streaks = self.streaks.lock().unwrap();
         let streak = streaks.values().nth(index);
+        match streak {
+            Some(streak) => Some(streak.clone()),
+            None => None,
+        }
+    }
+
+    pub fn get_by_id(&mut self, ident: &str) -> Option<Streak> {
+        let streaks = self.streaks.lock().unwrap();
+        let streak = streaks
+            .values()
+            .find(|s| s.id.to_string()[0..5].to_string() == ident);
         match streak {
             Some(streak) => Some(streak.clone()),
             None => None,
