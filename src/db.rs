@@ -3,6 +3,7 @@ use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::sync::{Arc, Mutex};
 
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::streak::Streak;
@@ -241,8 +242,14 @@ mod tests {
         db.save().unwrap();
 
         let expected_content = format!(
-            r#"{{"{}":(id:"{}",task:"{}",frequency:Daily,last_checkin:{:?},total_checkins:{})}}"#,
-            streak.id, streak.id, streak.task, streak.last_checkin, streak.total_checkins
+            r#"{{"{}":(id:"{}",task:"{}",frequency:Daily,last_checkin:{:?},current_streak:{},longest_streak:{},total_checkins:{})}}"#,
+            streak.id,
+            streak.id,
+            streak.task,
+            streak.last_checkin,
+            streak.current_streak,
+            streak.longest_streak,
+            streak.total_checkins
         );
 
         let result = std::fs::read_to_string(file_path);
