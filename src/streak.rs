@@ -6,7 +6,9 @@ use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[derive(Clone, Debug, Default, PartialEq, ValueEnum, Serialize, Deserialize)]
+#[derive(
+    Clone, Debug, Default, Eq, Ord, PartialEq, PartialOrd, ValueEnum, Serialize, Deserialize,
+)]
 pub enum Frequency {
     #[default]
     Daily,
@@ -39,7 +41,7 @@ impl Frequency {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum Status {
     Waiting,
     Done,
@@ -56,7 +58,7 @@ impl Display for Status {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct Streak {
     pub id: Uuid,
     #[serde(default)]

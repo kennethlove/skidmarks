@@ -1,7 +1,6 @@
-use std::collections::HashMap;
 use std::fs::{File, OpenOptions};
 use std::io::Write;
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 
 use crate::cli::{SortByDirection, SortByField};
 use crate::streak::Streak;
@@ -14,8 +13,8 @@ lazy_static::lazy_static! {
 #[derive(Debug)]
 pub struct Database {
     pub filename: String,
-    // pub streaks: Arc<Mutex<Vec<Streak>>>,
-    pub streaks: Arc<Mutex<HashMap<Uuid, Streak>>>,
+    pub streaks: Vec<Streak>, // pub streaks: Arc<Mutex<Vec<Streak>>>,
+                              // pub streaks: Arc<Mutex<HashMap<Uuid, Streak>>>,
 }
 
 impl Clone for Database {
@@ -29,15 +28,14 @@ impl Clone for Database {
 
 impl PartialEq for Database {
     fn eq(&self, other: &Self) -> bool {
-        self.filename == other.filename
-            && *self.streaks.lock().unwrap() == *other.streaks.lock().unwrap()
+        self.filename == other.filename && *self.streaks == *other.streaks
     }
 }
 
 impl Database {
     fn create_if_missing(filename: &str) -> Result<(), std::io::Error> {
         // let data = "[]".as_bytes();
-        let data = "{}".as_bytes();
+        let data = "[]".as_bytes();
         let metadata = match std::fs::metadata(filename) {
             Ok(meta) => meta,
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
@@ -62,19 +60,19 @@ impl Database {
     }
 
     pub fn num_tasks(&self) -> usize {
-        self.streaks.lock().unwrap().len()
+        self.streaks.len()
     }
 
-    fn load_database(filename: &str) -> Result<HashMap<Uuid, Streak>, std::io::Error> {
+    fn load_database(filename: &str) -> Result<Vec<Streak>, std::io::Error> {
         Self::create_if_missing(filename)?;
         let contents = std::fs::read_to_string(filename)?;
-        let decoded: HashMap<Uuid, Streak> =
-            ron::de::from_str(&contents).unwrap_or_else(|_| HashMap::<Uuid, Streak>::new());
+        let decoded: Vec<Streak> =
+            ron::de::from_str(&contents).unwrap_or_else(|_| Vec::<Streak>::new());
         Ok(decoded)
     }
 
     fn save_database(&self, filename: &str) {
-        let streaks: HashMap<Uuid, Streak> = self.streaks.lock().unwrap().clone();
+        let streaks: Vec<Streak> = self.streaks.clone();
         let encoded = ron::ser::to_string(&streaks).unwrap();
         let mut file = OpenOptions::new()
             .write(true)
@@ -91,32 +89,37 @@ impl Database {
     }
 
     pub fn create_from_string(filename: &str, data: &str) -> Result<Self, std::io::Error> {
-        let db = Self::new(filename)?;
-        let streaks: HashMap<Uuid, Streak> = ron::de::from_str(data).unwrap();
-        let mut db_streaks = db.streaks.lock().unwrap();
-        for (id, streak) in streaks {
-            db_streaks.insert(id, streak);
+        let mut db = Self::new(filename)?;
+        let streaks: Vec<Streak> = ron::de::from_str(data).unwrap();
+        for streak in streaks {
+            db.streaks.push(streak);
         }
-        Ok(db.clone())
+        Ok(db)
     }
 
     pub fn add(&mut self, streak: Streak) -> Result<(), std::io::Error> {
-        let mut streaks = self.streaks.lock().unwrap();
-        streaks.insert(streak.id.clone(), streak);
+        let mut streaks = self.streaks.clone();
+        streaks.push(streak);
+        self.streaks = streaks;
         Ok(())
     }
 
     pub fn update(&mut self, id: Uuid, streak: Streak) -> Result<(), std::io::Error> {
-        let mut streaks = self.streaks.lock().unwrap();
-        let old_streak: &mut Streak = streaks.get_mut(&id).unwrap();
-        let _ = old_streak.update(streak);
+        self.delete(id)?;
+        let mut streaks = self.streaks.clone();
+        streaks.push(streak);
+        self.streaks = streaks;
         Ok(())
     }
 
     pub fn delete(&mut self, id: Uuid) -> Result<(), std::io::Error> {
-        let mut streaks = self.streaks.lock().unwrap();
-        streaks.remove(&id);
-
+        let streaks = self.streaks.clone();
+        let filtered_streaks = streaks
+            .iter()
+            .filter(|s| s.id != id)
+            .cloned()
+            .collect::<Vec<Streak>>();
+        self.streaks = filtered_streaks;
         Ok(())
     }
 
@@ -124,66 +127,68 @@ impl Database {
         Self::create_if_missing(filename)?;
         let existing_db = Self::load_database(filename)?;
         let new_db = Self {
-            streaks: Arc::new(Mutex::new(existing_db.clone())),
+            streaks: existing_db.clone(),
             filename: filename.to_string(),
         };
         Ok(new_db)
     }
 
-    pub fn get_all(
-        &mut self,
-        sort_order: Option<(SortByField, SortByDirection)>,
-    ) -> Option<HashMap<Uuid, Streak>> {
-        let streaks = self.streaks.lock();
-        match streaks {
-            Ok(streaks) => {
-                if streaks.is_empty() {
-                    Some(HashMap::<Uuid, Streak>::new())
-                } else {
-                    let mut streaks = streaks.clone();
-                    streaks = self.sort(streaks, sort_order);
-                    Some(streaks)
-                }
-            }
-            _ => None,
+    pub fn get_all(&mut self) -> Option<Vec<Streak>> {
+        match self.streaks.len() {
+            0 => None,
+            _ => Some(self.streaks.clone()),
         }
     }
 
-    fn sort(
+    pub fn get_sorted(
         &self,
-        streaks: HashMap<Uuid, Streak>,
-        sort_order: Option<(SortByField, SortByDirection)>,
-    ) -> HashMap<Uuid, Streak> {
-        if let Some((field, direction)) = sort_order {
-            let mut streaks = streaks.values().map(|s| s.clone()).collect::<Vec<Streak>>();
-            match field {
-                SortByField::Name => match direction {
-                    SortByDirection::Ascending => streaks.sort_by(|a, b| a.task.cmp(&b.task)),
-                    SortByDirection::Descending => streaks.sort_by(|a, b| b.task.cmp(&a.task)),
-                },
-                SortByField::Frequency => {
-                    todo!();
-                }
-                SortByField::LastCheckIn => {
-                    todo!();
-                }
-                SortByField::CurrentStreak => {
-                    todo!();
-                }
-                SortByField::LongestStreak => {
-                    todo!()
-                }
-                SortByField::TotalCheckins => {
-                    todo!()
-                }
+        sort_field: SortByField,
+        sort_direction: SortByDirection,
+    ) -> Vec<Streak> {
+        let mut streaks = self.streaks.clone();
+        match (sort_field, sort_direction) {
+            (SortByField::Task, SortByDirection::Ascending) => {
+                streaks.sort_by(|a, b| a.task.cmp(&b.task))
+            }
+            (SortByField::Task, SortByDirection::Descending) => {
+                streaks.sort_by(|a, b| b.task.cmp(&a.task))
+            }
+            (SortByField::Frequency, SortByDirection::Ascending) => {
+                streaks.sort_by(|a, b| a.frequency.cmp(&b.frequency))
+            }
+            (SortByField::Frequency, SortByDirection::Descending) => {
+                streaks.sort_by(|a, b| b.frequency.cmp(&a.frequency))
+            }
+            (SortByField::LastCheckIn, SortByDirection::Ascending) => {
+                streaks.sort_by(|a, b| a.last_checkin.cmp(&b.last_checkin))
+            }
+            (SortByField::LastCheckIn, SortByDirection::Descending) => {
+                streaks.sort_by(|a, b| b.last_checkin.cmp(&a.last_checkin))
+            }
+            (SortByField::CurrentStreak, SortByDirection::Ascending) => {
+                streaks.sort_by(|a, b| a.current_streak.cmp(&b.current_streak))
+            }
+            (SortByField::CurrentStreak, SortByDirection::Descending) => {
+                streaks.sort_by(|a, b| b.current_streak.cmp(&a.current_streak))
+            }
+            (SortByField::LongestStreak, SortByDirection::Ascending) => {
+                streaks.sort_by(|a, b| a.longest_streak.cmp(&b.longest_streak))
+            }
+            (SortByField::LongestStreak, SortByDirection::Descending) => {
+                streaks.sort_by(|a, b| b.longest_streak.cmp(&a.longest_streak))
+            }
+            (SortByField::TotalCheckins, SortByDirection::Ascending) => {
+                streaks.sort_by(|a, b| a.total_checkins.cmp(&b.total_checkins))
+            }
+            (SortByField::TotalCheckins, SortByDirection::Descending) => {
+                streaks.sort_by(|a, b| b.total_checkins.cmp(&a.total_checkins))
             }
         }
         streaks
     }
 
     pub fn get_one(&mut self, id: Uuid) -> Option<Streak> {
-        let streaks = self.streaks.lock().unwrap();
-        let streak = streaks.get(&id);
+        let streak = self.streaks.iter().find(|s| s.id == id);
         match streak {
             Some(streak) => Some(streak.clone()),
             None => None,
@@ -191,8 +196,7 @@ impl Database {
     }
 
     pub fn get_by_index(&mut self, index: usize) -> Option<Streak> {
-        let streaks = self.streaks.lock().unwrap();
-        let streak = streaks.values().nth(index);
+        let streak = self.streaks.iter().nth(index);
         match streak {
             Some(streak) => Some(streak.clone()),
             None => None,
@@ -200,9 +204,9 @@ impl Database {
     }
 
     pub fn get_by_id(&mut self, ident: &str) -> Option<Streak> {
-        let streaks = self.streaks.lock().unwrap();
-        let streak = streaks
-            .values()
+        let streak = self
+            .streaks
+            .iter()
             .find(|s| s.id.to_string()[0..5].to_string() == ident);
         match streak {
             Some(streak) => Some(streak.clone()),
@@ -214,7 +218,7 @@ impl Database {
 impl Default for Database {
     fn default() -> Self {
         Self {
-            streaks: Arc::new(Mutex::new(HashMap::<Uuid, Streak>::new())),
+            streaks: Vec::<Streak>::new(),
             filename: "skidmarks.ron".to_string(),
         }
     }
@@ -226,7 +230,7 @@ mod tests {
 
     use super::*;
 
-    const DATABASE_PRELOAD: &str = r#" {"00e8a16c-0edd-4e90-8c3f-2ee7aa6a2210":(id:"00e8a16c-0edd-4e90-8c3f-2ee7aa6a2210",task:"Poop",frequency:Daily,last_checkin:Some("2024-08-06"),total_checkins:1),"77cbbb3f-2690-45a9-9a30-94a53556d93e":(id:"77cbbb3f-2690-45a9-9a30-94a53556d93e",task:"Take a walk",frequency:Daily,last_checkin:Some("2024-08-06"),total_checkins:1),"af1f4cc5-87b1-40b1-9fa3-2e0344d35d3b":(id:"af1f4cc5-87b1-40b1-9fa3-2e0344d35d3b",task:"Eat brekkie",frequency:Daily,last_checkin:Some("2024-08-06"),total_checkins:1)}"#;
+    const DATABASE_PRELOAD: &str = r#"[(id:"00e8a16c-0edd-4e90-8c3f-2ee7aa6a2210",task:"Poop",frequency:Daily,last_checkin:Some("2024-08-06"),total_checkins:2),(id:"77cbbb3f-2690-45a9-9a30-94a53556d93e",task:"Take a walk",frequency:Daily,last_checkin:Some("2024-08-07"),total_checkins:1),(id:"af1f4cc5-87b1-40b1-9fa3-2e0344d35d3b",task:"Eat brekkie",frequency:Daily,last_checkin:Some("2024-08-05"),total_checkins:3)]"#;
     #[test]
     fn create_if_missing() {
         let temp = assert_fs::TempDir::new().unwrap();
@@ -289,8 +293,7 @@ mod tests {
         db.save().unwrap();
 
         let expected_content = format!(
-            r#"{{"{}":(id:"{}",task:"{}",frequency:Daily,last_checkin:{:?},current_streak:{},longest_streak:{},total_checkins:{})}}"#,
-            streak.id,
+            r#"[(id:"{}",task:"{}",frequency:Daily,last_checkin:{:?},current_streak:{},longest_streak:{},total_checkins:{})]"#,
             streak.id,
             streak.task,
             streak.last_checkin,
@@ -315,9 +318,9 @@ mod tests {
         let streak = Streak::new_daily("brush teeth".to_string());
         db.add(streak.clone()).unwrap();
 
-        let result = db.get_all(None).unwrap();
+        let result = db.get_all().unwrap();
         assert_eq!(result.len(), 1);
-        assert_eq!(result.get(&streak.id).unwrap(), &streak);
+        assert_eq!(result[0], streak);
 
         temp.close().unwrap();
     }
@@ -335,9 +338,9 @@ mod tests {
         streak.task = "floss".to_string();
         db.update(streak.id, streak.clone()).unwrap();
 
-        let result = db.get_all(None).unwrap();
+        let result = db.get_all().unwrap();
         assert_eq!(result.len(), 1);
-        assert_eq!(result.get(&streak.id).unwrap().task, "floss");
+        assert_eq!(result[0].task, "floss");
 
         temp.close().unwrap();
     }
@@ -351,11 +354,12 @@ mod tests {
         let mut db = Database::new(file_path).unwrap();
         let streak = Streak::new_daily("brush teeth".to_string());
         db.add(streak.clone()).unwrap();
+        assert!(db.get_all().is_some());
 
         db.delete(streak.id).unwrap();
 
-        let result = db.get_all(None).unwrap();
-        assert!(result.is_empty());
+        let result = db.get_all();
+        assert!(result.is_none());
 
         temp.close().unwrap();
     }
@@ -372,10 +376,10 @@ mod tests {
         db.add(streak1.clone()).unwrap();
         db.add(streak2.clone()).unwrap();
 
-        let result = db.get_all(None).unwrap();
+        let result = db.get_all().unwrap();
         assert_eq!(result.len(), 2);
-        assert_eq!(result.get(&streak1.id).unwrap(), &streak1);
-        assert_eq!(result.get(&streak2.id).unwrap(), &streak2);
+        assert_eq!(result[0], streak1);
+        assert_eq!(result[1], streak2);
 
         temp.close().unwrap();
     }
@@ -406,8 +410,21 @@ mod tests {
 
         let mut db = Database::create_from_string(file_path, DATABASE_PRELOAD).unwrap();
         let result = db.get_by_index(1).unwrap();
-        let expected = db.streaks.lock().unwrap().values().nth(1).unwrap().clone();
+        let expected = db.streaks.iter().nth(1).unwrap().clone();
         assert_eq!(expected, result);
+
+        temp.close().unwrap();
+    }
+
+    #[test]
+    fn sort_by_task() {
+        let temp = assert_fs::TempDir::new().unwrap();
+        let db_file = temp.child("test_sort_by_task.ron");
+        let file_path = db_file.to_str().unwrap();
+
+        let db = Database::create_from_string(file_path, DATABASE_PRELOAD).unwrap();
+        let result = db.get_sorted(SortByField::Task, SortByDirection::Ascending);
+        assert_ne!(db.streaks.clone()[..], result[..]);
 
         temp.close().unwrap();
     }
