@@ -13,8 +13,7 @@ lazy_static::lazy_static! {
 #[derive(Debug)]
 pub struct Database {
     pub filename: String,
-    pub streaks: Vec<Streak>, // pub streaks: Arc<Mutex<Vec<Streak>>>,
-                              // pub streaks: Arc<Mutex<HashMap<Uuid, Streak>>>,
+    pub streaks: Vec<Streak>,
 }
 
 impl Clone for Database {
