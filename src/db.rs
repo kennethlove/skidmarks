@@ -141,7 +141,6 @@ impl Database {
     }
 
     pub fn sorting(&self, sort_field: SortByField, sort_direction: SortByDirection) -> Vec<Streak> {
-        let mut streaks = Database::new(self.filename.as_str());
         let mut streaks = self.streaks.clone();
         match (sort_field, sort_direction) {
             (SortByField::Task, SortByDirection::Ascending) => {

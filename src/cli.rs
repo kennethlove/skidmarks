@@ -6,7 +6,6 @@ use chrono::{Local, NaiveDate};
 use clap::{Parser, Subcommand};
 use console::Emoji;
 use dirs;
-use ratatui::crossterm::style::Stylize;
 use tabled::{builder::Builder, settings::Style as TabledStyle};
 use uuid::Uuid;
 
@@ -38,7 +37,7 @@ enum Commands {
         frequency: Frequency,
 
         #[clap(short, long)]
-        name: String,
+        task: String,
     },
     #[command(about = "Get one streak", long_about = None, short_flag='o')]
     Get { ident: String },
@@ -66,6 +65,7 @@ fn new_weekly(name: String, db: &mut Database) -> Result<Streak, Box<dyn std::er
     Ok(streak)
 }
 
+#[allow(dead_code)]
 /// Get all streaks
 fn get_all(mut db: Database) -> Vec<Streak> {
     match db.get_all() {
@@ -219,12 +219,16 @@ pub fn get_sort_order(sort_by: String) -> Option<(SortByField, SortByDirection)>
         "frequency" => SortByField::Frequency,
         "freq" => SortByField::Frequency,
         "last_checkin" => SortByField::LastCheckIn,
+        "last-checkin" => SortByField::LastCheckIn,
         "last" => SortByField::LastCheckIn,
         "current_streak" => SortByField::CurrentStreak,
+        "current-streak" => SortByField::CurrentStreak,
         "current" => SortByField::CurrentStreak,
         "longest_streak" => SortByField::LongestStreak,
+        "longest-streak" => SortByField::LongestStreak,
         "longest" => SortByField::LongestStreak,
         "total_checkins" => SortByField::TotalCheckins,
+        "total-checkins" => SortByField::TotalCheckins,
         "total" => SortByField::TotalCheckins,
         _ => SortByField::Task,
     };
@@ -239,9 +243,9 @@ pub fn parse() {
     let mut db = Database::new(db_url.as_str()).expect("Could not load database");
     let response_style = Style::new().bold().fg(Color::Green);
     match &cli.command {
-        Commands::Add { name, frequency } => match frequency {
+        Commands::Add { task, frequency } => match frequency {
             Frequency::Daily => {
-                let streak = new_daily(name.to_string(), &mut db).unwrap();
+                let streak = new_daily(task.to_string(), &mut db).unwrap();
                 let response = response_style
                     .paint("Created a new daily streak:")
                     .to_string();
@@ -249,7 +253,7 @@ pub fn parse() {
                 println!("{tada} {response} {}", streak.task);
             }
             Frequency::Weekly => {
-                let streak = new_weekly(name.to_string(), &mut db).unwrap();
+                let streak = new_weekly(task.to_string(), &mut db).unwrap();
                 let response = response_style
                     .paint("Created a new weekly streak:")
                     .to_string();
