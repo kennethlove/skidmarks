@@ -3,9 +3,9 @@ use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::sync::{Arc, Mutex};
 
-use uuid::Uuid;
-
+use crate::cli::{SortByDirection, SortByField};
 use crate::streak::Streak;
+use uuid::Uuid;
 
 lazy_static::lazy_static! {
     static ref FILE_LOCK: Mutex<()> = Mutex::new(());
@@ -130,18 +130,55 @@ impl Database {
         Ok(new_db)
     }
 
-    pub fn get_all(&mut self) -> Option<HashMap<Uuid, Streak>> {
+    pub fn get_all(
+        &mut self,
+        sort_order: Option<(SortByField, SortByDirection)>,
+    ) -> Option<HashMap<Uuid, Streak>> {
         let streaks = self.streaks.lock();
         match streaks {
             Ok(streaks) => {
                 if streaks.is_empty() {
                     Some(HashMap::<Uuid, Streak>::new())
                 } else {
-                    Some(streaks.clone())
+                    let mut streaks = streaks.clone();
+                    streaks = self.sort(streaks, sort_order);
+                    Some(streaks)
                 }
             }
             _ => None,
         }
+    }
+
+    fn sort(
+        &self,
+        streaks: HashMap<Uuid, Streak>,
+        sort_order: Option<(SortByField, SortByDirection)>,
+    ) -> HashMap<Uuid, Streak> {
+        if let Some((field, direction)) = sort_order {
+            let mut streaks = streaks.values().map(|s| s.clone()).collect::<Vec<Streak>>();
+            match field {
+                SortByField::Name => match direction {
+                    SortByDirection::Ascending => streaks.sort_by(|a, b| a.task.cmp(&b.task)),
+                    SortByDirection::Descending => streaks.sort_by(|a, b| b.task.cmp(&a.task)),
+                },
+                SortByField::Frequency => {
+                    todo!();
+                }
+                SortByField::LastCheckIn => {
+                    todo!();
+                }
+                SortByField::CurrentStreak => {
+                    todo!();
+                }
+                SortByField::LongestStreak => {
+                    todo!()
+                }
+                SortByField::TotalCheckins => {
+                    todo!()
+                }
+            }
+        }
+        streaks
     }
 
     pub fn get_one(&mut self, id: Uuid) -> Option<Streak> {
@@ -278,7 +315,7 @@ mod tests {
         let streak = Streak::new_daily("brush teeth".to_string());
         db.add(streak.clone()).unwrap();
 
-        let result = db.get_all().unwrap();
+        let result = db.get_all(None).unwrap();
         assert_eq!(result.len(), 1);
         assert_eq!(result.get(&streak.id).unwrap(), &streak);
 
@@ -298,7 +335,7 @@ mod tests {
         streak.task = "floss".to_string();
         db.update(streak.id, streak.clone()).unwrap();
 
-        let result = db.get_all().unwrap();
+        let result = db.get_all(None).unwrap();
         assert_eq!(result.len(), 1);
         assert_eq!(result.get(&streak.id).unwrap().task, "floss");
 
@@ -317,7 +354,7 @@ mod tests {
 
         db.delete(streak.id).unwrap();
 
-        let result = db.get_all().unwrap();
+        let result = db.get_all(None).unwrap();
         assert!(result.is_empty());
 
         temp.close().unwrap();
@@ -335,7 +372,7 @@ mod tests {
         db.add(streak1.clone()).unwrap();
         db.add(streak2.clone()).unwrap();
 
-        let result = db.get_all().unwrap();
+        let result = db.get_all(None).unwrap();
         assert_eq!(result.len(), 2);
         assert_eq!(result.get(&streak1.id).unwrap(), &streak1);
         assert_eq!(result.get(&streak2.id).unwrap(), &streak2);

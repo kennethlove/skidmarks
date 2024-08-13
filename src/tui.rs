@@ -13,7 +13,7 @@ use ratatui::{
     terminal::{Frame, Terminal},
     text::{Line, Span, Text},
     widgets::{
-        Block, Borders, BorderType, Cell, HighlightSpacing, Paragraph, Row, Scrollbar,
+        Block, BorderType, Borders, Cell, HighlightSpacing, Paragraph, Row, Scrollbar,
         ScrollbarOrientation, ScrollbarState, Table, TableState,
     },
 };
@@ -91,7 +91,7 @@ impl App {
 
         let mut db = Database::new(&get_database_url()).expect("Failed to load database");
         let data_vec: Vec<Data> = db
-            .get_all()
+            .get_all(None)
             .unwrap_or_default()
             .into_values()
             .into_iter()
@@ -118,7 +118,7 @@ impl App {
     pub fn refresh(&mut self) {
         let data_vec: Vec<Data> = self
             .db
-            .get_all()
+            .get_all(None)
             .unwrap_or_default()
             .into_values()
             .into_iter()
@@ -171,7 +171,7 @@ impl App {
         let selected = self.state.selected().unwrap();
         let streak = self
             .db
-            .get_all()
+            .get_all(None)
             .unwrap()
             .into_values()
             .collect::<Vec<Streak>>()

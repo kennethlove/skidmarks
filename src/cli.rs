@@ -23,6 +23,8 @@ struct Cli {
     command: Commands,
     #[clap(short, long, default_value = "skidmarks.ron")]
     database_url: String,
+    #[clap(short, long, default_value = None)]
+    sort_by: Option<String>,
 }
 
 #[derive(Debug, Subcommand)]
@@ -64,8 +66,11 @@ fn new_weekly(name: String, db: &mut Database) -> Result<Streak, Box<dyn std::er
 }
 
 /// Get all streaks
-fn get_all(mut db: Database) -> HashMap<Uuid, Streak> {
-    match db.get_all() {
+fn get_all(
+    mut db: Database,
+    sort: Option<(SortByField, SortByDirection)>,
+) -> HashMap<Uuid, Streak> {
+    match db.get_all(sort) {
         Some(streaks) => streaks.clone(),
         None => HashMap::<Uuid, Streak>::new(),
     }
@@ -80,6 +85,7 @@ fn get_one(db: &mut Database, id: Uuid) -> Option<Streak> {
     None
 }
 
+#[allow(dead_code)]
 fn get_one_by_index(db: &mut Database, idx: usize) -> Option<Streak> {
     if let Some(streak) = db.get_by_index(idx) {
         return Some(streak);
@@ -180,6 +186,47 @@ pub fn get_database_url() -> String {
     path.to_string_lossy().to_string()
 }
 
+pub enum SortByField {
+    Name,
+    Frequency,
+    LastCheckIn,
+    CurrentStreak,
+    LongestStreak,
+    TotalCheckins,
+}
+
+pub enum SortByDirection {
+    Ascending,
+    Descending,
+}
+
+pub fn get_sort_order() -> Option<(SortByField, SortByDirection)> {
+    let cli = Cli::parse();
+    let (sort_field, sort_direction) = match &cli.sort_by {
+        Some(sort) => {
+            let direction = match sort.chars().next().unwrap() {
+                '+' => SortByDirection::Ascending,
+                '-' => SortByDirection::Descending,
+                _ => SortByDirection::Ascending,
+            };
+            let field_name: String = sort.chars().skip_while(|&c| c == '+' || c == '-').collect();
+
+            let field = match field_name.as_str() {
+                "name" => SortByField::Name,
+                "frequency" => SortByField::Frequency,
+                "last_checkin" => SortByField::LastCheckIn,
+                "current_streak" => SortByField::CurrentStreak,
+                "longest_streak" => SortByField::LongestStreak,
+                "total_checkins" => SortByField::TotalCheckins,
+                _ => SortByField::Name,
+            };
+            (field, direction)
+        }
+        None => (SortByField::Name, SortByDirection::Ascending),
+    };
+    Some((sort_field, sort_direction))
+}
+
 /// Parses command line options
 pub fn parse() {
     let cli = Cli::parse();
@@ -206,7 +253,7 @@ pub fn parse() {
             }
         },
         Commands::List => {
-            let streak_list = get_all(db);
+            let streak_list = get_all(db, get_sort_order());
             println!("{}", build_table(streak_list));
         }
         Commands::Get { ident } => {
@@ -300,5 +347,23 @@ mod tests {
             .arg("weekly")
             .assert();
         add_assert.success();
+    }
+
+    #[test]
+    fn test_sort_order() {
+        let temp = TempDir::new().unwrap();
+        let mut cmd = Command::cargo_bin("skidmarks").unwrap();
+        let list_assert = cmd
+            .arg("--database-url")
+            .arg(format!(
+                "{}{}",
+                temp.path().display(),
+                "test-sort-order.ron"
+            ))
+            .arg("list")
+            .arg("--sort-by")
+            .arg("+name")
+            .assert();
+        list_assert.success();
     }
 }
