@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::path::Path;
 
 use ansi_term::{Color, Style};
@@ -7,6 +6,7 @@ use chrono::{Local, NaiveDate};
 use clap::{Parser, Subcommand};
 use console::Emoji;
 use dirs;
+use ratatui::crossterm::style::Stylize;
 use tabled::{builder::Builder, settings::Style as TabledStyle};
 use uuid::Uuid;
 
@@ -29,8 +29,8 @@ struct Cli {
 enum Commands {
     #[command(about = "List all streaks", long_about = None, short_flag = 'l')]
     List {
-        #[clap(short, long)]
-        sort_by: Option<String>,
+        #[arg(short, long, default_value = "name+", help = "Sort by field")]
+        sort_by: String,
     },
     #[command(about = "Create a new streak", long_about = None, short_flag = 'a')]
     Add {
@@ -53,7 +53,7 @@ enum Commands {
 /// Create a new daily streak item
 fn new_daily(name: String, db: &mut Database) -> Result<Streak, Box<dyn std::error::Error>> {
     let streak = Streak::new_daily(name);
-    db.streaks.lock().unwrap().insert(streak.id, streak.clone());
+    db.streaks.push(streak.clone());
     db.save()?;
     Ok(streak)
 }
@@ -61,26 +61,24 @@ fn new_daily(name: String, db: &mut Database) -> Result<Streak, Box<dyn std::err
 /// Create a new weekly streak item
 fn new_weekly(name: String, db: &mut Database) -> Result<Streak, Box<dyn std::error::Error>> {
     let streak = Streak::new_weekly(name);
-    db.streaks.lock().unwrap().insert(streak.id, streak.clone());
+    db.streaks.push(streak.clone());
     db.save()?;
     Ok(streak)
 }
 
 /// Get all streaks
-fn get_all(
-    mut db: Database,
-    sort: Option<(SortByField, SortByDirection)>,
-) -> HashMap<Uuid, Streak> {
-    match db.get_all(sort) {
+fn get_all(mut db: Database) -> Vec<Streak> {
+    match db.get_all() {
         Some(streaks) => streaks.clone(),
-        None => HashMap::<Uuid, Streak>::new(),
+        None => Vec::<Streak>::new(),
     }
 }
 
 /// Get one single streak
 #[allow(dead_code)]
 fn get_one(db: &mut Database, id: Uuid) -> Option<Streak> {
-    if let Some(streak) = db.streaks.lock().unwrap().get(&id) {
+    let streak = db.streaks.clone().into_iter().find(|s| s.id == id);
+    if let Some(streak) = streak {
         return Some(streak.clone());
     }
     None
@@ -125,7 +123,7 @@ fn delete(db: &mut Database, ident: &str) -> Result<(), Box<dyn std::error::Erro
 }
 
 /// Builds table of streaks from list
-fn build_table(streaks: HashMap<Uuid, Streak>) -> String {
+fn build_table(streaks: Vec<Streak>) -> String {
     let mut builder = Builder::new();
     let header_style = Style::new().italic();
     builder.push_record([
@@ -140,14 +138,14 @@ fn build_table(streaks: HashMap<Uuid, Streak>) -> String {
     ]);
     // let zipper: Vec<_> = (1..).zip(streaks.iter()).collect();
     // for (idx, (_id, streak)) in zipper.iter() {
-    for (id, streak) in streaks.iter() {
+    for streak in streaks.iter() {
         let mut wrapped_text = String::new();
         let wrapped_lines = textwrap::wrap(&streak.task.as_str(), 60);
         for line in wrapped_lines {
             wrapped_text.push_str(&format!("{line}"));
         }
 
-        let id = &id.to_string()[0..5];
+        let id = &streak.id.to_string()[0..5];
         let index = Style::new().bold().paint(format!("{}", id));
         let streak_name = Style::new().bold().paint(wrapped_text);
         let frequency = Style::new().paint(format!("{}", &streak.frequency));
@@ -187,8 +185,9 @@ pub fn get_database_url() -> String {
     path.to_string_lossy().to_string()
 }
 
+#[derive(Debug)]
 pub enum SortByField {
-    Name,
+    Task,
     Frequency,
     LastCheckIn,
     CurrentStreak,
@@ -196,35 +195,41 @@ pub enum SortByField {
     TotalCheckins,
 }
 
+#[derive(Debug)]
 pub enum SortByDirection {
     Ascending,
     Descending,
 }
 
-pub fn get_sort_order(sort_by: Option<String>) -> Option<(SortByField, SortByDirection)> {
-    let (sort_field, sort_direction) = match &sort_by {
-        Some(sort) => {
-            let direction = match sort.chars().next().unwrap() {
-                '+' => SortByDirection::Ascending,
-                '-' => SortByDirection::Descending,
-                _ => SortByDirection::Ascending,
-            };
-            let field_name: String = sort.chars().skip_while(|&c| c == '+' || c == '-').collect();
-
-            let field = match field_name.as_str() {
-                "name" => SortByField::Name,
-                "frequency" => SortByField::Frequency,
-                "last_checkin" => SortByField::LastCheckIn,
-                "current_streak" => SortByField::CurrentStreak,
-                "longest_streak" => SortByField::LongestStreak,
-                "total_checkins" => SortByField::TotalCheckins,
-                _ => SortByField::Name,
-            };
-            (field, direction)
-        }
-        None => (SortByField::Name, SortByDirection::Ascending),
+pub fn get_sort_order(sort_by: String) -> Option<(SortByField, SortByDirection)> {
+    let sign = match sort_by.chars().rev().next().unwrap() {
+        '+' => Some(SortByDirection::Ascending),
+        '-' => Some(SortByDirection::Descending),
+        _ => None,
     };
-    Some((sort_field, sort_direction))
+    if sign.is_none() {
+        return None;
+    }
+
+    let ln = sort_by.len() - 1;
+    let field = match sort_by[..ln].to_lowercase().as_str() {
+        "task" => SortByField::Task,
+        "streak" => SortByField::Task,
+        "name" => SortByField::Task,
+        "frequency" => SortByField::Frequency,
+        "freq" => SortByField::Frequency,
+        "last_checkin" => SortByField::LastCheckIn,
+        "last" => SortByField::LastCheckIn,
+        "current_streak" => SortByField::CurrentStreak,
+        "current" => SortByField::CurrentStreak,
+        "longest_streak" => SortByField::LongestStreak,
+        "longest" => SortByField::LongestStreak,
+        "total_checkins" => SortByField::TotalCheckins,
+        "total" => SortByField::TotalCheckins,
+        _ => SortByField::Task,
+    };
+
+    Some((field, sign.unwrap()))
 }
 
 /// Parses command line options
@@ -253,13 +258,22 @@ pub fn parse() {
             }
         },
         Commands::List { sort_by } => {
-            let streak_list = get_all(db, get_sort_order(sort_by.clone()));
-            println!("{}", build_table(streak_list));
+            let sort_by = get_sort_order(sort_by.to_string());
+            match sort_by {
+                Some((field, direction)) => {
+                    let streak_list = db.sorting(field, direction);
+                    println!("{}", build_table(streak_list));
+                }
+                None => {
+                    let streak_list = db.get_all().unwrap();
+                    println!("{}", build_table(streak_list));
+                }
+            }
         }
         Commands::Get { ident } => {
             let streak = db.get_by_id(&ident).unwrap();
-            let mut hash = HashMap::<Uuid, Streak>::new();
-            hash.insert(streak.id, streak);
+            let mut hash = Vec::<Streak>::new();
+            hash.push(streak);
             println!("{}", build_table(hash));
         }
         Commands::CheckIn { ident } => match checkin(&mut db, ident) {
@@ -360,9 +374,9 @@ mod tests {
                 temp.path().display(),
                 "test-sort-order.ron"
             ))
-            .arg("--sort-by")
-            .arg("+name")
             .arg("list")
+            .arg("--sort-by")
+            .arg("task+")
             .assert();
         list_assert.success();
     }
