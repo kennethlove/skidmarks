@@ -23,14 +23,15 @@ struct Cli {
     command: Commands,
     #[clap(short, long, default_value = "skidmarks.ron")]
     database_url: String,
-    #[clap(short, long, default_value = None)]
-    sort_by: Option<String>,
 }
 
 #[derive(Debug, Subcommand)]
 enum Commands {
     #[command(about = "List all streaks", long_about = None, short_flag = 'l')]
-    List,
+    List {
+        #[clap(short, long)]
+        sort_by: Option<String>,
+    },
     #[command(about = "Create a new streak", long_about = None, short_flag = 'a')]
     Add {
         #[clap(short, long, value_enum)]
@@ -200,9 +201,8 @@ pub enum SortByDirection {
     Descending,
 }
 
-pub fn get_sort_order() -> Option<(SortByField, SortByDirection)> {
-    let cli = Cli::parse();
-    let (sort_field, sort_direction) = match &cli.sort_by {
+pub fn get_sort_order(sort_by: Option<String>) -> Option<(SortByField, SortByDirection)> {
+    let (sort_field, sort_direction) = match &sort_by {
         Some(sort) => {
             let direction = match sort.chars().next().unwrap() {
                 '+' => SortByDirection::Ascending,
@@ -252,8 +252,8 @@ pub fn parse() {
                 println!("{tada} {response} {}", streak.task);
             }
         },
-        Commands::List => {
-            let streak_list = get_all(db, get_sort_order());
+        Commands::List { sort_by } => {
+            let streak_list = get_all(db, get_sort_order(sort_by.clone()));
             println!("{}", build_table(streak_list));
         }
         Commands::Get { ident } => {
@@ -360,9 +360,9 @@ mod tests {
                 temp.path().display(),
                 "test-sort-order.ron"
             ))
-            .arg("list")
             .arg("--sort-by")
             .arg("+name")
+            .arg("list")
             .assert();
         list_assert.success();
     }
