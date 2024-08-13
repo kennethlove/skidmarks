@@ -28,7 +28,7 @@ struct Cli {
 enum Commands {
     #[command(about = "List all streaks", long_about = None, short_flag = 'l')]
     List {
-        #[arg(short, long, default_value = "name+", help = "Sort by field")]
+        #[arg(long, default_value = "task+", help = "Sort by field")]
         sort_by: String,
     },
     #[command(about = "Create a new streak", long_about = None, short_flag = 'a')]
@@ -100,7 +100,6 @@ fn get_one_by_id(db: &mut Database, ident: &str) -> Option<Streak> {
 }
 
 /// Check in to a streak today
-/// Index is decremented by 1 to match 0-based indexing
 fn checkin(db: &mut Database, ident: &str) -> Result<(), Box<dyn std::error::Error>> {
     let mut streak = get_one_by_id(db, ident).unwrap();
     if let Some(check_in) = streak.last_checkin {
@@ -128,7 +127,7 @@ fn build_table(streaks: Vec<Streak>) -> String {
     let header_style = Style::new().italic();
     builder.push_record([
         header_style.paint("\nIdent").to_string(),
-        header_style.paint("\nStreak").to_string(),
+        header_style.paint("\nTask").to_string(),
         header_style.paint("\nFreq").to_string(),
         header_style.paint("\nStatus").to_string(),
         header_style.paint("\nLast Check In").to_string(),
