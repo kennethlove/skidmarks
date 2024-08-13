@@ -140,7 +140,11 @@ impl Database {
         }
     }
 
-    pub fn sorting(&self, sort_field: SortByField, sort_direction: SortByDirection) -> Vec<Streak> {
+    pub fn get_sorted(
+        &self,
+        sort_field: SortByField,
+        sort_direction: SortByDirection,
+    ) -> Vec<Streak> {
         let mut streaks = self.streaks.clone();
         match (sort_field, sort_direction) {
             (SortByField::Task, SortByDirection::Ascending) => {
@@ -419,7 +423,7 @@ mod tests {
         let file_path = db_file.to_str().unwrap();
 
         let db = Database::create_from_string(file_path, DATABASE_PRELOAD).unwrap();
-        let result = db.sorting(SortByField::Task, SortByDirection::Ascending);
+        let result = db.get_sorted(SortByField::Task, SortByDirection::Ascending);
         assert_ne!(db.streaks.clone()[..], result[..]);
 
         temp.close().unwrap();

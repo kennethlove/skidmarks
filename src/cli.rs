@@ -136,8 +136,7 @@ fn build_table(streaks: Vec<Streak>) -> String {
         header_style.paint("Longest\nStreak").to_string(),
         header_style.paint("\nTotal").to_string(),
     ]);
-    // let zipper: Vec<_> = (1..).zip(streaks.iter()).collect();
-    // for (idx, (_id, streak)) in zipper.iter() {
+
     for streak in streaks.iter() {
         let mut wrapped_text = String::new();
         let wrapped_lines = textwrap::wrap(&streak.task.as_str(), 60);
@@ -164,6 +163,7 @@ fn build_table(streaks: Vec<Streak>) -> String {
         let total_checkins = Style::new()
             .bold()
             .paint(format!("{:^5}", &streak.total_checkins));
+
         builder.push_record([
             index.to_string(),
             streak_name.to_string(),
@@ -263,22 +263,15 @@ pub fn parse() {
         },
         Commands::List { sort_by } => {
             let sort_by = get_sort_order(sort_by.to_string());
-            match sort_by {
-                Some((field, direction)) => {
-                    let streak_list = db.sorting(field, direction);
-                    println!("{}", build_table(streak_list));
-                }
-                None => {
-                    let streak_list = db.get_all().unwrap();
-                    println!("{}", build_table(streak_list));
-                }
-            }
+            let streak_list = match sort_by {
+                Some((field, direction)) => db.get_sorted(field, direction),
+                None => db.get_all().unwrap(),
+            };
+            println!("{}", build_table(streak_list));
         }
         Commands::Get { ident } => {
-            let streak = db.get_by_id(&ident).unwrap();
-            let mut hash = Vec::<Streak>::new();
-            hash.push(streak);
-            println!("{}", build_table(hash));
+            let streak = vec![db.get_by_id(&ident).unwrap()];
+            println!("{}", build_table(streak));
         }
         Commands::CheckIn { ident } => match checkin(&mut db, ident) {
             Ok(_) => {
@@ -309,21 +302,20 @@ pub fn parse() {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Mutex;
-
     use assert_cmd::Command;
     use assert_fs::TempDir;
+    use rstest::*;
 
-    lazy_static::lazy_static! {
-        static ref FILE_LOCK: Mutex<()> = Mutex::new(());
+    #[fixture]
+    pub fn command() -> Command {
+        Command::cargo_bin("skidmarks").unwrap()
     }
 
-    #[test]
-    fn get_all() {
+    #[rstest]
+    fn get_all(mut command: Command) {
         let temp = TempDir::new().unwrap();
 
-        let mut cmd = Command::cargo_bin("skidmarks").unwrap();
-        let list_assert = cmd
+        let list_assert = command
             .arg("--database-url")
             .arg(format!("{}{}", temp.path().display(), "test-get-all.ron"))
             .arg("list")
@@ -331,15 +323,14 @@ mod tests {
         list_assert.success();
     }
 
-    #[test]
-    fn new_daily_command() {
+    #[rstest]
+    fn new_daily_command(mut command: Command) {
         let temp = TempDir::new().unwrap();
-        let mut cmd = Command::cargo_bin("skidmarks").unwrap();
-        let add_assert = cmd
+        let add_assert = command
             .arg("--database-url")
             .arg(format!("{}{}", temp.path().display(), "test-new-daily.ron"))
             .arg("add")
-            .arg("--name")
+            .arg("--task")
             .arg("Test Streak")
             .arg("--frequency")
             .arg("daily")
@@ -347,11 +338,10 @@ mod tests {
         add_assert.success();
     }
 
-    #[test]
-    fn new_weekly_command() {
+    #[rstest]
+    fn new_weekly_command(mut command: Command) {
         let temp = TempDir::new().unwrap();
-        let mut cmd = Command::cargo_bin("skidmarks").unwrap();
-        let add_assert = cmd
+        let add_assert = command
             .arg("--database-url")
             .arg(format!(
                 "{}{}",
@@ -359,7 +349,7 @@ mod tests {
                 "test-new-weekly.ron"
             ))
             .arg("add")
-            .arg("--name")
+            .arg("--task")
             .arg("Test Streak")
             .arg("--frequency")
             .arg("weekly")
@@ -367,11 +357,27 @@ mod tests {
         add_assert.success();
     }
 
-    #[test]
-    fn test_sort_order() {
+    #[rstest]
+    fn test_sort_order(
+        #[values(
+            "task+",
+            "task-",
+            "frequency+",
+            "frequency-",
+            "last_checkin+",
+            "last_checkin-",
+            "current_streak+",
+            "current_streak-",
+            "longest_streak+",
+            "longest_streak-",
+            "total_checkins+",
+            "total_checkins-"
+        )]
+        sort_string: &str,
+        mut command: Command,
+    ) {
         let temp = TempDir::new().unwrap();
-        let mut cmd = Command::cargo_bin("skidmarks").unwrap();
-        let list_assert = cmd
+        let list_assert = command
             .arg("--database-url")
             .arg(format!(
                 "{}{}",
@@ -380,7 +386,7 @@ mod tests {
             ))
             .arg("list")
             .arg("--sort-by")
-            .arg("task+")
+            .arg(sort_string)
             .assert();
         list_assert.success();
     }
