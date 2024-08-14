@@ -34,6 +34,9 @@ enum Commands {
 
         #[arg(long, default_value = "", help = "Search for task")]
         search: String,
+
+        #[arg(long, default_value = "", help = "Filter by frequency")]
+        frequency: String,
     },
     #[command(about = "Create a new streak", long_about = None, short_flag = 'a')]
     Add {
@@ -262,12 +265,26 @@ pub fn parse() {
                 println!("{tada} {response} {}", streak.task);
             }
         },
-        Commands::List { sort_by, search } => {
+        Commands::List {
+            sort_by,
+            search,
+            frequency,
+        } => {
             let mut streak_list = match search.is_empty() {
                 true => db.get_all(),
                 false => db.search(search),
             };
             let sort_by = get_sort_order(sort_by);
+            let frequency = match frequency.is_empty() {
+                true => None,
+                false => Some(Frequency::from_str(frequency)),
+            };
+            if let Some(frequency) = frequency {
+                streak_list = streak_list
+                    .into_iter()
+                    .filter(|s| s.frequency == frequency)
+                    .collect();
+            }
 
             streak_list = sort_streaks(streak_list, sort_by.0, sort_by.1);
             println!("{}", build_table(streak_list));
