@@ -9,12 +9,12 @@ use dirs;
 use tabled::{builder::Builder, settings::Style as TabledStyle};
 use uuid::Uuid;
 
+use crate::streak::sort_streaks;
 use crate::{
     db::Database,
     streak::{Frequency, Streak},
     tui,
 };
-use crate::streak::sort_streaks;
 
 #[derive(Debug, Parser)]
 #[command(version, about, long_about = None)]
@@ -187,7 +187,7 @@ pub fn get_database_url() -> String {
     path.to_string_lossy().to_string()
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum SortByField {
     Task,
     Frequency,
@@ -197,18 +197,17 @@ pub enum SortByField {
     TotalCheckins,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum SortByDirection {
     Ascending,
     Descending,
 }
 
 pub fn get_sort_order(sort_by: &str) -> (SortByField, SortByDirection) {
-    dbg!(&sort_by);
-    let sign = match sort_by.chars().rev().next().unwrap() {
-        '+' => SortByDirection::Ascending,
-        '-' => SortByDirection::Descending,
-        _ => SortByDirection::Ascending
+    let sign = match sort_by.chars().rev().next() {
+        Some('+') => SortByDirection::Ascending,
+        Some('-') => SortByDirection::Descending,
+        _ => SortByDirection::Ascending,
     };
 
     let ln = sort_by.len() - 1;
@@ -304,6 +303,7 @@ pub fn parse() {
 
 #[cfg(test)]
 mod tests {
+    use super::{get_sort_order, Streak};
     use assert_cmd::Command;
     use assert_fs::TempDir;
     use rstest::*;
@@ -313,40 +313,49 @@ mod tests {
         Command::cargo_bin("skidmarks").unwrap()
     }
 
+    #[fixture]
+    fn streak() -> Streak {
+        Streak::new_daily("Test Streak".to_string())
+    }
+
     #[rstest]
     fn get_all(mut command: Command) {
         let temp = TempDir::new().unwrap();
 
-        let list_assert = command
+        command
             .arg("--database-url")
-            .arg(format!("{}{}", temp.path().display(), "test-get-all.ron"))
+            .arg(format!("{}/{}", temp.path().display(), "test-get-all.ron"))
             .arg("list")
-            .assert();
-        list_assert.success();
+            .assert()
+            .success();
     }
 
     #[rstest]
     fn new_daily_command(mut command: Command) {
         let temp = TempDir::new().unwrap();
-        let add_assert = command
+        command
             .arg("--database-url")
-            .arg(format!("{}{}", temp.path().display(), "test-new-daily.ron"))
+            .arg(format!(
+                "{}/{}",
+                temp.path().display(),
+                "test-new-daily.ron"
+            ))
             .arg("add")
             .arg("--task")
             .arg("Test Streak")
             .arg("--frequency")
             .arg("daily")
-            .assert();
-        add_assert.success();
+            .assert()
+            .success();
     }
 
     #[rstest]
     fn new_weekly_command(mut command: Command) {
         let temp = TempDir::new().unwrap();
-        let add_assert = command
+        command
             .arg("--database-url")
             .arg(format!(
-                "{}{}",
+                "{}/{}",
                 temp.path().display(),
                 "test-new-weekly.ron"
             ))
@@ -355,8 +364,8 @@ mod tests {
             .arg("Test Streak")
             .arg("--frequency")
             .arg("weekly")
-            .assert();
-        add_assert.success();
+            .assert()
+            .success();
     }
 
     #[rstest]
@@ -379,19 +388,66 @@ mod tests {
         mut command: Command,
     ) {
         let temp = TempDir::new().unwrap();
-        let list_assert = command
+        let mut list_assert = command
             .arg("--database-url")
             .arg(format!(
-                "{}{}",
+                "{}/{}",
                 temp.path().display(),
                 "test-sort-order.ron"
             ))
             .arg("list")
-            .arg("--sort-by")
-            .arg(format!(r#""{}""#, sort_string))
-            .assert();
-        list_assert.success();
+            .arg("--sort-by");
+
+        #[cfg(target_os = "windows")]
+        {
+            list_assert = list_assert.arg(format!(r#""{}""#, sort_string));
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            list_assert = list_assert.arg(format!("{}", sort_string));
+        }
+        list_assert.assert().success();
     }
 
-    // TODO: Test search
+    #[test]
+    fn test_single_sort_order() {
+        let sort = "task+";
+        let (field, direction) = get_sort_order(sort);
+        assert_eq!(field, super::SortByField::Task);
+        assert_eq!(direction, super::SortByDirection::Ascending);
+    }
+
+    #[rstest]
+    fn test_search(mut command: Command) {
+        let temp = TempDir::new().unwrap();
+
+        command
+            .arg("--database-url")
+            .arg(format!("{}/{}", temp.path().display(), "test-search.ron"))
+            .arg("list")
+            .arg("--search")
+            .arg("Test")
+            .assert()
+            .success();
+    }
+
+    #[rstest]
+    fn test_search_and_sort(mut command: Command) {
+        let temp = TempDir::new().unwrap();
+
+        command
+            .arg("--database-url")
+            .arg(format!(
+                "{}/{}",
+                temp.path().display(),
+                "test-search-sort.ron"
+            ))
+            .arg("list")
+            .arg("--search")
+            .arg("Test")
+            .arg("--sort-by")
+            .arg("task+")
+            .assert()
+            .success();
+    }
 }
