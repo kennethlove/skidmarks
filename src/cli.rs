@@ -1,14 +1,15 @@
 use std::path::Path;
 
 use ansi_term::{Color, Style};
-#[allow(unused_imports)]
-use chrono::{Local, NaiveDate};
+use chrono::Local;
 use clap::{Parser, Subcommand};
 use console::Emoji;
 use dirs;
 use tabled::{builder::Builder, settings::Style as TabledStyle};
+use term_size::dimensions;
 use uuid::Uuid;
 
+use crate::streak::sort_streaks;
 use crate::{
     db::Database,
     streak::{Frequency, Streak},
@@ -30,6 +31,9 @@ enum Commands {
     List {
         #[arg(long, default_value = "task+", help = "Sort by field")]
         sort_by: String,
+
+        #[arg(long, default_value = "", help = "Search for task")]
+        search: String,
     },
     #[command(about = "Create a new streak", long_about = None, short_flag = 'a')]
     Add {
@@ -50,16 +54,16 @@ enum Commands {
 }
 
 /// Create a new daily streak item
-fn new_daily(name: String, db: &mut Database) -> Result<Streak, Box<dyn std::error::Error>> {
-    let streak = Streak::new_daily(name);
+fn new_daily(task: String, db: &mut Database) -> Result<Streak, Box<dyn std::error::Error>> {
+    let streak = Streak::new_daily(task);
     db.streaks.push(streak.clone());
     db.save()?;
     Ok(streak)
 }
 
 /// Create a new weekly streak item
-fn new_weekly(name: String, db: &mut Database) -> Result<Streak, Box<dyn std::error::Error>> {
-    let streak = Streak::new_weekly(name);
+fn new_weekly(task: String, db: &mut Database) -> Result<Streak, Box<dyn std::error::Error>> {
+    let streak = Streak::new_weekly(task);
     db.streaks.push(streak.clone());
     db.save()?;
     Ok(streak)
@@ -68,10 +72,7 @@ fn new_weekly(name: String, db: &mut Database) -> Result<Streak, Box<dyn std::er
 #[allow(dead_code)]
 /// Get all streaks
 fn get_all(mut db: Database) -> Vec<Streak> {
-    match db.get_all() {
-        Some(streaks) => streaks.clone(),
-        None => Vec::<Streak>::new(),
-    }
+    db.get_all()
 }
 
 /// Get one single streak
@@ -136,17 +137,21 @@ fn build_table(streaks: Vec<Streak>) -> String {
         header_style.paint("\nTotal").to_string(),
     ]);
 
+    let (width, _) = dimensions().unwrap();
+
     for streak in streaks.iter() {
         let mut wrapped_text = String::new();
-        let wrapped_lines = textwrap::wrap(&streak.task.as_str(), 60);
+        let wrapped_lines = textwrap::wrap(&streak.task.as_str(), width - 90);
         for line in wrapped_lines {
-            wrapped_text.push_str(&format!("{line}"));
+            // TODO: wrapped_text on multiple lines breaks the table layout
+            wrapped_text.push_str(&format!("{line}\n"));
         }
+        wrapped_text = wrapped_text.trim().to_string();
 
         let id = &streak.id.to_string()[0..5];
         let index = Style::new().bold().paint(format!("{}", id));
         let streak_name = Style::new().bold().paint(wrapped_text);
-        let frequency = Style::new().paint(format!("{}", &streak.frequency));
+        let frequency = Style::new().paint(format!("{:^6}", &streak.frequency));
         let emoji = Style::new().paint(format!("{:^6}", &streak.emoji_status()));
         let check_in = match &streak.last_checkin {
             Some(date) => date.to_string(),
@@ -184,7 +189,7 @@ pub fn get_database_url() -> String {
     path.to_string_lossy().to_string()
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum SortByField {
     Task,
     Frequency,
@@ -194,21 +199,18 @@ pub enum SortByField {
     TotalCheckins,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum SortByDirection {
     Ascending,
     Descending,
 }
 
-pub fn get_sort_order(sort_by: String) -> Option<(SortByField, SortByDirection)> {
-    let sign = match sort_by.chars().rev().next().unwrap() {
-        '+' => Some(SortByDirection::Ascending),
-        '-' => Some(SortByDirection::Descending),
-        _ => None,
+pub fn get_sort_order(sort_by: &str) -> (SortByField, SortByDirection) {
+    let sign = match sort_by.chars().rev().next() {
+        Some('+') => SortByDirection::Ascending,
+        Some('-') => SortByDirection::Descending,
+        _ => SortByDirection::Ascending,
     };
-    if sign.is_none() {
-        return None;
-    }
 
     let ln = sort_by.len() - 1;
     let field = match sort_by[..ln].to_lowercase().as_str() {
@@ -232,14 +234,14 @@ pub fn get_sort_order(sort_by: String) -> Option<(SortByField, SortByDirection)>
         _ => SortByField::Task,
     };
 
-    Some((field, sign.unwrap()))
+    (field, sign)
 }
 
 /// Parses command line options
 pub fn parse() {
     let cli = Cli::parse();
     let db_url = get_database_url();
-    let mut db = Database::new(db_url.as_str()).expect("Could not load database");
+    let mut db = Database::new(&db_url).expect("Could not load database");
     let response_style = Style::new().bold().fg(Color::Green);
     match &cli.command {
         Commands::Add { task, frequency } => match frequency {
@@ -260,12 +262,14 @@ pub fn parse() {
                 println!("{tada} {response} {}", streak.task);
             }
         },
-        Commands::List { sort_by } => {
-            let sort_by = get_sort_order(sort_by.to_string());
-            let streak_list = match sort_by {
-                Some((field, direction)) => db.get_sorted(field, direction),
-                None => db.get_all().unwrap(),
+        Commands::List { sort_by, search } => {
+            let mut streak_list = match search.is_empty() {
+                true => db.get_all(),
+                false => db.search(search),
             };
+            let sort_by = get_sort_order(sort_by);
+
+            streak_list = sort_streaks(streak_list, sort_by.0, sort_by.1);
             println!("{}", build_table(streak_list));
         }
         Commands::Get { ident } => {
@@ -301,6 +305,7 @@ pub fn parse() {
 
 #[cfg(test)]
 mod tests {
+    use super::{get_sort_order, Streak};
     use assert_cmd::Command;
     use assert_fs::TempDir;
     use rstest::*;
@@ -314,36 +319,40 @@ mod tests {
     fn get_all(mut command: Command) {
         let temp = TempDir::new().unwrap();
 
-        let list_assert = command
+        command
             .arg("--database-url")
-            .arg(format!("{}{}", temp.path().display(), "test-get-all.ron"))
+            .arg(format!("{}/{}", temp.path().display(), "test-get-all.ron"))
             .arg("list")
-            .assert();
-        list_assert.success();
+            .assert()
+            .success();
     }
 
     #[rstest]
     fn new_daily_command(mut command: Command) {
         let temp = TempDir::new().unwrap();
-        let add_assert = command
+        command
             .arg("--database-url")
-            .arg(format!("{}{}", temp.path().display(), "test-new-daily.ron"))
+            .arg(format!(
+                "{}/{}",
+                temp.path().display(),
+                "test-new-daily.ron"
+            ))
             .arg("add")
             .arg("--task")
             .arg("Test Streak")
             .arg("--frequency")
             .arg("daily")
-            .assert();
-        add_assert.success();
+            .assert()
+            .success();
     }
 
     #[rstest]
     fn new_weekly_command(mut command: Command) {
         let temp = TempDir::new().unwrap();
-        let add_assert = command
+        command
             .arg("--database-url")
             .arg(format!(
-                "{}{}",
+                "{}/{}",
                 temp.path().display(),
                 "test-new-weekly.ron"
             ))
@@ -352,8 +361,8 @@ mod tests {
             .arg("Test Streak")
             .arg("--frequency")
             .arg("weekly")
-            .assert();
-        add_assert.success();
+            .assert()
+            .success();
     }
 
     #[rstest]
@@ -376,17 +385,66 @@ mod tests {
         mut command: Command,
     ) {
         let temp = TempDir::new().unwrap();
-        let list_assert = command
+        let mut list_assert = command
             .arg("--database-url")
             .arg(format!(
-                "{}{}",
+                "{}/{}",
                 temp.path().display(),
                 "test-sort-order.ron"
             ))
             .arg("list")
+            .arg("--sort-by");
+
+        #[cfg(target_os = "windows")]
+        {
+            list_assert = list_assert.arg(format!(r#""{}""#, sort_string));
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            list_assert = list_assert.arg(format!("{}", sort_string));
+        }
+        list_assert.assert().success();
+    }
+
+    #[test]
+    fn test_single_sort_order() {
+        let sort = "task+";
+        let (field, direction) = get_sort_order(sort);
+        assert_eq!(field, super::SortByField::Task);
+        assert_eq!(direction, super::SortByDirection::Ascending);
+    }
+
+    #[rstest]
+    fn test_search(mut command: Command) {
+        let temp = TempDir::new().unwrap();
+
+        command
+            .arg("--database-url")
+            .arg(format!("{}/{}", temp.path().display(), "test-search.ron"))
+            .arg("list")
+            .arg("--search")
+            .arg("Test")
+            .assert()
+            .success();
+    }
+
+    #[rstest]
+    fn test_search_and_sort(mut command: Command) {
+        let temp = TempDir::new().unwrap();
+
+        command
+            .arg("--database-url")
+            .arg(format!(
+                "{}/{}",
+                temp.path().display(),
+                "test-search-sort.ron"
+            ))
+            .arg("list")
+            .arg("--search")
+            .arg("Test")
             .arg("--sort-by")
-            .arg(sort_string)
-            .assert();
-        list_assert.success();
+            .arg("task+")
+            .assert()
+            .success();
     }
 }

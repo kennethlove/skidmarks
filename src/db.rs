@@ -3,7 +3,7 @@ use std::io::Write;
 use std::sync::Mutex;
 
 use crate::cli::{SortByDirection, SortByField};
-use crate::streak::Streak;
+use crate::streak::{sort_streaks, Streak};
 use uuid::Uuid;
 
 lazy_static::lazy_static! {
@@ -13,8 +13,7 @@ lazy_static::lazy_static! {
 #[derive(Debug)]
 pub struct Database {
     pub filename: String,
-    pub streaks: Vec<Streak>, // pub streaks: Arc<Mutex<Vec<Streak>>>,
-                              // pub streaks: Arc<Mutex<HashMap<Uuid, Streak>>>,
+    pub streaks: Vec<Streak>,
 }
 
 impl Clone for Database {
@@ -133,10 +132,10 @@ impl Database {
         Ok(new_db)
     }
 
-    pub fn get_all(&mut self) -> Option<Vec<Streak>> {
+    pub fn get_all(&mut self) -> Vec<Streak> {
         match self.streaks.len() {
-            0 => None,
-            _ => Some(self.streaks.clone()),
+            0 => Vec::<Streak>::new(),
+            _ => self.streaks.clone(),
         }
     }
 
@@ -145,46 +144,8 @@ impl Database {
         sort_field: SortByField,
         sort_direction: SortByDirection,
     ) -> Vec<Streak> {
-        let mut streaks = self.streaks.clone();
-        match (sort_field, sort_direction) {
-            (SortByField::Task, SortByDirection::Ascending) => {
-                streaks.sort_by(|a, b| a.task.cmp(&b.task))
-            }
-            (SortByField::Task, SortByDirection::Descending) => {
-                streaks.sort_by(|a, b| b.task.cmp(&a.task))
-            }
-            (SortByField::Frequency, SortByDirection::Ascending) => {
-                streaks.sort_by(|a, b| a.frequency.cmp(&b.frequency))
-            }
-            (SortByField::Frequency, SortByDirection::Descending) => {
-                streaks.sort_by(|a, b| b.frequency.cmp(&a.frequency))
-            }
-            (SortByField::LastCheckIn, SortByDirection::Ascending) => {
-                streaks.sort_by(|a, b| a.last_checkin.cmp(&b.last_checkin))
-            }
-            (SortByField::LastCheckIn, SortByDirection::Descending) => {
-                streaks.sort_by(|a, b| b.last_checkin.cmp(&a.last_checkin))
-            }
-            (SortByField::CurrentStreak, SortByDirection::Ascending) => {
-                streaks.sort_by(|a, b| a.current_streak.cmp(&b.current_streak))
-            }
-            (SortByField::CurrentStreak, SortByDirection::Descending) => {
-                streaks.sort_by(|a, b| b.current_streak.cmp(&a.current_streak))
-            }
-            (SortByField::LongestStreak, SortByDirection::Ascending) => {
-                streaks.sort_by(|a, b| a.longest_streak.cmp(&b.longest_streak))
-            }
-            (SortByField::LongestStreak, SortByDirection::Descending) => {
-                streaks.sort_by(|a, b| b.longest_streak.cmp(&a.longest_streak))
-            }
-            (SortByField::TotalCheckins, SortByDirection::Ascending) => {
-                streaks.sort_by(|a, b| a.total_checkins.cmp(&b.total_checkins))
-            }
-            (SortByField::TotalCheckins, SortByDirection::Descending) => {
-                streaks.sort_by(|a, b| b.total_checkins.cmp(&a.total_checkins))
-            }
-        }
-        streaks
+        let streaks = self.streaks.clone();
+        sort_streaks(streaks, sort_field, sort_direction)
     }
 
     pub fn get_one(&mut self, id: Uuid) -> Option<Streak> {
@@ -212,6 +173,15 @@ impl Database {
             Some(streak) => Some(streak.clone()),
             None => None,
         }
+    }
+
+    pub fn search(&mut self, query: &str) -> Vec<Streak> {
+        let streaks = self.streaks.clone();
+        streaks
+            .iter()
+            .filter(|s| s.task.contains(query))
+            .cloned()
+            .collect()
     }
 }
 
@@ -318,7 +288,7 @@ mod tests {
         let streak = Streak::new_daily("brush teeth".to_string());
         db.add(streak.clone()).unwrap();
 
-        let result = db.get_all().unwrap();
+        let result = db.get_all();
         assert_eq!(result.len(), 1);
         assert_eq!(result[0], streak);
 
@@ -338,7 +308,7 @@ mod tests {
         streak.task = "floss".to_string();
         db.update(streak.id, streak.clone()).unwrap();
 
-        let result = db.get_all().unwrap();
+        let result = db.get_all();
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].task, "floss");
 
@@ -354,12 +324,12 @@ mod tests {
         let mut db = Database::new(file_path).unwrap();
         let streak = Streak::new_daily("brush teeth".to_string());
         db.add(streak.clone()).unwrap();
-        assert!(db.get_all().is_some());
+        assert!(!db.get_all().is_empty());
 
         db.delete(streak.id).unwrap();
 
         let result = db.get_all();
-        assert!(result.is_none());
+        assert!(result.is_empty());
 
         temp.close().unwrap();
     }
@@ -376,7 +346,7 @@ mod tests {
         db.add(streak1.clone()).unwrap();
         db.add(streak2.clone()).unwrap();
 
-        let result = db.get_all().unwrap();
+        let result = db.get_all();
         assert_eq!(result.len(), 2);
         assert_eq!(result[0], streak1);
         assert_eq!(result[1], streak2);

@@ -92,7 +92,6 @@ impl App {
         let mut db = Database::new(&get_database_url()).expect("Failed to load database");
         let data_vec: Vec<Data> = db
             .get_all()
-            .unwrap_or_default()
             .into_iter()
             .map(Data::from)
             .collect();
@@ -118,7 +117,6 @@ impl App {
         let data_vec: Vec<Data> = self
             .db
             .get_all()
-            .unwrap_or_default()
             .into_iter()
             .map(Data::from)
             .collect();
@@ -167,7 +165,7 @@ impl App {
 
     pub fn remove(&mut self) {
         let selected = self.state.selected().unwrap();
-        let streak = self.db.get_all().unwrap().get(selected).unwrap().clone();
+        let streak = self.db.get_all().get(selected).unwrap().clone();
 
         let _ = self.db.delete(streak.id);
         let _ = self.db.save();
