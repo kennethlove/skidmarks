@@ -1,12 +1,12 @@
 use std::path::Path;
 
 use ansi_term::{Color, Style};
-#[allow(unused_imports)]
-use chrono::{Local, NaiveDate};
+use chrono::Local;
 use clap::{Parser, Subcommand};
 use console::Emoji;
 use dirs;
 use tabled::{builder::Builder, settings::Style as TabledStyle};
+use term_size::dimensions;
 use uuid::Uuid;
 
 use crate::streak::sort_streaks;
@@ -137,9 +137,11 @@ fn build_table(streaks: Vec<Streak>) -> String {
         header_style.paint("\nTotal").to_string(),
     ]);
 
+    let (width, _) = dimensions().unwrap();
+
     for streak in streaks.iter() {
         let mut wrapped_text = String::new();
-        let wrapped_lines = textwrap::wrap(&streak.task.as_str(), 40);
+        let wrapped_lines = textwrap::wrap(&streak.task.as_str(), width - 90);
         for line in wrapped_lines {
             // TODO: wrapped_text on multiple lines breaks the table layout
             wrapped_text.push_str(&format!("{line}\n"));
@@ -149,7 +151,7 @@ fn build_table(streaks: Vec<Streak>) -> String {
         let id = &streak.id.to_string()[0..5];
         let index = Style::new().bold().paint(format!("{}", id));
         let streak_name = Style::new().bold().paint(wrapped_text);
-        let frequency = Style::new().paint(format!("{}", &streak.frequency));
+        let frequency = Style::new().paint(format!("{:^6}", &streak.frequency));
         let emoji = Style::new().paint(format!("{:^6}", &streak.emoji_status()));
         let check_in = match &streak.last_checkin {
             Some(date) => date.to_string(),
@@ -311,11 +313,6 @@ mod tests {
     #[fixture]
     pub fn command() -> Command {
         Command::cargo_bin("skidmarks").unwrap()
-    }
-
-    #[fixture]
-    fn streak() -> Streak {
-        Streak::new_daily("Test Streak".to_string())
     }
 
     #[rstest]
