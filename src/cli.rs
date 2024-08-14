@@ -14,6 +14,7 @@ use crate::{
     streak::{Frequency, Streak},
     tui,
 };
+use crate::streak::sort_streaks;
 
 #[derive(Debug, Parser)]
 #[command(version, about, long_about = None)]
@@ -30,6 +31,9 @@ enum Commands {
     List {
         #[arg(long, default_value = "task+", help = "Sort by field")]
         sort_by: String,
+
+        #[arg(long, default_value = "", help = "Search for task")]
+        search: String,
     },
     #[command(about = "Create a new streak", long_about = None, short_flag = 'a')]
     Add {
@@ -50,16 +54,16 @@ enum Commands {
 }
 
 /// Create a new daily streak item
-fn new_daily(name: String, db: &mut Database) -> Result<Streak, Box<dyn std::error::Error>> {
-    let streak = Streak::new_daily(name);
+fn new_daily(task: String, db: &mut Database) -> Result<Streak, Box<dyn std::error::Error>> {
+    let streak = Streak::new_daily(task);
     db.streaks.push(streak.clone());
     db.save()?;
     Ok(streak)
 }
 
 /// Create a new weekly streak item
-fn new_weekly(name: String, db: &mut Database) -> Result<Streak, Box<dyn std::error::Error>> {
-    let streak = Streak::new_weekly(name);
+fn new_weekly(task: String, db: &mut Database) -> Result<Streak, Box<dyn std::error::Error>> {
+    let streak = Streak::new_weekly(task);
     db.streaks.push(streak.clone());
     db.save()?;
     Ok(streak)
@@ -260,11 +264,17 @@ pub fn parse() {
                 println!("{tada} {response} {}", streak.task);
             }
         },
-        Commands::List { sort_by } => {
+        Commands::List { sort_by, search } => {
+            let mut streak_list = match search.is_empty() {
+                true => db.get_all().unwrap(),
+                false => db.search(search),
+            };
+            // TODO: change `sort_by` to `&str`
             let sort_by = get_sort_order(sort_by.to_string());
-            let streak_list = match sort_by {
-                Some((field, direction)) => db.get_sorted(field, direction),
-                None => db.get_all().unwrap(),
+
+            streak_list = match sort_by {
+                Some((field, direction)) => sort_streaks(streak_list, field, direction),
+                None => streak_list,
             };
             println!("{}", build_table(streak_list));
         }

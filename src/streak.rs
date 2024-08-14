@@ -5,6 +5,7 @@ use chrono::{Local, NaiveDate};
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+use crate::cli::{SortByDirection, SortByField};
 
 #[derive(
     Clone, Debug, Default, Eq, Ord, PartialEq, PartialOrd, ValueEnum, Serialize, Deserialize,
@@ -175,6 +176,48 @@ impl Default for Streak {
             total_checkins: 0,
         }
     }
+}
+
+pub fn sort_streaks(mut streaks: Vec<Streak>, sort_field: SortByField, sort_direction: SortByDirection) -> Vec<Streak> {
+    match (sort_field, sort_direction) {
+        (SortByField::Task, SortByDirection::Ascending) => {
+            streaks.sort_by(|a, b| a.task.cmp(&b.task))
+        }
+        (SortByField::Task, SortByDirection::Descending) => {
+            streaks.sort_by(|a, b| b.task.cmp(&a.task))
+        }
+        (SortByField::Frequency, SortByDirection::Ascending) => {
+            streaks.sort_by(|a, b| a.frequency.cmp(&b.frequency))
+        }
+        (SortByField::Frequency, SortByDirection::Descending) => {
+            streaks.sort_by(|a, b| b.frequency.cmp(&a.frequency))
+        }
+        (SortByField::LastCheckIn, SortByDirection::Ascending) => {
+            streaks.sort_by(|a, b| a.last_checkin.cmp(&b.last_checkin))
+        }
+        (SortByField::LastCheckIn, SortByDirection::Descending) => {
+            streaks.sort_by(|a, b| b.last_checkin.cmp(&a.last_checkin))
+        }
+        (SortByField::CurrentStreak, SortByDirection::Ascending) => {
+            streaks.sort_by(|a, b| a.current_streak.cmp(&b.current_streak))
+        }
+        (SortByField::CurrentStreak, SortByDirection::Descending) => {
+            streaks.sort_by(|a, b| b.current_streak.cmp(&a.current_streak))
+        }
+        (SortByField::LongestStreak, SortByDirection::Ascending) => {
+            streaks.sort_by(|a, b| a.longest_streak.cmp(&b.longest_streak))
+        }
+        (SortByField::LongestStreak, SortByDirection::Descending) => {
+            streaks.sort_by(|a, b| b.longest_streak.cmp(&a.longest_streak))
+        }
+        (SortByField::TotalCheckins, SortByDirection::Ascending) => {
+            streaks.sort_by(|a, b| a.total_checkins.cmp(&b.total_checkins))
+        }
+        (SortByField::TotalCheckins, SortByDirection::Descending) => {
+            streaks.sort_by(|a, b| b.total_checkins.cmp(&a.total_checkins))
+        }
+    }
+    streaks
 }
 
 #[cfg(test)]

@@ -3,7 +3,7 @@ use std::io::Write;
 use std::sync::Mutex;
 
 use crate::cli::{SortByDirection, SortByField};
-use crate::streak::Streak;
+use crate::streak::{sort_streaks, Streak};
 use uuid::Uuid;
 
 lazy_static::lazy_static! {
@@ -144,46 +144,8 @@ impl Database {
         sort_field: SortByField,
         sort_direction: SortByDirection,
     ) -> Vec<Streak> {
-        let mut streaks = self.streaks.clone();
-        match (sort_field, sort_direction) {
-            (SortByField::Task, SortByDirection::Ascending) => {
-                streaks.sort_by(|a, b| a.task.cmp(&b.task))
-            }
-            (SortByField::Task, SortByDirection::Descending) => {
-                streaks.sort_by(|a, b| b.task.cmp(&a.task))
-            }
-            (SortByField::Frequency, SortByDirection::Ascending) => {
-                streaks.sort_by(|a, b| a.frequency.cmp(&b.frequency))
-            }
-            (SortByField::Frequency, SortByDirection::Descending) => {
-                streaks.sort_by(|a, b| b.frequency.cmp(&a.frequency))
-            }
-            (SortByField::LastCheckIn, SortByDirection::Ascending) => {
-                streaks.sort_by(|a, b| a.last_checkin.cmp(&b.last_checkin))
-            }
-            (SortByField::LastCheckIn, SortByDirection::Descending) => {
-                streaks.sort_by(|a, b| b.last_checkin.cmp(&a.last_checkin))
-            }
-            (SortByField::CurrentStreak, SortByDirection::Ascending) => {
-                streaks.sort_by(|a, b| a.current_streak.cmp(&b.current_streak))
-            }
-            (SortByField::CurrentStreak, SortByDirection::Descending) => {
-                streaks.sort_by(|a, b| b.current_streak.cmp(&a.current_streak))
-            }
-            (SortByField::LongestStreak, SortByDirection::Ascending) => {
-                streaks.sort_by(|a, b| a.longest_streak.cmp(&b.longest_streak))
-            }
-            (SortByField::LongestStreak, SortByDirection::Descending) => {
-                streaks.sort_by(|a, b| b.longest_streak.cmp(&a.longest_streak))
-            }
-            (SortByField::TotalCheckins, SortByDirection::Ascending) => {
-                streaks.sort_by(|a, b| a.total_checkins.cmp(&b.total_checkins))
-            }
-            (SortByField::TotalCheckins, SortByDirection::Descending) => {
-                streaks.sort_by(|a, b| b.total_checkins.cmp(&a.total_checkins))
-            }
-        }
-        streaks
+        let streaks = self.streaks.clone();
+        sort_streaks(streaks, sort_field, sort_direction)
     }
 
     pub fn get_one(&mut self, id: Uuid) -> Option<Streak> {
@@ -211,6 +173,15 @@ impl Database {
             Some(streak) => Some(streak.clone()),
             None => None,
         }
+    }
+
+    pub fn search(&mut self, query: &str) -> Vec<Streak> {
+        let streaks = self.streaks.clone();
+        streaks
+            .iter()
+            .filter(|s| s.task.contains(query))
+            .cloned()
+            .collect()
     }
 }
 
