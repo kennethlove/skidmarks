@@ -113,23 +113,25 @@ fn get_one_by_id(db: &mut Database, ident: &str) -> Option<Streak> {
 
 /// Check in to a streak today
 fn checkin(db: &mut Database, ident: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let mut streak = get_one_by_id(db, ident).unwrap();
-    if let Some(check_in) = streak.last_checkin {
-        if check_in == Local::now().date_naive() {
-            return Ok(());
+    if let Some(mut streak) = get_one_by_id(db, ident) {
+        if let Some(check_in) = streak.last_checkin {
+            if check_in == Local::now().date_naive() {
+                return Ok(());
+            }
         }
+        streak.checkin();
+        db.update(streak.id, streak)?;
+        db.save()?;
     }
-    streak.checkin();
-    db.update(streak.id, streak)?;
-    db.save()?;
     Ok(())
 }
 
 /// Remove a streak
 fn delete(db: &mut Database, ident: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let id = get_one_by_id(db, ident).unwrap().id;
-    db.delete(id)?;
-    db.save()?;
+    if let Some(streak) = get_one_by_id(db, ident) {
+        db.delete(streak.id)?;
+        db.save()?;
+    }
     Ok(())
 }
 
