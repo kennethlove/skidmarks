@@ -1,4 +1,4 @@
 /target
 **.ron
 .idea/
-dist/
+.vscode/
