@@ -72,10 +72,7 @@ fn new_weekly(task: String, db: &mut Database) -> Result<Streak, Box<dyn std::er
 #[allow(dead_code)]
 /// Get all streaks
 fn get_all(mut db: Database) -> Vec<Streak> {
-    match db.get_all() {
-        Some(streaks) => streaks.clone(),
-        None => Vec::<Streak>::new(),
-    }
+    db.get_all()
 }
 
 /// Get one single streak
@@ -142,10 +139,12 @@ fn build_table(streaks: Vec<Streak>) -> String {
 
     for streak in streaks.iter() {
         let mut wrapped_text = String::new();
-        let wrapped_lines = textwrap::wrap(&streak.task.as_str(), 60);
+        let wrapped_lines = textwrap::wrap(&streak.task.as_str(), 40);
         for line in wrapped_lines {
-            wrapped_text.push_str(&format!("{line}"));
+            // TODO: wrapped_text on multiple lines breaks the table layout
+            wrapped_text.push_str(&format!("{line}\n"));
         }
+        wrapped_text = wrapped_text.trim().to_string();
 
         let id = &streak.id.to_string()[0..5];
         let index = Style::new().bold().paint(format!("{}", id));
@@ -204,15 +203,13 @@ pub enum SortByDirection {
     Descending,
 }
 
-pub fn get_sort_order(sort_by: String) -> Option<(SortByField, SortByDirection)> {
+pub fn get_sort_order(sort_by: &str) -> (SortByField, SortByDirection) {
+    dbg!(&sort_by);
     let sign = match sort_by.chars().rev().next().unwrap() {
-        '+' => Some(SortByDirection::Ascending),
-        '-' => Some(SortByDirection::Descending),
-        _ => None,
+        '+' => SortByDirection::Ascending,
+        '-' => SortByDirection::Descending,
+        _ => SortByDirection::Ascending
     };
-    if sign.is_none() {
-        return None;
-    }
 
     let ln = sort_by.len() - 1;
     let field = match sort_by[..ln].to_lowercase().as_str() {
@@ -236,14 +233,14 @@ pub fn get_sort_order(sort_by: String) -> Option<(SortByField, SortByDirection)>
         _ => SortByField::Task,
     };
 
-    Some((field, sign.unwrap()))
+    (field, sign)
 }
 
 /// Parses command line options
 pub fn parse() {
     let cli = Cli::parse();
     let db_url = get_database_url();
-    let mut db = Database::new(db_url.as_str()).expect("Could not load database");
+    let mut db = Database::new(&db_url).expect("Could not load database");
     let response_style = Style::new().bold().fg(Color::Green);
     match &cli.command {
         Commands::Add { task, frequency } => match frequency {
@@ -266,16 +263,12 @@ pub fn parse() {
         },
         Commands::List { sort_by, search } => {
             let mut streak_list = match search.is_empty() {
-                true => db.get_all().unwrap(),
+                true => db.get_all(),
                 false => db.search(search),
             };
-            // TODO: change `sort_by` to `&str`
-            let sort_by = get_sort_order(sort_by.to_string());
+            let sort_by = get_sort_order(sort_by);
 
-            streak_list = match sort_by {
-                Some((field, direction)) => sort_streaks(streak_list, field, direction),
-                None => streak_list,
-            };
+            streak_list = sort_streaks(streak_list, sort_by.0, sort_by.1);
             println!("{}", build_table(streak_list));
         }
         Commands::Get { ident } => {
@@ -395,8 +388,10 @@ mod tests {
             ))
             .arg("list")
             .arg("--sort-by")
-            .arg(sort_string)
+            .arg(format!(r#""{}""#, sort_string))
             .assert();
         list_assert.success();
     }
+
+    // TODO: Test search
 }

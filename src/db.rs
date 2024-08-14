@@ -132,10 +132,10 @@ impl Database {
         Ok(new_db)
     }
 
-    pub fn get_all(&mut self) -> Option<Vec<Streak>> {
+    pub fn get_all(&mut self) -> Vec<Streak> {
         match self.streaks.len() {
-            0 => None,
-            _ => Some(self.streaks.clone()),
+            0 => Vec::<Streak>::new(),
+            _ => self.streaks.clone(),
         }
     }
 
@@ -288,7 +288,7 @@ mod tests {
         let streak = Streak::new_daily("brush teeth".to_string());
         db.add(streak.clone()).unwrap();
 
-        let result = db.get_all().unwrap();
+        let result = db.get_all();
         assert_eq!(result.len(), 1);
         assert_eq!(result[0], streak);
 
@@ -308,7 +308,7 @@ mod tests {
         streak.task = "floss".to_string();
         db.update(streak.id, streak.clone()).unwrap();
 
-        let result = db.get_all().unwrap();
+        let result = db.get_all();
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].task, "floss");
 
@@ -324,12 +324,12 @@ mod tests {
         let mut db = Database::new(file_path).unwrap();
         let streak = Streak::new_daily("brush teeth".to_string());
         db.add(streak.clone()).unwrap();
-        assert!(db.get_all().is_some());
+        assert!(!db.get_all().is_empty());
 
         db.delete(streak.id).unwrap();
 
         let result = db.get_all();
-        assert!(result.is_none());
+        assert!(result.is_empty());
 
         temp.close().unwrap();
     }
@@ -346,7 +346,7 @@ mod tests {
         db.add(streak1.clone()).unwrap();
         db.add(streak2.clone()).unwrap();
 
-        let result = db.get_all().unwrap();
+        let result = db.get_all();
         assert_eq!(result.len(), 2);
         assert_eq!(result[0], streak1);
         assert_eq!(result[1], streak2);
