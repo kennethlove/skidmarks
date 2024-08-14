@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-use crate::cli::{SortByDirection, SortByField};
+use crate::sorting::{SortByDirection, SortByField};
 #[allow(unused_imports)]
 use chrono::{Local, NaiveDate};
 use clap::ValueEnum;

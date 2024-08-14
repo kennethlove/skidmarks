@@ -2,7 +2,7 @@ use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::sync::Mutex;
 
-use crate::cli::{SortByDirection, SortByField};
+use crate::sorting::{SortByDirection, SortByField};
 use crate::streak::{sort_streaks, Streak};
 use uuid::Uuid;
 
