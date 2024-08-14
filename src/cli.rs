@@ -37,6 +37,15 @@ enum Commands {
 
         #[arg(long, default_value = "", help = "Filter by frequency")]
         frequency: String,
+
+        #[arg(long, action, group = "status", help = "Filter by completed status")]
+        completed: bool,
+
+        #[arg(long, action, group = "status", help = "Filter by waiting status")]
+        waiting: bool,
+
+        #[arg(long, action, group = "status", help = "Filter by missed status")]
+        missed: bool,
     },
     #[command(about = "Create a new streak", long_about = None, short_flag = 'a')]
     Add {
@@ -140,7 +149,11 @@ fn build_table(streaks: Vec<Streak>) -> String {
         header_style.paint("\nTotal").to_string(),
     ]);
 
-    let (width, _) = dimensions().unwrap();
+    let (width, _) = match dimensions() {
+        Some((w, _)) => (w, 0),
+        None => (80, 0),
+    };
+    dbg!(&width);
 
     for streak in streaks.iter() {
         let mut wrapped_text = String::new();
@@ -269,6 +282,9 @@ pub fn parse() {
             sort_by,
             search,
             frequency,
+            completed,
+            waiting,
+            missed,
         } => {
             let mut streak_list = match search.is_empty() {
                 true => db.get_all(),
@@ -284,6 +300,21 @@ pub fn parse() {
                     .into_iter()
                     .filter(|s| s.frequency == frequency)
                     .collect();
+            }
+
+            if *completed {
+                streak_list = streak_list
+                    .into_iter()
+                    .filter(|s| s.is_completed())
+                    .collect();
+            }
+
+            if *missed {
+                streak_list = streak_list.into_iter().filter(|s| s.is_missed()).collect();
+            }
+
+            if *waiting {
+                streak_list = streak_list.into_iter().filter(|s| s.is_waiting()).collect();
             }
 
             streak_list = sort_streaks(streak_list, sort_by.0, sort_by.1);
@@ -322,7 +353,7 @@ pub fn parse() {
 
 #[cfg(test)]
 mod tests {
-    use super::{get_sort_order, Streak};
+    use super::get_sort_order;
     use assert_cmd::Command;
     use assert_fs::TempDir;
     use rstest::*;
@@ -461,6 +492,64 @@ mod tests {
             .arg("Test")
             .arg("--sort-by")
             .arg("task+")
+            .assert()
+            .success();
+    }
+
+    #[rstest]
+    fn test_frequency_filter(mut command: Command) {
+        let temp = TempDir::new().unwrap();
+
+        command
+            .arg("--database-url")
+            .arg(format!(
+                "{}/{}",
+                temp.path().display(),
+                "test-frequency-filter.ron"
+            ))
+            .arg("list")
+            .arg("--frequency")
+            .arg("daily")
+            .assert()
+            .success();
+    }
+
+    #[rstest]
+    fn test_frequency_filter_and_sort(mut command: Command) {
+        let temp = TempDir::new().unwrap();
+
+        command
+            .arg("--database-url")
+            .arg(format!(
+                "{}/{}",
+                temp.path().display(),
+                "test-frequency-filter-sort.ron"
+            ))
+            .arg("list")
+            .arg("--frequency")
+            .arg("daily")
+            .arg("--sort-by")
+            .arg("task+")
+            .assert()
+            .success();
+    }
+
+    #[rstest]
+    #[case("completed")]
+    #[case("missed")]
+    #[case("waiting")]
+    fn test_filter_by_status(mut command: Command, #[case] status: &str) {
+        let temp = TempDir::new().unwrap();
+
+        command
+            .arg("--database-url")
+            .arg(format!(
+                "{}/{}",
+                temp.path().display(),
+                "test-filter-by-status.ron"
+            ))
+            .arg("list")
+            .arg(format!("--{status}"))
             .assert()
             .success();
     }

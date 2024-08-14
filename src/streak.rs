@@ -1,11 +1,11 @@
 use std::fmt::Display;
 
+use crate::cli::{SortByDirection, SortByField};
 #[allow(unused_imports)]
 use chrono::{Local, NaiveDate};
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use crate::cli::{SortByDirection, SortByField};
 
 #[derive(
     Clone, Debug, Default, Eq, Ord, PartialEq, PartialOrd, ValueEnum, Serialize, Deserialize,
@@ -157,6 +157,18 @@ impl Streak {
         }
     }
 
+    pub fn is_completed(&self) -> bool {
+        self.status() == Status::Done
+    }
+
+    pub fn is_missed(&self) -> bool {
+        self.status() == Status::Missed
+    }
+
+    pub fn is_waiting(&self) -> bool {
+        self.status() == Status::Waiting
+    }
+
     pub fn update(&mut self, new_self: Streak) {
         let id = self.id;
         *self = new_self;
@@ -178,7 +190,11 @@ impl Default for Streak {
     }
 }
 
-pub fn sort_streaks(mut streaks: Vec<Streak>, sort_field: SortByField, sort_direction: SortByDirection) -> Vec<Streak> {
+pub fn sort_streaks(
+    mut streaks: Vec<Streak>,
+    sort_field: SortByField,
+    sort_direction: SortByDirection,
+) -> Vec<Streak> {
     match (sort_field, sort_direction) {
         (SortByField::Task, SortByDirection::Ascending) => {
             streaks.sort_by(|a, b| a.task.cmp(&b.task))
