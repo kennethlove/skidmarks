@@ -18,6 +18,7 @@ use ratatui::{
     },
 };
 use style::palette::tailwind;
+use term_size::dimensions;
 use tui_confirm_dialog::{ButtonLabel, ConfirmDialog, ConfirmDialogState, Listener};
 use tui_input::backend::crossterm::EventHandler;
 use tui_input::Input;
@@ -72,7 +73,7 @@ impl TableColors {
 struct App {
     state: TableState,
     items: Vec<Data>,
-    longest_item_lens: [usize; 5],
+    longest_item_lens: [usize; 7],
     scroll_state: ScrollbarState,
     colors: TableColors,
     db: Database,
@@ -90,11 +91,7 @@ impl App {
         let (tx, rx) = std::sync::mpsc::channel();
 
         let mut db = Database::new(&get_database_url()).expect("Failed to load database");
-        let data_vec: Vec<Data> = db
-            .get_all()
-            .into_iter()
-            .map(Data::from)
-            .collect();
+        let data_vec: Vec<Data> = db.get_all().into_iter().map(Data::from).collect();
 
         Self {
             state: TableState::default().with_selected(0),
@@ -114,12 +111,7 @@ impl App {
     }
 
     pub fn refresh(&mut self) {
-        let data_vec: Vec<Data> = self
-            .db
-            .get_all()
-            .into_iter()
-            .map(Data::from)
-            .collect();
+        let data_vec: Vec<Data> = self.db.get_all().into_iter().map(Data::from).collect();
 
         self.items = data_vec;
     }
@@ -187,9 +179,6 @@ impl App {
 
         self.db.add(streak).unwrap();
         self.db.save().unwrap();
-
-        self.input_mode = InputMode::Normal;
-        self.refresh();
     }
 }
 
@@ -199,6 +188,8 @@ struct Data {
     frequency: String,
     emoji: String,
     last_checkin: String,
+    current_streak: String,
+    longest_streak: String,
     total_checkins: String,
 }
 
@@ -209,12 +200,14 @@ impl From<Streak> for Data {
 }
 
 impl Data {
-    const fn ref_array(&self) -> [&String; 5] {
+    const fn ref_array(&self) -> [&String; 7] {
         [
             &self.task,
             &self.frequency,
             &self.emoji,
             &self.last_checkin,
+            &self.current_streak,
+            &self.longest_streak,
             &self.total_checkins,
         ]
     }
@@ -230,6 +223,8 @@ impl Data {
                     None => "None".to_string(),
                 }
             },
+            current_streak: streak.current_streak.to_string(),
+            longest_streak: streak.longest_streak.to_string(),
             total_checkins: streak.total_checkins.to_string(),
         }
     }
@@ -250,12 +245,20 @@ impl Data {
         &self.last_checkin
     }
 
+    fn current_streak(&self) -> &str {
+        &self.current_streak
+    }
+
+    fn longest_streak(&self) -> &str {
+        &self.longest_streak
+    }
+
     fn total_checkins(&self) -> &str {
         &self.total_checkins
     }
 }
 
-fn constraint_len_calculator(items: &[Data]) -> (usize, usize, usize, usize, usize) {
+fn constraint_len_calculator(items: &[Data]) -> (usize, usize, usize, usize, usize, usize, usize) {
     // Streak, Frequency, Emoji, Last Checkin, Total Checkins
     let streak_len = items
         .iter()
@@ -286,6 +289,20 @@ fn constraint_len_calculator(items: &[Data]) -> (usize, usize, usize, usize, usi
         .max()
         .unwrap_or(0);
 
+    let current_streak_len = items
+        .iter()
+        .map(Data::current_streak)
+        .map(UnicodeWidthStr::width)
+        .max()
+        .unwrap_or(0);
+
+    let longest_streak_len = items
+        .iter()
+        .map(Data::longest_streak)
+        .map(UnicodeWidthStr::width)
+        .max()
+        .unwrap_or(0);
+
     let total_checkins_len = items
         .iter()
         .map(Data::total_checkins)
@@ -299,6 +316,8 @@ fn constraint_len_calculator(items: &[Data]) -> (usize, usize, usize, usize, usi
         frequency_len,
         emoji_len,
         last_checkin_len,
+        current_streak_len,
+        longest_streak_len,
         total_checkins_len,
     )
 }
@@ -355,6 +374,9 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                             app.input_mode = InputMode::AddingTask;
                         }
                         KeyCode::Char('r') => {
+                            app.refresh();
+                        }
+                        KeyCode::Char('d') => {
                             if app.db.num_tasks() == 0 {
                                 continue;
                             }
@@ -380,44 +402,45 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
                         }
                         _ => {}
                     },
-                    _ => match app.input_mode {
-                        InputMode::AddingTask => match key.code {
-                            KeyCode::Enter => {
-                                app.messages.push(app.task_input.value().into());
-                                if app.messages.len() == 2 {
-                                    app.add_task();
-                                }
-                            }
-                            KeyCode::Esc => {
+                    InputMode::AddingTask => match key.code {
+                        KeyCode::Enter => {
+                            app.messages.push(app.task_input.value().into());
+                            if app.messages.len() == 2 {
+                                app.add_task();
+                                app.refresh();
                                 app.input_mode = InputMode::Normal;
                             }
-                            KeyCode::Tab => {
-                                app.messages.push(app.task_input.value().into());
-                                app.input_mode = InputMode::AddingFreq;
-                            }
-                            _ => {
-                                app.task_input.handle_event(&Event::Key(key));
-                            }
-                        },
-                        InputMode::AddingFreq => match key.code {
-                            KeyCode::Enter => {
-                                app.messages.push(app.frequency_input.value().into());
-                                if app.messages.len() == 2 {
-                                    app.add_task();
-                                }
-                            }
-                            KeyCode::Esc => {
+                        }
+                        KeyCode::Esc => {
+                            app.input_mode = InputMode::Normal;
+                        }
+                        KeyCode::Tab => {
+                            app.messages.push(app.task_input.value().into());
+                            app.input_mode = InputMode::AddingFreq;
+                        }
+                        _ => {
+                            app.task_input.handle_event(&Event::Key(key));
+                        }
+                    },
+                    InputMode::AddingFreq => match key.code {
+                        KeyCode::Enter => {
+                            app.messages.push(app.frequency_input.value().into());
+                            if app.messages.len() == 2 {
+                                app.add_task();
+                                app.refresh();
                                 app.input_mode = InputMode::Normal;
                             }
-                            KeyCode::Tab => {
-                                app.messages.push(app.frequency_input.value().into());
-                                app.input_mode = InputMode::AddingTask;
-                            }
-                            _ => {
-                                app.frequency_input.handle_event(&Event::Key(key));
-                            }
-                        },
-                        _ => {}
+                        }
+                        KeyCode::Esc => {
+                            app.input_mode = InputMode::Normal;
+                        }
+                        KeyCode::Tab => {
+                            app.messages.push(app.frequency_input.value().into());
+                            app.input_mode = InputMode::AddingTask;
+                        }
+                        _ => {
+                            app.frequency_input.handle_event(&Event::Key(key));
+                        }
                     },
                 }
             }
@@ -536,12 +559,25 @@ fn render_table(f: &mut Frame, app: &mut App, area: Rect) {
         .add_modifier(Modifier::REVERSED)
         .fg(app.colors.selected_style_fg);
 
-    let header = ["Task", "Frequency", "Status", "Last Check In", "Total"]
-        .into_iter()
-        .map(Cell::from)
-        .collect::<Row>()
-        .style(header_style)
-        .height(1);
+    let header = [
+        "\nTask",
+        "\nFreq.",
+        "\nStatus",
+        "Last\nCheck In",
+        "Current\nStreak",
+        "Longest\nStreak",
+        "\nTotal",
+    ]
+    .into_iter()
+    .map(Cell::from)
+    .collect::<Row>()
+    .style(header_style)
+    .height(2);
+
+    let (width, _) = match dimensions() {
+        Some((w, _)) => (w, 0),
+        None => (80, 0),
+    };
 
     let rows = app.items.iter().enumerate().map(|(i, data)| {
         let color = match i % 2 {
@@ -552,11 +588,12 @@ fn render_table(f: &mut Frame, app: &mut App, area: Rect) {
         let text = item[0].clone();
 
         let mut wrapped_text = String::new();
-        let wrapped_lines = textwrap::wrap(text.as_str(), app.longest_item_lens[0]);
+        let wrapped_lines = textwrap::wrap(text.as_str(), width / 2);
         let num_lines: u16 = wrapped_lines.len().try_into().unwrap();
         for line in wrapped_lines {
             wrapped_text.push_str(&format!("{}\n", line));
         }
+        wrapped_text = wrapped_text.trim().to_string();
 
         item[0] = &wrapped_text;
         item.into_iter()
@@ -566,19 +603,31 @@ fn render_table(f: &mut Frame, app: &mut App, area: Rect) {
             .height(num_lines)
     });
 
+    let widths: [usize; 7] = [
+        width / 2,                // task
+        app.longest_item_lens[1], // frequency
+        app.longest_item_lens[2], // emoji
+        app.longest_item_lens[3], // last checkin
+        app.longest_item_lens[4], // current streak
+        app.longest_item_lens[5], // longest streak
+        app.longest_item_lens[6], // total checkins
+    ];
+
     let table = Table::new(
         rows,
         [
-            Constraint::Length(app.longest_item_lens[0] as u16 + 10), // task
-            Constraint::Min(app.longest_item_lens[1] as u16 + 2),     // frequency
-            Constraint::Min(app.longest_item_lens[2] as u16),         // emoji
-            Constraint::Length(app.longest_item_lens[3] as u16 + 2),  // last checkin
-            Constraint::Min(app.longest_item_lens[4] as u16),         // total checkins
+            Constraint::Min(widths[0] as u16),    // task
+            Constraint::Min(widths[1] as u16),    // frequency
+            Constraint::Min(widths[2] as u16),    // emoji
+            Constraint::Length(widths[3] as u16), // last checkin
+            Constraint::Min(widths[4] as u16),    // current streak
+            Constraint::Min(widths[5] as u16),    // longest streak
+            Constraint::Min(widths[6] as u16),    // total checkins
         ],
     )
     .header(header)
     .highlight_style(selected_style)
-    .highlight_symbol(Text::from("> "))
+    // .highlight_symbol(Text::from("> "))
     .bg(app.colors.buffer_bg)
     .highlight_spacing(HighlightSpacing::Always);
     f.render_stateful_widget(table, area, &mut app.state);

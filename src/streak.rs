@@ -115,7 +115,7 @@ impl Streak {
         self.total_checkins += 1;
     }
 
-    pub fn was_missed(&self) -> bool {
+    fn was_missed(&self) -> bool {
         let today = Local::now().date_naive();
         let duration = match self.last_checkin {
             Some(date) => today - date,
@@ -127,7 +127,7 @@ impl Streak {
         }
     }
 
-    pub fn done_in_period(&self) -> bool {
+    fn done_in_period(&self) -> bool {
         let today = Local::now().date_naive();
         let duration = match self.last_checkin {
             Some(date) => today - date,
@@ -139,7 +139,7 @@ impl Streak {
         }
     }
 
-    pub fn status(&self) -> Status {
+    fn status(&self) -> Status {
         if self.was_missed() {
             Status::Missed
         } else if self.done_in_period() {
