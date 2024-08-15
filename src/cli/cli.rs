@@ -140,13 +140,18 @@ pub fn get_database_url() -> String {
     let path = Path::new(&dirs::data_local_dir().unwrap()).join(cli.database_url);
     path.to_string_lossy().to_string()
 }
+use catppuccin::PALETTE;
+
+const fn ansi(color: &catppuccin::Color) -> ansi_term::Colour {
+    ansi_term::Colour::RGB(color.rgb.r, color.rgb.g, color.rgb.b)
+}
 
 /// Parses command line options
 pub fn parse() {
     let cli = Cli::parse();
     let db_url = get_database_url();
     let mut db = Database::new(&db_url).expect("Could not load database");
-    let response_style = Style::new().bold().fg(Color::Green);
+    let response_style = Style::new().bold().fg(ansi(&PALETTE.mocha.colors.mauve));
     match &cli.command {
         Commands::Add { task, frequency } => match frequency {
             Frequency::Daily => {
@@ -238,8 +243,6 @@ pub fn parse() {
 
 #[cfg(test)]
 mod tests {
-    use super::get_sort_order;
-    use crate::sorting::{SortByDirection, SortByField};
     use assert_cmd::Command;
     use assert_fs::TempDir;
     use rstest::*;
