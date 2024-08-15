@@ -157,7 +157,7 @@ impl Streak {
         }
     }
 
-    pub fn is_completed(&self) -> bool {
+    pub fn is_done(&self) -> bool {
         self.status() == Status::Done
     }
 

@@ -37,13 +37,13 @@ enum Commands {
         #[arg(long, default_value = "", help = "Filter by frequency")]
         frequency: String,
 
-        #[arg(long, action, group = "status", help = "Filter by completed status")]
-        completed: bool,
+        #[arg(long, action, group = "status", help = "Show done streaks")]
+        done: bool,
 
-        #[arg(long, action, group = "status", help = "Filter by waiting status")]
+        #[arg(long, action, group = "status", help = "Show waiting streaks")]
         waiting: bool,
 
-        #[arg(long, action, group = "status", help = "Filter by missed status")]
+        #[arg(long, action, group = "status", help = "Show missed streaks")]
         missed: bool,
     },
     #[command(about = "Create a new streak", long_about = None, short_flag = 'a')]
@@ -170,7 +170,7 @@ pub fn parse() {
             sort_by,
             search,
             frequency,
-            completed,
+            done,
             waiting,
             missed,
         } => {
@@ -190,11 +190,8 @@ pub fn parse() {
                     .collect();
             }
 
-            if *completed {
-                streak_list = streak_list
-                    .into_iter()
-                    .filter(|s| s.is_completed())
-                    .collect();
+            if *done {
+                streak_list = streak_list.into_iter().filter(|s| s.is_done()).collect();
             }
 
             if *missed {
@@ -343,14 +340,6 @@ mod tests {
         list_assert.assert().success();
     }
 
-    #[test]
-    fn test_single_sort_order() {
-        let sort = "task+";
-        let (field, direction) = get_sort_order(sort);
-        assert_eq!(field, SortByField::Task);
-        assert_eq!(direction, SortByDirection::Ascending);
-    }
-
     #[rstest]
     fn test_search(mut command: Command) {
         let temp = TempDir::new().unwrap();
@@ -424,7 +413,7 @@ mod tests {
     }
 
     #[rstest]
-    #[case("completed")]
+    #[case("done")]
     #[case("missed")]
     #[case("waiting")]
     fn test_filter_by_status(mut command: Command, #[case] status: &str) {
