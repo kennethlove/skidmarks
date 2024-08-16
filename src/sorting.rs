@@ -1,4 +1,4 @@
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum SortByField {
     Task,
     Frequency,
@@ -8,7 +8,7 @@ pub enum SortByField {
     TotalCheckins,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum SortByDirection {
     Ascending,
     Descending,
