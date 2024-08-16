@@ -130,8 +130,9 @@ fn streak_form() -> Element {
                 let streak = match freq.as_value().as_str() {
                     "Daily" => streaks.write().new_streak(&task.as_value(), Frequency::Daily),
                     "Weekly" => streaks.write().new_streak(&task.as_value(), Frequency::Weekly),
-                    _ => eprintln!("Invalid frequency"),
+                    _ => streaks.write().new_streak(&task.as_value(), Frequency::Daily),
                 };
+                streaks.write().streak_list.push(streak.expect("failed to build streak"));
             },
             input {
                 class: "input",
@@ -205,7 +206,7 @@ impl Streaks {
         }
     }
 
-    fn new_streak(&mut self, task: &str, frequency: Frequency) {
+    fn new_streak(&mut self, task: &str, frequency: Frequency) -> Result<Streak, std::io::Error> {
         let streak = Streak {
             task: task.to_string(),
             frequency,
@@ -215,9 +216,9 @@ impl Streaks {
             Ok(_) => {
                 let _ = self.db.save();
                 self.load_streaks();
-                dbg!(&self.streak_list);
+                Ok(streak)
             }
-            Err(e) => eprintln!("Failed to add streak: {}", e),
+            Err(e) => Err(e),
         }
     }
 }
