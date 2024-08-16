@@ -156,8 +156,8 @@ header {
     left: 0;
     right: 0;
     padding: 20px;
-    background-color: #2196F3;
-    color: white;
+    /*background-color: #2196F3;*/
+    /*color: white;*/
     display: flex;
     align-items: center;
 }
