@@ -13,6 +13,7 @@ use crate::{
     sorting::get_sort_order,
     streak::{sort_streaks, Frequency, Streak},
     tui,
+    gui,
 };
 
 #[derive(Debug, Parser)]
@@ -60,8 +61,10 @@ enum Commands {
     CheckIn { ident: String },
     #[command(about = "Remove a streak", long_about = None, short_flag = 'r')]
     Remove { ident: String },
-    #[command(about = "Switch to TUI", long_about = None, short_flag = 't')]
+    #[command(about = "Switch to TUI", long_about = None)]
     Tui,
+    #[command(about = "Switch to GUI", long_about = None)]
+    Gui,
 }
 
 /// Create a new daily streak item
@@ -238,6 +241,7 @@ pub fn parse() {
             println!("{trash} {response} {}", name);
         }
         Commands::Tui => tui::main().expect("Couldn't launch TUI"),
+        Commands::Gui => gui::main(),
     }
 }
 

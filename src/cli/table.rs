@@ -23,12 +23,13 @@ pub fn build_table(streaks: Vec<Streak>) -> String {
         Some((w, _)) => (w, 0),
         None => (80, 0),
     };
+    let width = std::cmp::max(width.saturating_sub(40), 60);
+    dbg!(width);
 
     for streak in streaks.iter() {
         let mut wrapped_text = String::new();
-        let wrapped_lines = textwrap::wrap(&streak.task.as_str(), width - 90);
+        let wrapped_lines = textwrap::wrap(&streak.task.as_str(), width);
         for line in wrapped_lines {
-            // TODO: wrapped_text on multiple lines breaks the table layout
             wrapped_text.push_str(&format!("{line}\n"));
         }
         wrapped_text = wrapped_text.trim().to_string();
