@@ -578,6 +578,7 @@ fn render_table(f: &mut Frame, app: &mut App, area: Rect) {
         Some((w, _)) => (w, 0),
         None => (80, 0),
     };
+    let width = std::cmp::min(width.saturating_sub(60), 30);
 
     let rows = app.items.iter().enumerate().map(|(i, data)| {
         let color = match i % 2 {
@@ -588,7 +589,7 @@ fn render_table(f: &mut Frame, app: &mut App, area: Rect) {
         let text = item[0].clone();
 
         let mut wrapped_text = String::new();
-        let wrapped_lines = textwrap::wrap(text.as_str(), width / 2);
+        let wrapped_lines = textwrap::wrap(text.as_str(), width);
         let num_lines: u16 = wrapped_lines.len().try_into().unwrap();
         for line in wrapped_lines {
             wrapped_text.push_str(&format!("{}\n", line));

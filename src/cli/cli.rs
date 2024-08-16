@@ -2,7 +2,6 @@ use std::path::Path;
 
 use ansi_term::{Color, Style};
 use catppuccin::PALETTE;
-use chrono::Local;
 use clap::{Parser, Subcommand};
 use console::Emoji;
 use dirs;

@@ -1,8 +1,9 @@
 use crate::cli::get_database_url;
 use crate::sorting::{SortByDirection, SortByField};
-use crate::{db::Database, streak::Streak};
+use crate::{db::Database, streak::Frequency, streak::Streak};
 use dioxus::desktop::{Config, WindowBuilder};
 use dioxus::prelude::*;
+use std::collections::HashMap;
 use uuid::Uuid;
 
 pub fn main() {
@@ -12,8 +13,6 @@ pub fn main() {
 }
 
 fn app() -> Element {
-    let mut streaks = use_signal(Streaks::new);
-
     rsx! {
         head {
             link { rel: "stylesheet", href: asset!("./assets/bulma.min.css") }
@@ -31,73 +30,132 @@ fn app() -> Element {
                     "background-color: {}",
                     catppuccin::PALETTE.mocha.colors.mauve.hex.to_string(),
                 ),
-                i { class: "material-icons icon-menu", "menu" }
                 h1 { style: "color: {catppuccin::PALETTE.mocha.colors.crust.hex.to_string()}",
                     "Skidmarks"
                 }
             }
-            main {
-                table { class: "table",
-                    thead {
-                        tr {
-                            th { "Task" }
-                            th { "Freq" }
-                            th { "Status" }
-                            th { "Last Check In" }
-                            th { "Current Streak" }
-                            th { "Longest Streak" }
-                            th { "Total" }
-                            th { "Actions" }
-                        }
-                    }
-                    tbody {
-                        for streak in streaks.read().streak_list.iter() {
-                            {
-                                let id = streak.id.clone();
-                                let streak_name = &streak.task;
-                                let frequency = &streak.frequency.to_string();
-                                let emoji = &streak.emoji_status();
-                                let check_in = match &streak.last_checkin {
-                                    Some(date) => date.to_string(),
-                                    None => "None".to_string(),
-                                };
-                                let current_streak = &streak.current_streak.to_string();
-                                let longest_streak = &streak.longest_streak.to_string();
-                                let total_checkins = &streak.total_checkins.to_string();
-                            
-                                rsx! {
-                                    tr { class: "streak", key: "{id}",
-                                        td { class: "streak-name", "{streak_name}" }
-                                        td { class: "streak-frequency", "{frequency}" }
-                                        td { class: "streak-emoji", "{emoji}" }
-                                        td { class: "streak-check-in", "{check_in}" }
-                                        td { class: "streak-current-streak", "{current_streak}" }
-                                        td { class: "streak-longest-streak", "{longest_streak}" }
-                                        td { class: "streak-total-checkins", "{total_checkins}" }
-                                        td { class: "streak-actions",
-                                            button { class: "button", onclick: move |_| {
-                                                streaks.write().checkin(&id)
-                                                }, "✓"
-                                            }
-                                            button { class: "button", onclick: move |_| {
-                                                streaks.write().delete(&id)
-                                                }, "x"
-                                            }
-                                        }
-                                    }
+            main { {streak_table()} }
+            aside { {streak_form()} }
+        }
+    }
+}
+
+fn streak_table() -> Element {
+    let mut streaks = use_signal(Streaks::new);
+    rsx! {
+        table { class: "table is-striped is-hoverable is-narrow is-fullwidth",
+            thead {
+                tr {
+                    th { "Task" }
+                    th { "Freq" }
+                    th { "Status" }
+                    th { "Last Check In" }
+                    th { "Current Streak" }
+                    th { "Longest Streak" }
+                    th { "Total" }
+                    th { "Actions" }
+                }
+            }
+            tbody {
+                for streak in streaks.read().streak_list.iter() {
+                    {
+                    let id = streak.id.clone();
+                    let streak_name = &streak.task;
+                    let frequency = &streak.frequency.to_string();
+                    let emoji = &streak.emoji_status();
+                    let check_in = match &streak.last_checkin {
+                        Some(date) => date.to_string(),
+                        None => "None".to_string(),
+                    };
+                    
+                    let current_streak = &streak.current_streak.to_string();
+                    let longest_streak = &streak.longest_streak.to_string();
+                    let total_checkins = &streak.total_checkins.to_string();
+                    
+                    rsx! {
+                        tr { class: "streak", key: "{id}",
+                            td { class: "streak-name", "{streak_name}" }
+                            td { class: "streak-frequency", "{frequency}" }
+                            td { class: "streak-emoji", "{emoji}" }
+                            td { class: "streak-check-in", "{check_in}" }
+                            td { class: "streak-current-streak", "{current_streak}" }
+                            td { class: "streak-longest-streak", "{longest_streak}" }
+                            td { class: "streak-total-checkins", "{total_checkins}" }
+                            td { class: "streak-actions",
+                                button { class: "button", onclick: move |_| {
+                                    streaks.write().checkin(&id)
+                                    }, "✓"
+                                }
+                                button { class: "button", onclick: move |_| {
+                                    streaks.write().delete(&id)
+                                }, "x"
                                 }
                             }
                         }
                     }
-                    tfoot {
-                        tr {
-                            td { "Streaks: {streaks.read().streak_list.len()}" }
-                        }
                     }
+                }
+            }
+            tfoot {
+                tr {
+                    td { colspan: 8, "Streaks: {streaks.read().streak_list.len()}" }
                 }
             }
         }
     }
+}
+
+fn streak_form() -> Element {
+    let mut values = use_signal(HashMap::new);
+    let mut submitted_values = use_signal(HashMap::new);
+    let mut streaks = use_signal(Streaks::new);
+
+    rsx!(
+        if !submitted_values.read().is_empty() {
+            h2 { "Submitted!" }
+        }
+
+        form {
+            id: "streak-form",
+            class: "form",
+            oninput: move |event| {
+                values.set(event.values());
+            },
+            onsubmit: move |event| {
+                submitted_values.set(event.values());
+                let values = submitted_values.read();
+                let task = values.get("task").expect("Unable to get task value");
+                let default_frequency = FormValue(vec!["Daily".to_string()]);
+                let freq = values.get("frequency").unwrap_or(&default_frequency);
+                let streak = match freq.as_value().as_str() {
+                    "Daily" => streaks.write().new_streak(&task.as_value(), Frequency::Daily),
+                    "Weekly" => streaks.write().new_streak(&task.as_value(), Frequency::Weekly),
+                    _ => eprintln!("Invalid frequency"),
+                };
+            },
+            input {
+                class: "input",
+                r#type: "text",
+                name: "task",
+                placeholder: "Task",
+                oninput: move |event| {
+                    values.set(event.values());
+                }
+            }
+            div { class: "select",
+                select {
+                    class: "select",
+                    name: "frequency",
+                    oninput: move |event| {
+                        values.set(event.values());
+                    },
+                    option { "Daily" }
+                    option { "Weekly" }
+                }
+            }
+            button { class: "button", "Add" }
+        }
+    )
 }
 
 struct Streaks {
@@ -144,6 +202,22 @@ impl Streaks {
                 self.load_streaks()
             }
             Err(e) => eprintln!("Failed to checkin: {}", e),
+        }
+    }
+
+    fn new_streak(&mut self, task: &str, frequency: Frequency) {
+        let streak = Streak {
+            task: task.to_string(),
+            frequency,
+            ..Default::default()
+        };
+        match self.db.add(streak.clone()) {
+            Ok(_) => {
+                let _ = self.db.save();
+                self.load_streaks();
+                dbg!(&self.streak_list);
+            }
+            Err(e) => eprintln!("Failed to add streak: {}", e),
         }
     }
 }
