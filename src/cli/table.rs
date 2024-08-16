@@ -21,9 +21,9 @@ pub fn build_table(streaks: Vec<Streak>) -> String {
 
     let (width, _) = match dimensions() {
         Some((w, _)) => (w, 0),
-        None => (80, 0),
+        None => (60, 0),
     };
-    let width = std::cmp::max(width.saturating_sub(40), 60);
+    let width = std::cmp::min(width.saturating_sub(60), 30);
     dbg!(width);
 
     for streak in streaks.iter() {

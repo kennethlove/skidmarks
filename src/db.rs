@@ -183,6 +183,22 @@ impl Database {
             .cloned()
             .collect()
     }
+
+    pub fn checkin(&mut self, id: Uuid) -> Result<(), std::io::Error> {
+        let mut streaks = self.streaks.clone();
+        let streak = streaks.iter_mut().find(|s| s.id == id);
+        match streak {
+            Some(streak) => {
+                streak.checkin();
+                self.streaks = streaks;
+                Ok(())
+            }
+            None => Err(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "Streak not found",
+            )),
+        }
+    }
 }
 
 impl Default for Database {

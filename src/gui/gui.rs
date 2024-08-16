@@ -32,9 +32,9 @@ fn app() -> Element {
                     catppuccin::PALETTE.mocha.colors.mauve.hex.to_string(),
                 ),
                 i { class: "material-icons icon-menu", "menu" }
-                h1 {
-                    style: "color: {catppuccin::PALETTE.mocha.colors.crust.hex.to_string()}",
-                    "Skidmarks" }
+                h1 { style: "color: {catppuccin::PALETTE.mocha.colors.crust.hex.to_string()}",
+                    "Skidmarks"
+                }
             }
             main {
                 table { class: "table",
@@ -64,7 +64,7 @@ fn app() -> Element {
                                 let current_streak = &streak.current_streak.to_string();
                                 let longest_streak = &streak.longest_streak.to_string();
                                 let total_checkins = &streak.total_checkins.to_string();
-
+                            
                                 rsx! {
                                     tr { class: "streak", key: "{id}",
                                         td { class: "streak-name", "{streak_name}" }
@@ -76,22 +76,24 @@ fn app() -> Element {
                                         td { class: "streak-total-checkins", "{total_checkins}" }
                                         td { class: "streak-actions",
                                             button { class: "button", onclick: move |_| {
+                                                streaks.write().checkin(&id)
+                                                }, "✓"
+                                            }
+                                            button { class: "button", onclick: move |_| {
                                                 streaks.write().delete(&id)
                                                 }, "x"
                                             }
                                         }
                                     }
                                 }
-                            },
+                            }
                         }
                     }
-                            tfoot {
-                                tr {
-                                    td {
-                                        "Streaks: {streaks.read().streak_list.len()}"
-                                    }
-                                }
-                            }
+                    tfoot {
+                        tr {
+                            td { "Streaks: {streaks.read().streak_list.len()}" }
+                        }
+                    }
                 }
             }
         }
@@ -132,6 +134,16 @@ impl Streaks {
                 self.load_streaks()
             }
             Err(e) => eprintln!("Failed to delete streak: {}", e),
+        }
+    }
+
+    fn checkin(&mut self, id: &Uuid) {
+        match self.db.checkin(*id) {
+            Ok(_) => {
+                let _ = self.db.save();
+                self.load_streaks()
+            }
+            Err(e) => eprintln!("Failed to checkin: {}", e),
         }
     }
 }

@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use ansi_term::{Color, Style};
+use catppuccin::PALETTE;
 use chrono::Local;
 use clap::{Parser, Subcommand};
 use console::Emoji;
@@ -10,10 +11,10 @@ use uuid::Uuid;
 use crate::{
     cli::table::build_table,
     db::Database,
+    gui,
     sorting::get_sort_order,
     streak::{sort_streaks, Frequency, Streak},
     tui,
-    gui,
 };
 
 #[derive(Debug, Parser)]
@@ -116,17 +117,14 @@ fn get_one_by_id(db: &mut Database, ident: &str) -> Option<Streak> {
 
 /// Check in to a streak today
 fn checkin(db: &mut Database, ident: &str) -> Result<(), Box<dyn std::error::Error>> {
-    if let Some(mut streak) = get_one_by_id(db, ident) {
-        if let Some(check_in) = streak.last_checkin {
-            if check_in == Local::now().date_naive() {
-                return Ok(());
-            }
+    let streak = db.get_by_id(ident).unwrap();
+    match db.checkin(streak.id) {
+        Ok(_) => {
+            db.save()?;
+            Ok(())
         }
-        streak.checkin();
-        db.update(streak.id, streak)?;
-        db.save()?;
+        Err(e) => Err(Box::new(e)),
     }
-    Ok(())
 }
 
 /// Remove a streak
@@ -143,7 +141,6 @@ pub fn get_database_url() -> String {
     let path = Path::new(&dirs::data_local_dir().unwrap()).join(cli.database_url);
     path.to_string_lossy().to_string()
 }
-use catppuccin::PALETTE;
 
 const fn ansi(color: &catppuccin::Color) -> ansi_term::Colour {
     ansi_term::Colour::RGB(color.rgb.r, color.rgb.g, color.rgb.b)
