@@ -6,10 +6,6 @@ use crate::sorting::{SortByDirection, SortByField};
 use crate::streak::{sort_streaks, Streak};
 use uuid::Uuid;
 
-lazy_static::lazy_static! {
-    static ref FILE_LOCK: Mutex<()> = Mutex::new(());
-}
-
 #[derive(Debug)]
 pub struct Database {
     pub filename: String,
@@ -43,7 +39,6 @@ impl Database {
                     .append(true)
                     .open(filename)?;
 
-                let _lock = FILE_LOCK.lock().unwrap();
                 file.write_all(data)?;
                 return Ok(());
             }
@@ -52,7 +47,6 @@ impl Database {
 
         if metadata.len() == 0 {
             let mut file = File::open(filename)?;
-            let _lock = FILE_LOCK.lock().unwrap();
             file.write_all(data)?;
         }
         Ok(())
@@ -78,7 +72,6 @@ impl Database {
             .truncate(true)
             .open(filename)
             .unwrap();
-        let _lock = FILE_LOCK.lock().unwrap();
         file.write_all(encoded.as_bytes()).unwrap();
     }
 
@@ -87,7 +80,7 @@ impl Database {
         Ok(())
     }
 
-    pub fn create_from_string(filename: &str, data: &str) -> Result<Self, std::io::Error> {
+    pub fn create_from_file(filename: &str, data: &str) -> Result<Self, std::io::Error> {
         let mut db = Self::new(filename)?;
         let streaks: Vec<Streak> = ron::de::from_str(data).unwrap();
         for streak in streaks {
@@ -234,7 +227,7 @@ mod tests {
         let temp = assert_fs::TempDir::new().unwrap();
         let db_file = temp.child("test_create_from_string.ron");
 
-        let result = Database::create_from_string(db_file.to_str().unwrap(), DATABASE_PRELOAD);
+        let result = Database::create_from_file(db_file.to_str().unwrap(), DATABASE_PRELOAD);
         assert!(result.is_ok());
         assert_eq!(result.unwrap().num_tasks(), 3);
 
@@ -246,7 +239,7 @@ mod tests {
         let temp = assert_fs::TempDir::new().unwrap();
         let db_file = temp.child("test_load_database.ron");
 
-        let result = Database::create_from_string(db_file.to_str().unwrap(), DATABASE_PRELOAD);
+        let result = Database::create_from_file(db_file.to_str().unwrap(), DATABASE_PRELOAD);
 
         assert!(result.is_ok());
         assert_eq!(result.unwrap().num_tasks(), 3);
@@ -394,7 +387,7 @@ mod tests {
         let db_file = temp.child("test_get_streak_by_index.ron");
         let file_path = db_file.to_str().unwrap();
 
-        let mut db = Database::create_from_string(file_path, DATABASE_PRELOAD).unwrap();
+        let mut db = Database::create_from_file(file_path, DATABASE_PRELOAD).unwrap();
         let result = db.get_by_index(1).unwrap();
         let expected = db.streaks.iter().nth(1).unwrap().clone();
         assert_eq!(expected, result);
@@ -408,7 +401,7 @@ mod tests {
         let db_file = temp.child("test_sort_by_task.ron");
         let file_path = db_file.to_str().unwrap();
 
-        let db = Database::create_from_string(file_path, DATABASE_PRELOAD).unwrap();
+        let db = Database::create_from_file(file_path, DATABASE_PRELOAD).unwrap();
         let result = db.get_sorted(SortByField::Task, SortByDirection::Ascending);
         assert_ne!(db.streaks.clone()[..], result[..]);
 

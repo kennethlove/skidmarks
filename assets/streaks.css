@@ -23,6 +23,7 @@ header {
     padding: 20px;
     display: flex;
     align-items: center;
+    z-index: 9;
 }
 
 header h1 {

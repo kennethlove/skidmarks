@@ -21,6 +21,7 @@ console = "0.15.8"
 derive_setters = "0.1.6"
 dioxus = { version = "0.6.0-alpha.2", features = [
     "desktop",
+    "signals",
 ] }
 dirs = "5.0.1"
 futures = "0.3.30"
