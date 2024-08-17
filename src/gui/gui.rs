@@ -1,7 +1,7 @@
 use crate::cli::get_database_url;
 use crate::sorting::{SortByDirection, SortByField};
 use crate::{db::Database, streak::Frequency, streak::Streak};
-use dioxus::desktop::{use_global_shortcut, Config, WindowBuilder};
+use dioxus::desktop::{Config, WindowBuilder};
 use dioxus::prelude::*;
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -131,10 +131,10 @@ fn streak_form(mut streaks: Signal<Streaks>) -> Element {
                 let task = values.get("task").expect("Unable to get task value");
                 let default_frequency = FormValue(vec!["Daily".to_string()]);
                 let freq = values.get("frequency").unwrap_or(&default_frequency);
-                match freq.as_value().as_str() {
+                let streak = match freq.as_value().as_str() {
                     "Daily" => streaks.write().new_streak(&task.as_value(), Frequency::Daily),
                     "Weekly" => streaks.write().new_streak(&task.as_value(), Frequency::Weekly),
-                    _ => eprintln!("Invalid frequency"),
+                    _ => streaks.write().new_streak(&task.as_value(), Frequency::Daily),
                 };
                 streaks.write().load_streaks();
             },
@@ -216,7 +216,7 @@ impl Streaks {
         }
     }
 
-    fn new_streak(&mut self, task: &str, frequency: Frequency) {
+    fn new_streak(&mut self, task: &str, frequency: Frequency) -> Result<Streak, std::io::Error> {
         let streak = Streak {
             task: task.to_string(),
             frequency,
@@ -226,8 +226,9 @@ impl Streaks {
             Ok(_) => {
                 let _ = self.db.save();
                 self.load_streaks();
+                Ok(streak)
             }
-            Err(e) => eprintln!("Failed to add streak: {}", e),
+            Err(e) => Err(e),
         }
     }
 }
