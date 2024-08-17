@@ -1,7 +1,7 @@
 use crate::cli::get_database_url;
 use crate::sorting::{SortByDirection, SortByField};
 use crate::{db::Database, streak::Frequency, streak::Streak};
-use dioxus::desktop::{Config, WindowBuilder};
+use dioxus::desktop::{use_global_shortcut, Config, WindowBuilder};
 use dioxus::prelude::*;
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -45,7 +45,6 @@ fn app() -> Element {
 }
 
 fn streak_table(mut streaks: Signal<Streaks>) -> Element {
-    // let mut streaks = use_signal(|| Streaks::new());
     rsx! {
         table { class: "table is-striped is-hoverable is-narrow is-fullwidth",
             thead {
@@ -71,11 +70,11 @@ fn streak_table(mut streaks: Signal<Streaks>) -> Element {
                         Some(date) => date.to_string(),
                         None => "None".to_string(),
                     };
-                    
+
                     let current_streak = &streak.current_streak.to_string();
                     let longest_streak = &streak.longest_streak.to_string();
                     let total_checkins = &streak.total_checkins.to_string();
-                    
+
                     rsx! {
                         tr { class: "streak", key: "{id}",
                             td { class: "streak-name", "{streak_name}" }
@@ -112,7 +111,10 @@ fn streak_table(mut streaks: Signal<Streaks>) -> Element {
 fn streak_form(mut streaks: Signal<Streaks>) -> Element {
     let mut values = use_signal(HashMap::new);
     let mut submitted_values = use_signal(HashMap::new);
-    // let mut streaks = use_signal(Streaks::new);
+
+    let mut task_signal = use_signal(String::new);
+    let mut freq_signal = use_signal(FormValue::default);
+    let freq_value = FormValue { 0: vec!["Daily".to_string()] };
 
     rsx!(
         if !submitted_values.read().is_empty() {
@@ -131,11 +133,13 @@ fn streak_form(mut streaks: Signal<Streaks>) -> Element {
                 let task = values.get("task").expect("Unable to get task value");
                 let default_frequency = FormValue(vec!["Daily".to_string()]);
                 let freq = values.get("frequency").unwrap_or(&default_frequency);
-                let streak = match freq.as_value().as_str() {
+                match freq.as_value().as_str() {
                     "Daily" => streaks.write().new_streak(&task.as_value(), Frequency::Daily),
                     "Weekly" => streaks.write().new_streak(&task.as_value(), Frequency::Weekly),
                     _ => streaks.write().new_streak(&task.as_value(), Frequency::Daily),
                 };
+                task_signal.set(String::new());
+                freq_signal.set(FormValue { 0: vec!["Daily".to_string()] });
                 streaks.write().load_streaks();
             },
             input {
@@ -143,22 +147,27 @@ fn streak_form(mut streaks: Signal<Streaks>) -> Element {
                 r#type: "text",
                 name: "task",
                 placeholder: "Task",
+                value: task_signal.read().clone().into_value(),
                 oninput: move |event| {
-                    values.set(event.values());
-                }
+                    task_signal.set(event.data().value());
+                },
             }
             div { class: "select",
                 select {
                     class: "select",
                     name: "frequency",
                     oninput: move |event| {
-                        values.set(event.values());
+                        freq_signal.set(freq_value.clone());
                     },
                     option { "Daily" }
-                    option { "Weekly" }
+                    option { "Weekly" },
                 }
             }
-            button { class: "button", r#type: "submit", "Add" }
+            button {
+                class: "button",
+                r#type: "submit",
+                "Add"
+            }
         }
     )
 }
@@ -188,7 +197,6 @@ impl Streaks {
         let sort_by = self.sort_by.clone();
         let sort_dir = self.sort_dir.clone();
         self.streak_list = self.db.get_sorted(sort_by, sort_dir);
-        dbg!(self.streak_list.len());
     }
 
     fn refresh(&mut self) {
@@ -216,7 +224,7 @@ impl Streaks {
         }
     }
 
-    fn new_streak(&mut self, task: &str, frequency: Frequency) -> Result<Streak, std::io::Error> {
+    fn new_streak(&mut self, task: &str, frequency: Frequency) {
         let streak = Streak {
             task: task.to_string(),
             frequency,
@@ -226,9 +234,8 @@ impl Streaks {
             Ok(_) => {
                 let _ = self.db.save();
                 self.load_streaks();
-                Ok(streak)
             }
-            Err(e) => Err(e),
+            Err(e) => eprintln!("Failed to add streak: {}", e),
         }
     }
 }
