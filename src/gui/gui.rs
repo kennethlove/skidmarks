@@ -49,13 +49,27 @@ fn streak_table(mut streaks: Signal<Streaks>) -> Element {
         table { class: "table is-striped is-hoverable is-narrow is-fullwidth",
             thead {
                 tr {
-                    th { "Task" }
-                    th { "Freq" }
-                    th { "Status" }
-                    th { "Last Check In" }
-                    th { "Current Streak" }
-                    th { "Longest Streak" }
-                    th { "Total" }
+                    th { onclick: move |event| {
+                        streaks.write().sort_by(SortByField::Task);
+                    } , "Task"}
+                    th { onclick: move |event| {
+                        streaks.write().sort_by(SortByField::Frequency);
+                    } , "Freq"}
+                    th { onclick: move |event| {
+                        streaks.write().sort_by(SortByField::Status);
+                    } , "Status"}
+                    th { onclick: move |event| {
+                        streaks.write().sort_by(SortByField::LastCheckIn);
+                    } , "Last Check In"}
+                    th { onclick: move |event| {
+                        streaks.write().sort_by(SortByField::CurrentStreak);
+                    } , "Current Streak"}
+                    th { onclick: move |event| {
+                        streaks.write().sort_by(SortByField::LongestStreak);
+                    } , "Longest Streak"}
+                    th { onclick: move |event| {
+                        streaks.write().sort_by(SortByField::TotalCheckins);
+                    } , "Total Checkins"}
                     th { "Actions" }
                 }
             }
@@ -237,5 +251,14 @@ impl Streaks {
             }
             Err(e) => eprintln!("Failed to add streak: {}", e),
         }
+    }
+
+    fn sort_by(&mut self, field: SortByField) {
+        self.sort_by = field;
+        self.sort_dir = match self.sort_dir {
+            SortByDirection::Ascending => SortByDirection::Descending,
+            SortByDirection::Descending => SortByDirection::Ascending,
+        };
+        self.load_streaks();
     }
 }

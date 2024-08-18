@@ -2,6 +2,7 @@
 pub enum SortByField {
     Task,
     Frequency,
+    Status,
     LastCheckIn,
     CurrentStreak,
     LongestStreak,
@@ -28,6 +29,7 @@ pub fn get_sort_order(sort_by: &str) -> (SortByField, SortByDirection) {
         "name" => SortByField::Task,
         "frequency" => SortByField::Frequency,
         "freq" => SortByField::Frequency,
+        "status" => SortByField::Status,
         "last_checkin" => SortByField::LastCheckIn,
         "last-checkin" => SortByField::LastCheckIn,
         "last" => SortByField::LastCheckIn,

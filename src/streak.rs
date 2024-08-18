@@ -42,7 +42,7 @@ impl Frequency {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub enum Status {
     Waiting,
     Done,
@@ -207,6 +207,12 @@ pub fn sort_streaks(
         }
         (SortByField::Frequency, SortByDirection::Descending) => {
             streaks.sort_by(|a, b| b.frequency.cmp(&a.frequency))
+        }
+        (SortByField::Status, SortByDirection::Ascending) => {
+            streaks.sort_by(|a, b| a.status().cmp(&b.status()))
+        }
+        (SortByField::Status, SortByDirection::Descending) => {
+            streaks.sort_by(|a, b| b.status().cmp(&a.status()))
         }
         (SortByField::LastCheckIn, SortByDirection::Ascending) => {
             streaks.sort_by(|a, b| a.last_checkin.cmp(&b.last_checkin))
