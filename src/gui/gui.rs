@@ -51,25 +51,39 @@ fn streak_table(mut streaks: Signal<Streaks>) -> Element {
                 tr {
                     th { onclick: move |event| {
                         streaks.write().sort_by(SortByField::Task);
-                    } , "Task"}
+                    } , {
+                        streaks.read().field_and_emoji(SortByField::Task)
+                    } }
                     th { onclick: move |event| {
                         streaks.write().sort_by(SortByField::Frequency);
-                    } , "Freq"}
+                    } , {
+                        streaks.read().field_and_emoji(SortByField::Frequency)
+                    } }
                     th { onclick: move |event| {
                         streaks.write().sort_by(SortByField::Status);
-                    } , "Status"}
+                    } , {
+                        streaks.read().field_and_emoji(SortByField::Status)
+                    } }
                     th { onclick: move |event| {
                         streaks.write().sort_by(SortByField::LastCheckIn);
-                    } , "Last Check In"}
+                    } , {
+                        streaks.read().field_and_emoji(SortByField::LastCheckIn)
+                    } }
                     th { onclick: move |event| {
                         streaks.write().sort_by(SortByField::CurrentStreak);
-                    } , "Current Streak"}
+                    } , {
+                        streaks.read().field_and_emoji(SortByField::CurrentStreak)
+                    } }
                     th { onclick: move |event| {
                         streaks.write().sort_by(SortByField::LongestStreak);
-                    } , "Longest Streak"}
+                    } , {
+                        streaks.read().field_and_emoji(SortByField::LongestStreak)
+                    } }
                     th { onclick: move |event| {
                         streaks.write().sort_by(SortByField::TotalCheckins);
-                    } , "Total Checkins"}
+                    } , {
+                        streaks.read().field_and_emoji(SortByField::TotalCheckins)
+                    } }
                     th { "Actions" }
                 }
             }
@@ -261,4 +275,19 @@ impl Streaks {
         };
         self.load_streaks();
     }
+
+    fn field_and_emoji(&self, field: SortByField) -> String {
+        let sorted_field = self.sort_by.clone();
+        let field_name = field.to_string()[..1].to_uppercase() + &field.to_string()[1..];
+        if field != sorted_field {
+            return format!("{field_name}  ");
+        }
+        let sort_dir = self.sort_dir.clone();
+        let emoji = match sort_dir {
+            SortByDirection::Ascending => "⬆",
+            SortByDirection::Descending => "⬇",
+        };
+        format!("{field_name} {emoji}")
+    }
+
 }
