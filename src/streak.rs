@@ -139,7 +139,7 @@ impl Streak {
         }
     }
 
-    fn status(&self) -> Status {
+    pub(crate) fn status(&self) -> Status {
         if self.was_missed() {
             Status::Missed
         } else if self.done_in_period() {

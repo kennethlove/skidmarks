@@ -5,6 +5,7 @@ use dioxus::desktop::{use_global_shortcut, Config, WindowBuilder};
 use dioxus::prelude::*;
 use std::collections::HashMap;
 use uuid::Uuid;
+use crate::streak::Status;
 
 pub fn main() {
     LaunchBuilder::desktop()
@@ -42,6 +43,49 @@ fn app() -> Element {
                     "Skidmarks"
                 }
             }
+            div {
+                class: "section",
+            div {
+                class: "columns",
+                form {
+                    class: "form column is-three-quarters",
+                    input {
+                        class: "input",
+                        r#type: "search",
+                        placeholder: "Search",
+                        oninput: move |event| {
+                            let search = event.data().value();
+                            streaks.write().search(search);
+                        },
+                    }
+                }
+                div {
+                    class: "column",
+                    div { class: "select",
+                        select {
+                            class: "select",
+                            name: "status",
+                            oninput: move |event| {
+                                let filter = FilterByStatus::from_str(&event.data().value());
+                                streaks.write().filter_by(filter);
+                                streaks.write().load_streaks();
+                            },
+                            option { "All" }
+                            option { "Done" }
+                            option { "Waiting" }
+                            option { "Missed" }
+                        }
+                    }
+                    button {
+                        class: "button",
+                        onclick: move |_| {
+                            streaks.write().load_streaks();
+                        },
+                        "Reset"
+                    }
+                }
+            }
+                }
             main {
                 {streak_table(streaks, show_popup)}
             }
@@ -210,11 +254,54 @@ fn streak_form(mut streaks: Signal<Streaks>) -> Element {
     )
 }
 
+fn popup(mut is_open: Signal<Option<Uuid>>, mut streaks: Signal<Streaks>) -> Element {
+    let mut streak = None;
+    let signal_id = is_open.read().clone();
+    if let Some(id) = signal_id {
+        streak = streaks.read().get_by_ident(id);
+        if streak.is_none() {
+            is_open.set(None);
+        }
+    }
+
+    rsx! {
+        div {
+            class: {
+                if is_open.read().is_some() {
+                    "modal is-active"
+                } else {
+                    "modal"
+                }
+            },
+        div { class: "modal-background" }
+        div { class: "modal-content",
+            div { class: "box",
+                h1 { "Delete this streak?" }
+                p { class: "is-size-3", {streak.as_ref().map_or("", |s| &s.task)} }
+                button {
+                    class: "button is-danger",
+                    onclick: move |_| {
+                        streaks.write().delete(&is_open.read().unwrap());
+                        streaks.write().load_streaks();
+                        is_open.set(None);
+                    },
+                    "Delete"
+                }
+            }
+        }
+        button { onclick: move |_ | {
+            is_open.set(None);
+        }, class: "modal-close is-large", aria_label: "close" }
+    }
+    }
+}
+
 struct Streaks {
     db: Database,
     streak_list: Vec<Streak>,
     sort_by: SortByField,
     sort_dir: SortByDirection,
+    filter_by: FilterByStatus,
 }
 
 impl Streaks {
@@ -225,6 +312,7 @@ impl Streaks {
             streak_list: vec![],
             sort_by: SortByField::Task,
             sort_dir: SortByDirection::Ascending,
+            filter_by: FilterByStatus::All
         };
 
         streaks.load_streaks();
@@ -234,7 +322,17 @@ impl Streaks {
     fn load_streaks(&mut self) {
         let sort_by = self.sort_by.clone();
         let sort_dir = self.sort_dir.clone();
-        self.streak_list = self.db.get_sorted(sort_by, sort_dir);
+        let filter_by = self.filter_by.clone();
+        let streaks = self.db.get_sorted(sort_by, sort_dir);
+        let filtered_streaks = streaks.into_iter().filter(|streak| {
+            match filter_by {
+                FilterByStatus::All => true,
+                FilterByStatus::Done => streak.status() == Status::Done,
+                FilterByStatus::Missed => streak.status() == Status::Missed,
+                FilterByStatus::Waiting => streak.status() == Status::Waiting,
+            }
+        }).collect();
+        self.streak_list = filtered_streaks;
     }
 
     fn refresh(&mut self) {
@@ -304,46 +402,33 @@ impl Streaks {
         let mut db = self.db.clone();
         db.get_by_id(&id.to_string()[..5])
     }
-}
 
-fn popup(mut is_open: Signal<Option<Uuid>>, mut streaks: Signal<Streaks>) -> Element {
-    let mut streak = None;
-    let signal_id = is_open.read().clone();
-    if let Some(id) = signal_id {
-        streak = streaks.read().get_by_ident(id);
-        if streak.is_none() {
-            is_open.set(None);
-        }
+    fn search(&mut self, search: String) {
+        self.streak_list = self.db.search(&search);
     }
 
-    rsx! {
-        div {
-            class: {
-                if is_open.read().is_some() {
-                    "modal is-active"
-                } else {
-                    "modal"
-                }
-            },
-        div { class: "modal-background" }
-        div { class: "modal-content",
-            div { class: "box",
-                h1 { "Delete this streak?" }
-                p { class: "is-size-3", {streak.as_ref().map_or("", |s| &s.task)} }
-                button {
-                    class: "button is-danger",
-                    onclick: move |_| {
-                        streaks.write().delete(&is_open.read().unwrap());
-                        streaks.write().load_streaks();
-                        is_open.set(None);
-                    },
-                    "Delete"
-                }
-            }
-        }
-        button { onclick: move |_ | {
-            is_open.set(None);
-        }, class: "modal-close is-large", aria_label: "close" }
+    fn filter_by(&mut self, field: FilterByStatus) {
+        self.filter_by = field;
+        self.load_streaks();
     }
 }
+
+#[derive(Clone, Debug, PartialEq)]
+enum FilterByStatus {
+    All,
+    Done,
+    Missed,
+    Waiting,
+}
+
+impl FilterByStatus {
+    pub fn from_str(s: &str) -> Self {
+        match s {
+            "All" => FilterByStatus::All,
+            "Done" => FilterByStatus::Done,
+            "Missed" => FilterByStatus::Missed,
+            "Waiting" => FilterByStatus::Waiting,
+            _ => FilterByStatus::All,
+        }
+    }
 }
