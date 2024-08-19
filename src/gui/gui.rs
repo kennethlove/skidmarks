@@ -14,12 +14,15 @@ pub fn main() {
 
 fn app() -> Element {
     let mut streaks = use_signal(Streaks::new);
+
+    let show_popup = use_signal(|| None);
     _ = use_global_shortcut("CmdOrCtrl+Q", move || {
         std::process::exit(0);
     });
     _ = use_global_shortcut("CmdOrCtrl+R", move || {
         streaks.write().refresh();
     });
+
     rsx! {
         head {
             link { rel: "stylesheet", href: asset!("./assets/bulma.min.css") }
@@ -33,53 +36,60 @@ fn app() -> Element {
                 }
             }
 
-            header { style: "background-color: {catppuccin::PALETTE.mocha.colors.mauve.hex.to_string()}",
+            header {
+                style: "background-color: {catppuccin::PALETTE.mocha.colors.mauve.hex.to_string()}",
                 h1 { style: "color: {catppuccin::PALETTE.mocha.colors.crust.hex.to_string()}",
                     "Skidmarks"
                 }
             }
-            main { {streak_table(streaks)} }
-            aside { {streak_form(streaks)} }
+            main {
+                {streak_table(streaks, show_popup)}
+            }
+            div {
+                class: "section",
+                {streak_form(streaks)}
+            }
+            {popup(show_popup, streaks)}
         }
     }
 }
 
-fn streak_table(mut streaks: Signal<Streaks>) -> Element {
+fn streak_table(mut streaks: Signal<Streaks>, mut show_popup: Signal<Option<Uuid>>) -> Element {
     rsx! {
-        table { class: "table is-striped is-hoverable is-narrow is-fullwidth",
+        table { class: "table is-striped is-hoverable is-fullwidth",
             thead {
                 tr {
-                    th { onclick: move |event| {
+                    th { onclick: move |_| {
                         streaks.write().sort_by(SortByField::Task);
                     } , {
                         streaks.read().field_and_emoji(SortByField::Task)
                     } }
-                    th { onclick: move |event| {
+                    th { onclick: move |_| {
                         streaks.write().sort_by(SortByField::Frequency);
                     } , {
                         streaks.read().field_and_emoji(SortByField::Frequency)
                     } }
-                    th { onclick: move |event| {
+                    th { onclick: move |_| {
                         streaks.write().sort_by(SortByField::Status);
                     } , {
                         streaks.read().field_and_emoji(SortByField::Status)
                     } }
-                    th { onclick: move |event| {
+                    th { onclick: move |_| {
                         streaks.write().sort_by(SortByField::LastCheckIn);
                     } , {
                         streaks.read().field_and_emoji(SortByField::LastCheckIn)
                     } }
-                    th { onclick: move |event| {
+                    th { onclick: move |_| {
                         streaks.write().sort_by(SortByField::CurrentStreak);
                     } , {
                         streaks.read().field_and_emoji(SortByField::CurrentStreak)
                     } }
-                    th { onclick: move |event| {
+                    th { onclick: move |_| {
                         streaks.write().sort_by(SortByField::LongestStreak);
                     } , {
                         streaks.read().field_and_emoji(SortByField::LongestStreak)
                     } }
-                    th { onclick: move |event| {
+                    th { onclick: move |_| {
                         streaks.write().sort_by(SortByField::TotalCheckins);
                     } , {
                         streaks.read().field_and_emoji(SortByField::TotalCheckins)
@@ -118,7 +128,7 @@ fn streak_table(mut streaks: Signal<Streaks>) -> Element {
                                     }, "✓"
                                 }
                                 button { class: "button", onclick: move |_| {
-                                    streaks.write().delete(&id)
+                                    show_popup.set(Some(id));
                                 }, "×"
                                 }
                             }
@@ -149,54 +159,54 @@ fn streak_form(mut streaks: Signal<Streaks>) -> Element {
             h2 { "Submitted!" }
         }
 
-        form {
-            id: "streak-form",
-            class: "form",
-            oninput: move |event| {
-                values.set(event.values());
-            },
-            onsubmit: move |event| {
-                submitted_values.set(event.values());
-                let values = submitted_values.read();
-                let task = values.get("task").expect("Unable to get task value");
-                let default_frequency = FormValue(vec!["Daily".to_string()]);
-                let freq = values.get("frequency").unwrap_or(&default_frequency);
-                match freq.as_value().as_str() {
-                    "Daily" => streaks.write().new_streak(&task.as_value(), Frequency::Daily),
-                    "Weekly" => streaks.write().new_streak(&task.as_value(), Frequency::Weekly),
-                    _ => streaks.write().new_streak(&task.as_value(), Frequency::Daily),
-                };
-                task_signal.set(String::new());
-                freq_signal.set(FormValue { 0: vec!["Daily".to_string()] });
-                streaks.write().load_streaks();
-            },
-            input {
-                class: "input",
-                r#type: "text",
-                name: "task",
-                placeholder: "Task",
-                value: task_signal.read().clone().into_value(),
+            form {
+                id: "streak-form",
+                class: "form",
                 oninput: move |event| {
-                    task_signal.set(event.data().value());
+                    values.set(event.values());
                 },
-            }
-            div { class: "select",
-                select {
-                    class: "select",
-                    name: "frequency",
+                onsubmit: move |event| {
+                    submitted_values.set(event.values());
+                    let values = submitted_values.read();
+                    let task = values.get("task").expect("Unable to get task value");
+                    let default_frequency = FormValue(vec!["Daily".to_string()]);
+                    let freq = values.get("frequency").unwrap_or(&default_frequency);
+                    match freq.as_value().as_str() {
+                        "Daily" => streaks.write().new_streak(&task.as_value(), Frequency::Daily),
+                        "Weekly" => streaks.write().new_streak(&task.as_value(), Frequency::Weekly),
+                        _ => streaks.write().new_streak(&task.as_value(), Frequency::Daily),
+                    };
+                    task_signal.set(String::new());
+                    freq_signal.set(FormValue { 0: vec!["Daily".to_string()] });
+                    streaks.write().load_streaks();
+                },
+                input {
+                    class: "input",
+                    r#type: "text",
+                    name: "task",
+                    placeholder: "Task",
+                    value: task_signal.read().clone().into_value(),
                     oninput: move |event| {
-                        freq_signal.set(freq_value.clone());
+                        task_signal.set(event.data().value());
                     },
-                    option { "Daily" }
-                    option { "Weekly" },
+                }
+                div { class: "select",
+                    select {
+                        class: "select",
+                        name: "frequency",
+                        oninput: move |_| {
+                            freq_signal.set(freq_value.clone());
+                        },
+                        option { "Daily" }
+                        option { "Weekly" }
+                    }
+                }
+                button {
+                    class: "button",
+                    r#type: "submit",
+                    "Add"
                 }
             }
-            button {
-                class: "button",
-                r#type: "submit",
-                "Add"
-            }
-        }
     )
 }
 
@@ -290,4 +300,50 @@ impl Streaks {
         format!("{field_name} {emoji}")
     }
 
+    fn get_by_ident(&self, id: Uuid) -> Option<Streak> {
+        let mut db = self.db.clone();
+        db.get_by_id(&id.to_string()[..5])
+    }
+}
+
+fn popup(mut is_open: Signal<Option<Uuid>>, mut streaks: Signal<Streaks>) -> Element {
+    let mut streak = None;
+    let signal_id = is_open.read().clone();
+    if let Some(id) = signal_id {
+        streak = streaks.read().get_by_ident(id);
+        if streak.is_none() {
+            is_open.set(None);
+        }
+    }
+
+    rsx! {
+        div {
+            class: {
+                if is_open.read().is_some() {
+                    "modal is-active"
+                } else {
+                    "modal"
+                }
+            },
+        div { class: "modal-background" }
+        div { class: "modal-content",
+            div { class: "box",
+                h1 { "Delete this streak?" }
+                p { class: "is-size-3", {streak.as_ref().map_or("", |s| &s.task)} }
+                button {
+                    class: "button is-danger",
+                    onclick: move |_| {
+                        streaks.write().delete(&is_open.read().unwrap());
+                        streaks.write().load_streaks();
+                        is_open.set(None);
+                    },
+                    "Delete"
+                }
+            }
+        }
+        button { onclick: move |_ | {
+            is_open.set(None);
+        }, class: "modal-close is-large", aria_label: "close" }
+    }
+}
 }
