@@ -1,336 +1,146 @@
-use std::io;
-
+use crate::cli::get_database_url;
+use crate::db::Database;
+use crate::filtering::{filter_by_status, FilterByStatus};
+use crate::sorting::{SortByDirection, SortByField};
+use crate::streak::{Frequency, Streak};
+use ratatui::widgets::{
+    Block, BorderType, Borders, Cell, HighlightSpacing, Paragraph, Row, Scrollbar,
+    ScrollbarOrientation, ScrollbarState, Table, TableState, Tabs,
+};
 use ratatui::{
     backend::{Backend, CrosstermBackend},
     crossterm::{
-        event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind},
+        event::{self, DisableMouseCapture, EnableMouseCapture, KeyCode, KeyEventKind},
         execute,
         terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
     },
-    layout::{Constraint, Layout, Margin, Rect},
+    layout::{Constraint, Layout, Rect},
     prelude::*,
-    style::{self, Color, Modifier, Style, Stylize},
-    terminal::{Frame, Terminal},
-    text::{Line, Span, Text},
-    widgets::{
-        Block, BorderType, Borders, Cell, HighlightSpacing, Paragraph, Row, Scrollbar,
-        ScrollbarOrientation, ScrollbarState, Table, TableState,
-    },
+    text::Text,
+    Terminal,
 };
-use style::palette::tailwind;
+use std::io;
 use term_size::dimensions;
-use tui_confirm_dialog::{ButtonLabel, ConfirmDialog, ConfirmDialogState, Listener};
-use tui_input::backend::crossterm::EventHandler;
-use tui_input::Input;
-use unicode_width::UnicodeWidthStr;
 
-use crate::cli::get_database_url;
-use crate::db::Database;
-use crate::streak::{Frequency, Streak};
-
-enum InputMode {
-    Normal,
-    AddingTask,
-    AddingFreq,
+#[derive(Clone, Debug)]
+struct NewStreak {
+    task: String,
+    frequency: Frequency,
 }
 
-const PALETTES: [tailwind::Palette; 4] = [
-    tailwind::BLUE,
-    tailwind::EMERALD,
-    tailwind::INDIGO,
-    tailwind::RED,
-];
-
-const INFO_TEXT: &str = "[↑] [↓] Select";
-const ITEM_HEIGHT: usize = 4;
-
-struct TableColors {
-    buffer_bg: Color,
-    header_bg: Color,
-    header_fg: Color,
-    row_fg: Color,
-    selected_style_fg: Color,
-    normal_row_color: Color,
-    alt_row_color: Color,
-    footer_border_color: Color,
-}
-
-impl TableColors {
-    const fn new(color: &tailwind::Palette) -> Self {
-        Self {
-            buffer_bg: tailwind::SLATE.c950,
-            header_bg: color.c900,
-            header_fg: tailwind::SLATE.c200,
-            row_fg: tailwind::SLATE.c200,
-            selected_style_fg: color.c400,
-            normal_row_color: tailwind::SLATE.c950,
-            alt_row_color: tailwind::SLATE.c900,
-            footer_border_color: color.c400,
+impl Default for NewStreak {
+    fn default() -> Self {
+        NewStreak {
+            task: String::default(),
+            frequency: Frequency::Daily,
         }
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
+enum AppState {
+    Normal,
+    Insert,
+    Search,
+}
+
+#[derive(Clone, Debug)]
 struct App {
-    state: TableState,
-    items: Vec<Data>,
-    longest_item_lens: [usize; 7],
-    scroll_state: ScrollbarState,
-    colors: TableColors,
+    app_state: AppState,
+    table_state: TableState,
+    scrollbar_state: ScrollbarState,
     db: Database,
-    remove_popup: ConfirmDialogState,
-    popup_tx: std::sync::mpsc::Sender<Listener>,
-    popup_rx: std::sync::mpsc::Receiver<Listener>,
-    task_input: Input,
-    frequency_input: Input,
-    input_mode: InputMode,
-    messages: Vec<String>,
+    sort_by_field: SortByField,
+    sort_by_direction: SortByDirection,
+    filter_by_status: FilterByStatus,
+    tab_state: u8,
+    search_phrase: String,
+    new_streak: NewStreak,
 }
 
 impl App {
-    fn new() -> Self {
-        let (tx, rx) = std::sync::mpsc::channel();
-
-        let mut db = Database::new(&get_database_url()).expect("Failed to load database");
-        let data_vec: Vec<Data> = db.get_all().into_iter().map(Data::from).collect();
-
-        Self {
-            state: TableState::default().with_selected(0),
-            items: data_vec.clone(),
-            longest_item_lens: constraint_len_calculator(&data_vec).into(),
-            scroll_state: ScrollbarState::default(),
-            colors: TableColors::new(&PALETTES[1]),
+    pub fn new() -> Self {
+        let db = Database::new(&get_database_url()).unwrap();
+        App {
+            app_state: AppState::Normal,
+            table_state: TableState::default().with_selected(0),
+            scrollbar_state: ScrollbarState::new(db.num_tasks()).position(0),
             db,
-            remove_popup: ConfirmDialogState::default(),
-            popup_tx: tx,
-            popup_rx: rx,
-            task_input: Input::default(),
-            frequency_input: Input::default(),
-            input_mode: InputMode::Normal,
-            messages: Vec::new(),
+            sort_by_field: SortByField::Task,
+            sort_by_direction: SortByDirection::Ascending,
+            filter_by_status: FilterByStatus::All,
+            tab_state: 0,
+            search_phrase: String::default(),
+            new_streak: NewStreak::default(),
         }
     }
 
-    pub fn refresh(&mut self) {
-        let data_vec: Vec<Data> = self.db.get_all().into_iter().map(Data::from).collect();
-
-        self.items = data_vec;
-    }
-
-    pub fn next(&mut self) {
-        let i = match self.state.selected() {
+    pub fn select_down(&mut self) {
+        let i = match self.table_state.selected() {
             Some(i) => {
-                if i >= self.items.len().saturating_sub(1) {
-                    0
-                } else {
+                if i < self.db.num_tasks().saturating_sub(1) {
                     i + 1
+                } else {
+                    0
                 }
             }
-            _ => 0,
+            None => 0,
         };
-        self.state.select(Some(i));
-        self.scroll_state = self.scroll_state.position(i * ITEM_HEIGHT);
+        self.table_state.select(Some(i));
+        self.scrollbar_state = self.scrollbar_state.position(i * 2);
     }
 
-    pub fn previous(&mut self) {
-        let i = match self.state.selected() {
+    pub fn select_up(&mut self) {
+        let i = match self.table_state.selected() {
             Some(i) => {
                 if i == 0 {
-                    self.items.len().saturating_sub(1)
+                    self.db.num_tasks().saturating_sub(1)
                 } else {
                     i - 1
                 }
             }
-            _ => 0,
+            None => 0,
         };
-        self.state.select(Some(i));
-        self.scroll_state = self.scroll_state.position(i * ITEM_HEIGHT);
+        self.table_state.select(Some(i));
+        self.scrollbar_state = self.scrollbar_state.position(i);
     }
 
-    pub fn check_in(&mut self) {
-        let selected = self.state.selected().unwrap();
-        let mut streak = self.db.get_by_index(selected).unwrap();
+    pub fn check_in(&mut self) -> io::Result<()> {
+        let i = self.table_state.selected().unwrap();
+        let mut streak = self
+            .db
+            .get_by_index(
+                i,
+                self.sort_by_field.clone(),
+                self.sort_by_direction.clone(),
+                self.filter_by_status.clone(),
+            )
+            .unwrap();
         streak.checkin();
-        let _ = self.db.update(streak.id, streak.clone());
-        let _ = self.db.save();
-        self.items[selected] = Data::from(streak);
+        self.db.update(streak.id, streak)?;
+        self.db.save()?;
+        Ok(())
     }
 
-    pub fn remove(&mut self) {
-        let selected = self.state.selected().unwrap();
-        let streak = self.db.get_all().get(selected).unwrap().clone();
-
-        let _ = self.db.delete(streak.id);
-        let _ = self.db.save();
-        self.items.remove(selected);
+    pub fn add_streak(&mut self) -> io::Result<()> {
+        let streak = match self.new_streak.frequency {
+            Frequency::Daily => Streak::new_daily(self.new_streak.task.clone()),
+            Frequency::Weekly => Streak::new_weekly(self.new_streak.task.clone()),
+        };
+        self.db.add(streak)?;
+        self.db.save()?;
+        Ok(())
     }
-
-    pub fn add_task(&mut self) {
-        let mut streak: Streak = Streak::default();
-
-        for message in &self.messages {
-            match message.to_lowercase().as_str() {
-                "daily" => streak.frequency = Frequency::Daily,
-                "weekly" => streak.frequency = Frequency::Weekly,
-                _ => {
-                    streak.task = format!("{message}");
-                }
-            }
-        }
-
-        self.db.add(streak).unwrap();
-        self.db.save().unwrap();
-    }
-}
-
-#[derive(Debug, Clone)]
-struct Data {
-    task: String,
-    frequency: String,
-    emoji: String,
-    last_checkin: String,
-    current_streak: String,
-    longest_streak: String,
-    total_checkins: String,
-}
-
-impl From<Streak> for Data {
-    fn from(value: Streak) -> Self {
-        Self::new(value)
-    }
-}
-
-impl Data {
-    const fn ref_array(&self) -> [&String; 7] {
-        [
-            &self.task,
-            &self.frequency,
-            &self.emoji,
-            &self.last_checkin,
-            &self.current_streak,
-            &self.longest_streak,
-            &self.total_checkins,
-        ]
-    }
-
-    fn new(streak: Streak) -> Self {
-        Self {
-            task: streak.task.clone(),
-            frequency: streak.frequency.to_string(),
-            emoji: streak.emoji_status(),
-            last_checkin: {
-                match streak.last_checkin {
-                    Some(checkin) => checkin.to_string(),
-                    None => "None".to_string(),
-                }
-            },
-            current_streak: streak.current_streak.to_string(),
-            longest_streak: streak.longest_streak.to_string(),
-            total_checkins: streak.total_checkins.to_string(),
-        }
-    }
-
-    fn task(&self) -> &str {
-        &self.task
-    }
-
-    fn frequency(&self) -> &str {
-        &self.frequency
-    }
-
-    fn emoji(&self) -> &str {
-        &self.emoji
-    }
-
-    fn last_checkin(&self) -> &str {
-        &self.last_checkin
-    }
-
-    fn current_streak(&self) -> &str {
-        &self.current_streak
-    }
-
-    fn longest_streak(&self) -> &str {
-        &self.longest_streak
-    }
-
-    fn total_checkins(&self) -> &str {
-        &self.total_checkins
-    }
-}
-
-fn constraint_len_calculator(items: &[Data]) -> (usize, usize, usize, usize, usize, usize, usize) {
-    // Streak, Frequency, Emoji, Last Checkin, Total Checkins
-    let streak_len = items
-        .iter()
-        .map(Data::task)
-        .flat_map(str::lines)
-        .map(UnicodeWidthStr::width)
-        .max()
-        .unwrap_or(0);
-
-    let frequency_len = items
-        .iter()
-        .map(Data::frequency)
-        .map(UnicodeWidthStr::width)
-        .max()
-        .unwrap_or(0);
-
-    let emoji_len = items
-        .iter()
-        .map(Data::emoji)
-        .map(UnicodeWidthStr::width)
-        .max()
-        .unwrap_or(0);
-
-    let last_checkin_len = items
-        .iter()
-        .map(Data::last_checkin)
-        .map(UnicodeWidthStr::width)
-        .max()
-        .unwrap_or(0);
-
-    let current_streak_len = items
-        .iter()
-        .map(Data::current_streak)
-        .map(UnicodeWidthStr::width)
-        .max()
-        .unwrap_or(0);
-
-    let longest_streak_len = items
-        .iter()
-        .map(Data::longest_streak)
-        .map(UnicodeWidthStr::width)
-        .max()
-        .unwrap_or(0);
-
-    let total_checkins_len = items
-        .iter()
-        .map(Data::total_checkins)
-        .map(UnicodeWidthStr::width)
-        .max()
-        .unwrap_or(0);
-
-    #[allow(clippy::cast_possible_truncation)]
-    (
-        streak_len,
-        frequency_len,
-        emoji_len,
-        last_checkin_len,
-        current_streak_len,
-        longest_streak_len,
-        total_checkins_len,
-    )
 }
 
 pub fn main() -> io::Result<()> {
     enable_raw_mode()?;
-    let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
-    let backend = CrosstermBackend::new(stdout);
-    let mut terminal = Terminal::new(backend)?;
+    execute!(io::stdout(), EnterAlternateScreen, EnableMouseCapture)?;
+    let mut terminal = Terminal::new(CrosstermBackend::new(io::stdout()))?;
+    terminal.clear()?;
 
-    let app = App::new();
-    let res = run_app(&mut terminal, app);
+    let mut app = App::new();
+    let res = run_app(&mut terminal, &mut app);
 
     disable_raw_mode()?;
     execute!(
@@ -346,369 +156,434 @@ pub fn main() -> io::Result<()> {
     Ok(())
 }
 
-fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<()> {
+fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: &mut App) -> io::Result<()> {
     loop {
-        if let Ok(res) = app.popup_rx.try_recv() {
-            if res.0 == app.remove_popup.id && res.1 == Some(true) {
-                app.input_mode = InputMode::Normal;
-                app.remove();
-            }
-        }
+        // Draw the UI
+        terminal.draw(|frame| {
+            let _ = layout_app(&mut app, frame);
+        })?;
 
-        terminal.draw(|f| ui(f, &mut app))?;
-
-        if let Event::Key(key) = event::read()? {
-            if key.kind == KeyEventKind::Press {
-                match app.input_mode {
-                    InputMode::Normal => match key.code {
-                        KeyCode::Char('q') => return Ok(()),
-                        KeyCode::Char('j') | KeyCode::Down => app.next(),
-                        KeyCode::Char('k') | KeyCode::Up => app.previous(),
-                        KeyCode::Char('c') => {
-                            if app.db.num_tasks() == 0 {
-                                continue;
+        // Handle events
+        if event::poll(std::time::Duration::from_millis(16))? {
+            if let event::Event::Key(key) = event::read()? {
+                if key.kind == KeyEventKind::Press {
+                    match app.app_state {
+                        AppState::Normal => match key.code {
+                            KeyCode::Char('q') => break,
+                            KeyCode::Char('j') => app.select_down(),
+                            KeyCode::Char('k') => app.select_up(),
+                            KeyCode::Char('c') => app.check_in()?,
+                            KeyCode::Char('z') => match app.sort_by_direction {
+                                SortByDirection::Ascending => {
+                                    app.sort_by_direction = SortByDirection::Descending
+                                }
+                                SortByDirection::Descending => {
+                                    app.sort_by_direction = SortByDirection::Ascending
+                                }
+                            },
+                            KeyCode::Char('f') => match app.filter_by_status {
+                                FilterByStatus::All => {
+                                    app.tab_state = 1;
+                                    app.filter_by_status = FilterByStatus::Waiting
+                                }
+                                FilterByStatus::Waiting => {
+                                    app.tab_state = 2;
+                                    app.filter_by_status = FilterByStatus::Missed
+                                }
+                                FilterByStatus::Missed => {
+                                    app.tab_state = 3;
+                                    app.filter_by_status = FilterByStatus::Done
+                                }
+                                FilterByStatus::Done => {
+                                    app.tab_state = 0;
+                                    app.filter_by_status = FilterByStatus::All
+                                }
+                            },
+                            KeyCode::Char('o') => match app.sort_by_field {
+                                SortByField::Task => app.sort_by_field = SortByField::Frequency,
+                                SortByField::Frequency => app.sort_by_field = SortByField::Status,
+                                SortByField::Status => app.sort_by_field = SortByField::LastCheckIn,
+                                SortByField::LastCheckIn => {
+                                    app.sort_by_field = SortByField::CurrentStreak
+                                }
+                                SortByField::CurrentStreak => {
+                                    app.sort_by_field = SortByField::LongestStreak
+                                }
+                                SortByField::LongestStreak => {
+                                    app.sort_by_field = SortByField::TotalCheckins
+                                }
+                                SortByField::TotalCheckins => app.sort_by_field = SortByField::Task,
+                            },
+                            KeyCode::Char('s') => {
+                                app.search_phrase = "".to_string();
+                                app.app_state = AppState::Search;
                             }
-                            app.check_in()
-                        }
-                        KeyCode::Char('a') => {
-                            app.input_mode = InputMode::AddingTask;
-                        }
-                        KeyCode::Char('r') => {
-                            app.refresh();
-                        }
-                        KeyCode::Char('d') => {
-                            if app.db.num_tasks() == 0 {
-                                continue;
+                            KeyCode::Char('a') => {
+                                app.new_streak = NewStreak::default();
+                                app.app_state = AppState::Insert;
                             }
-                            app.remove_popup = app
-                                .remove_popup
-                                .modal(false)
-                                .with_title(Span::styled(
-                                    "Remove Streak",
-                                    Style::default().fg(Color::Red),
-                                ))
-                                .with_text(Text::from(vec![
-                                    Line::from("Are you sure you want to remove this streak?"),
-                                    Line::from(Span::styled(
-                                        "This action cannot be undone.",
-                                        Style::default().fg(Color::Red),
-                                    )),
-                                ]))
-                                .with_yes_button(ButtonLabel::new("[Y]es", 'y'))
-                                .with_no_button(ButtonLabel::new("[N]o", 'n'))
-                                .with_yes_button_selected(false)
-                                .with_listener(Some(app.popup_tx.clone()));
-                            app.remove_popup = app.remove_popup.open();
-                        }
-                        _ => {}
-                    },
-                    InputMode::AddingTask => match key.code {
-                        KeyCode::Enter => {
-                            app.messages.push(app.task_input.value().into());
-                            if app.messages.len() == 2 {
-                                app.add_task();
-                                app.refresh();
-                                app.input_mode = InputMode::Normal;
+                            _ => {}
+                        },
+                        AppState::Insert => match key.code {
+                            KeyCode::Esc => app.app_state = AppState::Normal,
+                            KeyCode::Enter => {
+                                app.add_streak()?;
+                                app.app_state = AppState::Normal;
                             }
-                        }
-                        KeyCode::Esc => {
-                            app.input_mode = InputMode::Normal;
-                        }
-                        KeyCode::Tab => {
-                            app.messages.push(app.task_input.value().into());
-                            app.input_mode = InputMode::AddingFreq;
-                        }
-                        _ => {
-                            app.task_input.handle_event(&Event::Key(key));
-                        }
-                    },
-                    InputMode::AddingFreq => match key.code {
-                        KeyCode::Enter => {
-                            app.messages.push(app.frequency_input.value().into());
-                            if app.messages.len() == 2 {
-                                app.add_task();
-                                app.refresh();
-                                app.input_mode = InputMode::Normal;
+                            KeyCode::Backspace => {
+                                app.new_streak.task.pop();
                             }
-                        }
-                        KeyCode::Esc => {
-                            app.input_mode = InputMode::Normal;
-                        }
-                        KeyCode::Tab => {
-                            app.messages.push(app.frequency_input.value().into());
-                            app.input_mode = InputMode::AddingTask;
-                        }
-                        _ => {
-                            app.frequency_input.handle_event(&Event::Key(key));
-                        }
-                    },
-                }
-            }
-            if app.remove_popup.is_opened() && app.remove_popup.handle(key) {
-                continue;
-            }
-
-            if key.kind == KeyEventKind::Press {
-                match key.code {
-                    KeyCode::Esc => {
-                        app.remove_popup = app.remove_popup.close();
+                            KeyCode::Char(c) => {
+                                app.new_streak.task.push(c);
+                            }
+                            KeyCode::Tab => match app.new_streak.frequency {
+                                Frequency::Daily => app.new_streak.frequency = Frequency::Weekly,
+                                Frequency::Weekly => app.new_streak.frequency = Frequency::Daily,
+                            },
+                            _ => {}
+                        },
+                        AppState::Search => match key.code {
+                            KeyCode::Esc => app.app_state = AppState::Normal,
+                            KeyCode::Enter => app.app_state = AppState::Normal,
+                            KeyCode::Backspace => {
+                                app.search_phrase.pop();
+                            }
+                            KeyCode::Char(c) => {
+                                app.search_phrase.push(c);
+                            }
+                            _ => {}
+                        },
                     }
-                    _ => {}
                 }
             }
         }
     }
+    Ok(())
 }
 
-fn clear_inputs(task_input: &mut Input, frequency_input: &mut Input) {
-    task_input.reset();
-    frequency_input.reset();
-}
-
-fn ui(f: &mut Frame, app: &mut App) {
-    let rects = Layout::vertical([Constraint::Min(5), Constraint::Length(3)]).split(f.size());
-
-    match app.input_mode {
-        InputMode::Normal => {
-            clear_inputs(&mut app.task_input, &mut app.frequency_input);
-            render_table(f, app, rects[0]);
-            render_scrollbar(f, app, rects[0]);
-        }
-        InputMode::AddingTask => render_fields(f, app, rects[0]),
-        InputMode::AddingFreq => render_fields(f, app, rects[0]),
-    };
-    render_footer(f, app, rects[1]);
-
-    let popup_rect = centered_rect(60, 40, f.size());
-
-    if app.remove_popup.is_opened() {
-        let popup = ConfirmDialog::default()
-            .borders(Borders::ALL)
-            .bg(Color::Black)
-            .border_type(BorderType::Rounded)
-            .button_style(Style::default())
-            .selected_button_style(Style::default().fg(Color::Yellow));
-        f.render_stateful_widget(popup, popup_rect, &mut app.remove_popup)
-    }
-}
-
-fn render_fields(f: &mut Frame, app: &mut App, area: Rect) {
+/// Create the outermost layout and call functions to draw the header, main, and footer
+fn layout_app(app: &mut App, frame: &mut Frame) -> io::Result<()> {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .margin(2)
-        .constraints(
-            [
-                Constraint::Length(3),
-                Constraint::Length(3),
-                Constraint::Min(1),
-            ]
-            .as_ref(),
-        )
+        .constraints(vec![
+            Constraint::Length(2), // header
+            Constraint::Fill(1),   // main
+            Constraint::Length(3), // footer
+        ])
+        .split(frame.area());
+
+    draw_header(frame, chunks[0])?;
+
+    match app.app_state {
+        AppState::Search => layout_search(app, frame, chunks[1])?,
+        AppState::Insert => layout_add(app, frame, chunks[1])?,
+        _ => layout_main(app, frame, chunks[1])?,
+    }
+
+    draw_footer(app, frame, chunks[2])?;
+
+    Ok(())
+}
+
+fn draw_header(frame: &mut Frame, area: Rect) -> io::Result<()> {
+    let block = Block::new()
+        .borders(Borders::BOTTOM)
+        .border_type(BorderType::Thick);
+    let text = "Skidmarks";
+    let paragraph = Paragraph::new(text)
+        .alignment(Alignment::Center)
+        .block(block);
+    frame.render_widget(paragraph, area);
+    Ok(())
+}
+
+fn draw_footer(app: &mut App, frame: &mut Frame, area: Rect) -> io::Result<()> {
+    let block = Block::new()
+        .borders(Borders::TOP)
+        .border_type(BorderType::Thick);
+    let text = match app.app_state {
+        AppState::Normal => "[j/k] move, [c] check in, [o] change order, [z] reverse order,\n[f] filter, [s] search, [a] add, [q] quit",
+        AppState::Insert => "[Esc] cancel, [Enter] save, [Tab] toggle frequency",
+        AppState::Search => "[Esc] cancel, [Enter] search, [Backspace] delete",
+    };
+    let help_text = Paragraph::new(text)
+        .alignment(Alignment::Center)
+        .block(block);
+    frame.render_widget(help_text, area);
+    Ok(())
+}
+
+fn layout_main(app: &mut App, frame: &mut Frame, area: Rect) -> io::Result<()> {
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(3), Constraint::Fill(1)])
         .split(area);
 
-    let width = chunks[0].width.max(3) - 3;
-    let scroll = app.task_input.visual_scroll(width as usize);
+    draw_tabs(app, frame, chunks[0])?;
 
-    render_task_field(f, app, chunks[0], scroll);
-    render_frequency_field(f, app, chunks[1], scroll);
+    layout_content(app, frame, chunks[1])?;
+
+    Ok(())
 }
 
-fn render_task_field(f: &mut Frame, app: &mut App, area: Rect, scroll: usize) {
-    let task = Paragraph::new(app.task_input.value())
-        .style(match app.input_mode {
-            InputMode::AddingTask => Style::default().fg(Color::Yellow),
-            _ => Style::default(),
-        })
-        .scroll((0, scroll as u16))
-        .block(Block::default().borders(Borders::ALL).title("Task"));
-    f.render_widget(task, area);
-
-    match app.input_mode {
-        InputMode::AddingTask => f.set_cursor(
-            area.x + (app.task_input.visual_cursor().max(scroll) - scroll) as u16 + 1,
-            area.y + 1,
-        ),
-        _ => {}
-    }
+fn draw_tabs(app: &mut App, frame: &mut Frame, area: Rect) -> io::Result<()> {
+    let tabs = Tabs::new(vec!["All", "Waiting", "Missed", "Completed"])
+        .block(
+            Block::default()
+                .borders(Borders::BOTTOM)
+                .title_alignment(Alignment::Left)
+                .title("Filter"),
+        )
+        .style(Style::default().fg(Color::White))
+        .highlight_style(Style::default().fg(Color::Yellow))
+        .select(app.tab_state.into())
+        .divider(symbols::DOT);
+    frame.render_widget(tabs, area);
+    Ok(())
 }
 
-fn render_frequency_field(f: &mut Frame, app: &mut App, area: Rect, scroll: usize) {
-    let freq = Paragraph::new(app.frequency_input.value())
-        .style(match app.input_mode {
-            InputMode::AddingFreq => Style::default().fg(Color::Yellow),
-            _ => Style::default(),
-        })
-        .scroll((0, scroll as u16))
-        .block(Block::default().borders(Borders::ALL).title("Frequency"));
-    f.render_widget(freq, area);
+#[allow(dead_code)]
+fn draw_form(frame: &mut Frame, area: Rect) -> io::Result<()> {
+    let form_layout = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(66), Constraint::Percentage(33)])
+        .split(area);
 
-    match app.input_mode {
-        InputMode::AddingFreq => f.set_cursor(
-            area.x + ((app.frequency_input.visual_cursor()).max(scroll) - scroll) as u16 + 1,
-            area.y + 1,
-        ),
-        _ => {}
-    }
+    let task_block = Block::default().borders(Borders::ALL).title("Task");
+    let task = Paragraph::new("Task goes here")
+        .block(task_block)
+        .alignment(Alignment::Left);
+    frame.render_widget(task, form_layout[0]);
+
+    let freq_block = Block::default().borders(Borders::ALL).title("Frequency");
+    let freq = Paragraph::new("Daily")
+        .block(freq_block)
+        .alignment(Alignment::Left);
+    frame.render_widget(freq, form_layout[1]);
+
+    Ok(())
 }
 
-fn render_table(f: &mut Frame, app: &mut App, area: Rect) {
-    let header_style = Style::default()
-        .fg(app.colors.header_fg)
-        .bg(app.colors.header_bg);
-    let selected_style = Style::default()
-        .add_modifier(Modifier::REVERSED)
-        .fg(app.colors.selected_style_fg);
+fn layout_content(app: &mut App, frame: &mut Frame, area: Rect) -> io::Result<()> {
+    let chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Fill(1), Constraint::Length(2)])
+        .split(area);
 
-    let header = [
-        "\nTask",
-        "\nFreq.",
-        "\nStatus",
-        "Last\nCheck In",
-        "Current\nStreak",
-        "Longest\nStreak",
-        "\nTotal",
-    ]
-    .into_iter()
-    .map(Cell::from)
-    .collect::<Row>()
-    .style(header_style)
-    .height(2);
+    draw_table(app, frame, chunks[0])?;
 
-    let (width, _) = match dimensions() {
-        Some((w, _)) => (w, 0),
-        None => (80, 0),
-    };
-    let width = std::cmp::min(width.saturating_sub(60), 30);
+    let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight)
+        .begin_symbol(Some("▲"))
+        .end_symbol(Some("▼"));
+    frame.render_stateful_widget(scrollbar, chunks[1], &mut app.scrollbar_state);
+    Ok(())
+}
 
-    let rows = app.items.iter().enumerate().map(|(i, data)| {
-        let color = match i % 2 {
-            0 => app.colors.normal_row_color,
-            _ => app.colors.alt_row_color,
-        };
-        let mut item = data.ref_array();
-        let text = item[0].clone();
-
-        let mut wrapped_text = String::new();
-        let wrapped_lines = textwrap::wrap(text.as_str(), width);
-        let num_lines: u16 = wrapped_lines.len().try_into().unwrap();
-        for line in wrapped_lines {
-            wrapped_text.push_str(&format!("{}\n", line));
-        }
-        wrapped_text = wrapped_text.trim().to_string();
-
-        item[0] = &wrapped_text;
-        item.into_iter()
-            .map(|content| Cell::from(Text::from(content.to_string())))
-            .collect::<Row>()
-            .style(Style::new().fg(app.colors.row_fg).bg(color))
-            .height(num_lines)
-    });
-
-    let widths: [usize; 7] = [
-        width / 2,                // task
-        app.longest_item_lens[1], // frequency
-        app.longest_item_lens[2], // emoji
-        app.longest_item_lens[3], // last checkin
-        app.longest_item_lens[4], // current streak
-        app.longest_item_lens[5], // longest streak
-        app.longest_item_lens[6], // total checkins
+fn draw_table(app: &mut App, frame: &mut Frame, area: Rect) -> io::Result<()> {
+    let widths = [
+        Constraint::Fill(1),    // Task
+        Constraint::Length(7),  // Freq
+        Constraint::Length(3),  // Status
+        Constraint::Length(10), // Last Checkin
+        Constraint::Length(7),  // Current Streak
+        Constraint::Length(7),  // Longest Streak
+        Constraint::Length(7),  // Total Checkins
     ];
 
-    let table = Table::new(
-        rows,
-        [
-            Constraint::Min(widths[0] as u16),    // task
-            Constraint::Min(widths[1] as u16),    // frequency
-            Constraint::Min(widths[2] as u16),    // emoji
-            Constraint::Length(widths[3] as u16), // last checkin
-            Constraint::Min(widths[4] as u16),    // current streak
-            Constraint::Min(widths[5] as u16),    // longest streak
-            Constraint::Min(widths[6] as u16),    // total checkins
-        ],
-    )
-    .header(header)
-    .highlight_style(selected_style)
-    // .highlight_symbol(Text::from("> "))
-    .bg(app.colors.buffer_bg)
-    .highlight_spacing(HighlightSpacing::Always);
-    f.render_stateful_widget(table, area, &mut app.state);
-}
+    let rows = get_rows(app);
 
-fn render_scrollbar(f: &mut Frame, app: &mut App, area: Rect) {
-    f.render_stateful_widget(
-        Scrollbar::default()
-            .orientation(ScrollbarOrientation::VerticalRight)
-            .begin_symbol(None)
-            .end_symbol(None),
-        area.inner(Margin {
-            vertical: 1,
-            horizontal: 1,
-        }),
-        &mut app.scroll_state,
-    );
-}
-
-fn render_footer(f: &mut Frame, app: &App, area: Rect) {
-    let info_footer = Paragraph::new(Line::from(INFO_TEXT))
-        .style(Style::new().fg(app.colors.row_fg).bg(app.colors.buffer_bg))
-        .centered()
-        .block(
-            Block::bordered()
-                .borders(Borders::TOP)
-                .border_type(BorderType::Double)
-                .border_style(Style::new().fg(app.colors.footer_border_color)),
-        );
-    f.render_widget(info_footer, area);
-
-    let (msg, style) = match app.input_mode {
-        InputMode::Normal => (
-            vec![
-                Span::raw("Press "),
-                Span::styled("Q", Style::default().add_modifier(Modifier::ITALIC)),
-                Span::raw(" to exit, "),
-                Span::styled("A", Style::default().add_modifier(Modifier::ITALIC)),
-                Span::raw(" to add a streak, "),
-                Span::styled("C", Style::default().add_modifier(Modifier::ITALIC)),
-                Span::raw(" to check in to a streak"),
-            ],
-            Style::default(),
-        ),
-        InputMode::AddingTask => (
-            vec![
-                Span::raw("Press "),
-                Span::styled("Esc", Style::default().add_modifier(Modifier::BOLD)),
-                Span::raw(" to stop adding, "),
-                Span::styled("Enter", Style::default().add_modifier(Modifier::BOLD)),
-                Span::raw(" to add streak"),
-            ],
-            Style::default(),
-        ),
-        _ => (vec![], Style::default()),
+    let header_style = Style::default().add_modifier(Modifier::BOLD);
+    let sorted_by_style = Style::default().fg(Color::Yellow);
+    let sorted_icon = match app.sort_by_direction {
+        SortByDirection::Ascending => "⬆",
+        SortByDirection::Descending => "⬇",
     };
-    let text = Text::from(Line::from(msg)).style(style);
-    let help_message = Paragraph::new(text).alignment(Alignment::Center);
-    f.render_widget(help_message, area);
+    let header_pairs = vec![
+        ("\nTask", SortByField::Task),
+        ("\nFreq.", SortByField::Frequency),
+        ("\nStatus", SortByField::Status),
+        ("Last\nCheckin", SortByField::LastCheckIn),
+        ("Current\nStreak", SortByField::CurrentStreak),
+        ("Longest\nStreak", SortByField::LongestStreak),
+        ("Total\nCheckins", SortByField::TotalCheckins),
+    ];
+    let header_row = Row::new(
+        header_pairs
+            .iter()
+            .map(|(name, field)| {
+                let style = if *field == app.sort_by_field {
+                    sorted_by_style
+                } else {
+                    header_style
+                };
+                let text = if *field == app.sort_by_field {
+                    format!("{} {}", name, sorted_icon)
+                } else {
+                    name.to_string()
+                };
+                Cell::from(text).style(style)
+            })
+            .collect::<Vec<Cell>>(),
+    );
+
+    let table = Table::new(rows.clone(), widths)
+        .column_spacing(1)
+        .header(header_row.style(header_style).height(2))
+        .footer(Row::new(vec![
+            format!("Search: {}", app.search_phrase),
+            "".to_string(),
+            "".to_string(),
+            "".to_string(),
+            "".to_string(),
+            "".to_string(),
+            format!("{}/{}", rows.clone().len(), app.db.num_tasks()),
+        ]))
+        .bg(Color::Black)
+        .highlight_spacing(HighlightSpacing::WhenSelected)
+        .style(Style::default().fg(Color::White))
+        .highlight_style(Style::default().bg(Color::White).fg(Color::Black));
+
+    frame.render_stateful_widget(table, area, &mut app.table_state);
+
+    Ok(())
 }
 
-/// helper function to create a centered rect using up certain percentage of the available rect `r`
-fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
-    // Cut the given rectangle into three vertical pieces
-    let popup_layout = Layout::default()
+fn get_rows(app: &mut App) -> Vec<Row<'static>> {
+    let app = app.clone();
+    let database = Database::new(&get_database_url());
+    let streaks = database
+        .unwrap()
+        .get_sorted(app.sort_by_field, app.sort_by_direction);
+    let mut streaks = filter_by_status(streaks, app.filter_by_status);
+    if !app.search_phrase.is_empty() {
+        streaks = streaks
+            .into_iter()
+            .filter(|streak| {
+                streak
+                    .task
+                    .to_lowercase()
+                    .contains(&app.search_phrase.to_lowercase())
+            })
+            .collect();
+    }
+
+    let mut rows = vec![];
+    let (w, _) = dimensions().unwrap();
+    let w = w.saturating_sub(50);
+
+    for streak in streaks {
+        let task_lines = textwrap::wrap(&streak.task, w);
+        let h = task_lines.len();
+        let task = task_lines.join("\n");
+
+        let freq = streak.frequency.to_string();
+        let status = streak.emoji_status().to_string();
+        let status = Text::from(status).alignment(Alignment::Center);
+        let last_checkin = streak
+            .last_checkin
+            .map(|dt| dt.format("%Y-%m-%d").to_string())
+            .unwrap_or("None".to_string());
+        let current_streak =
+            Text::from(streak.current_streak.to_string()).alignment(Alignment::Center);
+        let longest_streak =
+            Text::from(streak.longest_streak.to_string()).alignment(Alignment::Center);
+        let total_checkins =
+            Text::from(streak.total_checkins.to_string()).alignment(Alignment::Center);
+
+        let row = Row::new(vec![
+            Cell::from(task.clone()),
+            Cell::from(freq),
+            Cell::from(status),
+            Cell::from(last_checkin),
+            Cell::from(current_streak),
+            Cell::from(longest_streak),
+            Cell::from(total_checkins),
+        ])
+        .height(h as u16);
+        rows.push(row.clone());
+    }
+    rows
+}
+
+fn layout_search(app: &mut App, frame: &mut Frame, area: Rect) -> io::Result<()> {
+    let layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Percentage((100 - percent_y) / 2),
-            Constraint::Percentage(percent_y),
-            Constraint::Percentage((100 - percent_y) / 2),
+            Constraint::Fill(1),
+            Constraint::Length(3),
+            Constraint::Fill(1),
         ])
-        .split(r);
+        .split(area);
+    draw_search(app, frame, layout[1])?;
 
-    // Then cut the middle vertical piece into three width-wise pieces
-    Layout::default()
-        .direction(Direction::Horizontal)
+    Ok(())
+}
+
+fn draw_search(app: &mut App, frame: &mut Frame, area: Rect) -> io::Result<()> {
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title("Search")
+        .title_alignment(Alignment::Center);
+    let paragraph = Paragraph::new(app.search_phrase.clone())
+        .style(Style::default().fg(Color::Yellow))
+        .block(block)
+        .alignment(Alignment::Left);
+    frame.render_widget(paragraph, area);
+    frame.set_cursor_position((area.x + 1 + app.search_phrase.len() as u16, area.y + 1));
+    Ok(())
+}
+
+fn layout_add(app: &mut App, frame: &mut Frame, area: Rect) -> io::Result<()> {
+    let layout = Layout::default()
+        .direction(Direction::Vertical)
         .constraints([
-            Constraint::Percentage((100 - percent_x) / 2),
-            Constraint::Percentage(percent_x),
-            Constraint::Percentage((100 - percent_x) / 2),
+            Constraint::Fill(1),
+            Constraint::Length(6),
+            Constraint::Fill(1),
         ])
-        .split(popup_layout[1])[1] // Return the middle chunk
+        .split(area);
+    draw_add(app, frame, layout[1])?;
+
+    Ok(())
+}
+
+fn draw_add(app: &mut App, frame: &mut Frame, area: Rect) -> io::Result<()> {
+    let layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(3), Constraint::Length(3)])
+        .split(area);
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title("New Streak")
+        .title_alignment(Alignment::Center);
+    let task = Paragraph::new(app.new_streak.task.clone())
+        .style(Style::default().fg(Color::Yellow))
+        .block(block)
+        .alignment(Alignment::Left);
+    frame.render_widget(task, layout[0]);
+    frame.set_cursor_position((
+        layout[0].x + 1 + app.new_streak.task.len() as u16,
+        layout[0].y + 1,
+    ));
+    frame.render_widget(draw_add_tabs(app), layout[1]);
+    Ok(())
+}
+
+fn draw_add_tabs(app: &mut App) -> Tabs {
+    let select = match app.new_streak.frequency {
+        Frequency::Daily => 0,
+        Frequency::Weekly => 1,
+    };
+    let tabs = Tabs::new(vec!["Daily", "Weekly"])
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title_alignment(Alignment::Center)
+                .title("Frequency"),
+        )
+        .style(Style::default().fg(Color::White))
+        .highlight_style(Style::default().fg(Color::Yellow))
+        .select(select)
+        .divider(symbols::DOT);
+    tabs
 }

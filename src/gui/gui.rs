@@ -1,11 +1,12 @@
 use crate::cli::get_database_url;
+use crate::filtering::FilterByStatus;
 use crate::sorting::{SortByDirection, SortByField};
+use crate::streak::Status;
 use crate::{db::Database, streak::Frequency, streak::Streak};
 use dioxus::desktop::{use_global_shortcut, Config, WindowBuilder};
 use dioxus::prelude::*;
 use std::collections::HashMap;
 use uuid::Uuid;
-use crate::streak::Status;
 
 pub fn main() {
     LaunchBuilder::desktop()
@@ -37,62 +38,52 @@ fn app() -> Element {
                 }
             }
 
-            header {
-                style: "background-color: {catppuccin::PALETTE.mocha.colors.mauve.hex.to_string()}",
+            header { style: "background-color: {catppuccin::PALETTE.mocha.colors.mauve.hex.to_string()}",
                 h1 { style: "color: {catppuccin::PALETTE.mocha.colors.crust.hex.to_string()}",
                     "Skidmarks"
                 }
             }
-            div {
-                class: "section",
-            div {
-                class: "columns",
-                form {
-                    class: "form column is-three-quarters",
-                    input {
-                        class: "input",
-                        r#type: "search",
-                        placeholder: "Search",
-                        oninput: move |event| {
-                            let search = event.data().value();
-                            streaks.write().search(search);
-                        },
-                    }
-                }
-                div {
-                    class: "column",
-                    div { class: "select",
-                        select {
-                            class: "select",
-                            name: "status",
+            div { class: "section",
+                div { class: "columns",
+                    form { class: "form column is-three-quarters",
+                        input {
+                            class: "input",
+                            r#type: "search",
+                            placeholder: "Search",
                             oninput: move |event| {
-                                let filter = FilterByStatus::from_str(&event.data().value());
-                                streaks.write().filter_by(filter);
-                                streaks.write().load_streaks();
-                            },
-                            option { "All" }
-                            option { "Done" }
-                            option { "Waiting" }
-                            option { "Missed" }
+                                let search = event.data().value();
+                                streaks.write().search(search);
+                            }
                         }
                     }
-                    button {
-                        class: "button",
-                        onclick: move |_| {
-                            streaks.write().load_streaks();
-                        },
-                        "Reset"
+                    div { class: "column",
+                        div { class: "select",
+                            select {
+                                class: "select",
+                                name: "status",
+                                oninput: move |event| {
+                                    let filter = FilterByStatus::from_str(&event.data().value());
+                                    streaks.write().filter_by(filter);
+                                    streaks.write().load_streaks();
+                                },
+                                option { "All" }
+                                option { "Done" }
+                                option { "Waiting" }
+                                option { "Missed" }
+                            }
+                        }
+                        button {
+                            class: "button",
+                            onclick: move |_| {
+                                streaks.write().load_streaks();
+                            },
+                            "Reset"
+                        }
                     }
                 }
             }
-                }
-            main {
-                {streak_table(streaks, show_popup)}
-            }
-            div {
-                class: "section",
-                {streak_form(streaks)}
-            }
+            main { {streak_table(streaks, show_popup)} }
+            div { class: "section", {streak_form(streaks)} }
             {popup(show_popup, streaks)}
         }
     }
@@ -103,41 +94,62 @@ fn streak_table(mut streaks: Signal<Streaks>, mut show_popup: Signal<Option<Uuid
         table { class: "table is-striped is-hoverable is-fullwidth",
             thead {
                 tr {
-                    th { onclick: move |_| {
-                        streaks.write().sort_by(SortByField::Task);
-                    } , {
-                        streaks.read().field_and_emoji(SortByField::Task)
-                    } }
-                    th { onclick: move |_| {
-                        streaks.write().sort_by(SortByField::Frequency);
-                    } , {
-                        streaks.read().field_and_emoji(SortByField::Frequency)
-                    } }
-                    th { onclick: move |_| {
-                        streaks.write().sort_by(SortByField::Status);
-                    } , {
-                        streaks.read().field_and_emoji(SortByField::Status)
-                    } }
-                    th { onclick: move |_| {
-                        streaks.write().sort_by(SortByField::LastCheckIn);
-                    } , {
-                        streaks.read().field_and_emoji(SortByField::LastCheckIn)
-                    } }
-                    th { onclick: move |_| {
-                        streaks.write().sort_by(SortByField::CurrentStreak);
-                    } , {
-                        streaks.read().field_and_emoji(SortByField::CurrentStreak)
-                    } }
-                    th { onclick: move |_| {
-                        streaks.write().sort_by(SortByField::LongestStreak);
-                    } , {
-                        streaks.read().field_and_emoji(SortByField::LongestStreak)
-                    } }
-                    th { onclick: move |_| {
-                        streaks.write().sort_by(SortByField::TotalCheckins);
-                    } , {
-                        streaks.read().field_and_emoji(SortByField::TotalCheckins)
-                    } }
+                    th {
+                        onclick: move |_| {
+                            streaks.write().sort_by(SortByField::Task);
+                        },
+                        {
+                            streaks.read().field_and_emoji(SortByField::Task)
+                        }
+                    }
+                    th {
+                        onclick: move |_| {
+                            streaks.write().sort_by(SortByField::Frequency);
+                        },
+                        {
+                            streaks.read().field_and_emoji(SortByField::Frequency)
+                        }
+                    }
+                    th {
+                        onclick: move |_| {
+                            streaks.write().sort_by(SortByField::Status);
+                        },
+                        {
+                            streaks.read().field_and_emoji(SortByField::Status)
+                        }
+                    }
+                    th {
+                        onclick: move |_| {
+                            streaks.write().sort_by(SortByField::LastCheckIn);
+                        },
+                        {
+                            streaks.read().field_and_emoji(SortByField::LastCheckIn)
+                        }
+                    }
+                    th {
+                        onclick: move |_| {
+                            streaks.write().sort_by(SortByField::CurrentStreak);
+                        },
+                        {
+                            streaks.read().field_and_emoji(SortByField::CurrentStreak)
+                        }
+                    }
+                    th {
+                        onclick: move |_| {
+                            streaks.write().sort_by(SortByField::LongestStreak);
+                        },
+                        {
+                            streaks.read().field_and_emoji(SortByField::LongestStreak)
+                        }
+                    }
+                    th {
+                        onclick: move |_| {
+                            streaks.write().sort_by(SortByField::TotalCheckins);
+                        },
+                        {
+                            streaks.read().field_and_emoji(SortByField::TotalCheckins)
+                        }
+                    }
                     th { "Actions" }
                 }
             }
@@ -152,11 +164,11 @@ fn streak_table(mut streaks: Signal<Streaks>, mut show_popup: Signal<Option<Uuid
                         Some(date) => date.to_string(),
                         None => "None".to_string(),
                     };
-
+                    
                     let current_streak = &streak.current_streak.to_string();
                     let longest_streak = &streak.longest_streak.to_string();
                     let total_checkins = &streak.total_checkins.to_string();
-
+                    
                     rsx! {
                         tr { class: "streak", key: "{id}",
                             td { class: "streak-name", "{streak_name}" }
@@ -196,61 +208,62 @@ fn streak_form(mut streaks: Signal<Streaks>) -> Element {
 
     let mut task_signal = use_signal(String::new);
     let mut freq_signal = use_signal(FormValue::default);
-    let freq_value = FormValue { 0: vec!["Daily".to_string()] };
+    let freq_value = FormValue {
+        0: vec!["Daily".to_string()],
+    };
 
     rsx!(
         if !submitted_values.read().is_empty() {
             h2 { "Submitted!" }
         }
 
-            form {
-                id: "streak-form",
-                class: "form",
+        form {
+            id: "streak-form",
+            class: "form",
+            oninput: move |event| {
+                values.set(event.values());
+            },
+            onsubmit: move |event| {
+                submitted_values.set(event.values());
+                let values = submitted_values.read();
+                let task = values.get("task").expect("Unable to get task value");
+                let default_frequency = FormValue(vec!["Daily".to_string()]);
+                let freq = values.get("frequency").unwrap_or(&default_frequency);
+                match freq.as_value().as_str() {
+                    "Daily" => streaks.write().new_streak(&task.as_value(), Frequency::Daily),
+                    "Weekly" => streaks.write().new_streak(&task.as_value(), Frequency::Weekly),
+                    _ => streaks.write().new_streak(&task.as_value(), Frequency::Daily),
+                };
+                task_signal.set(String::new());
+                freq_signal
+                    .set(FormValue {
+                        0: vec!["Daily".to_string()],
+                    });
+                streaks.write().load_streaks();
+            },
+            input {
+                class: "input",
+                r#type: "text",
+                name: "task",
+                placeholder: "Task",
+                value: task_signal.read().clone().into_value(),
                 oninput: move |event| {
-                    values.set(event.values());
-                },
-                onsubmit: move |event| {
-                    submitted_values.set(event.values());
-                    let values = submitted_values.read();
-                    let task = values.get("task").expect("Unable to get task value");
-                    let default_frequency = FormValue(vec!["Daily".to_string()]);
-                    let freq = values.get("frequency").unwrap_or(&default_frequency);
-                    match freq.as_value().as_str() {
-                        "Daily" => streaks.write().new_streak(&task.as_value(), Frequency::Daily),
-                        "Weekly" => streaks.write().new_streak(&task.as_value(), Frequency::Weekly),
-                        _ => streaks.write().new_streak(&task.as_value(), Frequency::Daily),
-                    };
-                    task_signal.set(String::new());
-                    freq_signal.set(FormValue { 0: vec!["Daily".to_string()] });
-                    streaks.write().load_streaks();
-                },
-                input {
-                    class: "input",
-                    r#type: "text",
-                    name: "task",
-                    placeholder: "Task",
-                    value: task_signal.read().clone().into_value(),
-                    oninput: move |event| {
-                        task_signal.set(event.data().value());
-                    },
-                }
-                div { class: "select",
-                    select {
-                        class: "select",
-                        name: "frequency",
-                        oninput: move |_| {
-                            freq_signal.set(freq_value.clone());
-                        },
-                        option { "Daily" }
-                        option { "Weekly" }
-                    }
-                }
-                button {
-                    class: "button",
-                    r#type: "submit",
-                    "Add"
+                    task_signal.set(event.data().value());
                 }
             }
+            div { class: "select",
+                select {
+                    class: "select",
+                    name: "frequency",
+                    oninput: move |_| {
+                        freq_signal.set(freq_value.clone());
+                    },
+                    option { "Daily" }
+                    option { "Weekly" }
+                }
+            }
+            button { class: "button", r#type: "submit", "Add" }
+        }
     )
 }
 
@@ -265,34 +278,31 @@ fn popup(mut is_open: Signal<Option<Uuid>>, mut streaks: Signal<Streaks>) -> Ele
     }
 
     rsx! {
-        div {
-            class: {
-                if is_open.read().is_some() {
-                    "modal is-active"
-                } else {
-                    "modal"
-                }
-            },
-        div { class: "modal-background" }
-        div { class: "modal-content",
-            div { class: "box",
-                h1 { "Delete this streak?" }
-                p { class: "is-size-3", {streak.as_ref().map_or("", |s| &s.task)} }
-                button {
-                    class: "button is-danger",
-                    onclick: move |_| {
-                        streaks.write().delete(&is_open.read().unwrap());
-                        streaks.write().load_streaks();
-                        is_open.set(None);
-                    },
-                    "Delete"
+        div { class: { if is_open.read().is_some() { "modal is-active" } else { "modal" } },
+            div { class: "modal-background" }
+            div { class: "modal-content",
+                div { class: "box",
+                    h1 { "Delete this streak?" }
+                    p { class: "is-size-3", {streak.as_ref().map_or("", |s| &s.task)} }
+                    button {
+                        class: "button is-danger",
+                        onclick: move |_| {
+                            streaks.write().delete(&is_open.read().unwrap());
+                            streaks.write().load_streaks();
+                            is_open.set(None);
+                        },
+                        "Delete"
+                    }
                 }
             }
+            button {
+                onclick: move |_| {
+                    is_open.set(None);
+                },
+                class: "modal-close is-large",
+                aria_label: "close"
+            }
         }
-        button { onclick: move |_ | {
-            is_open.set(None);
-        }, class: "modal-close is-large", aria_label: "close" }
-    }
     }
 }
 
@@ -312,7 +322,7 @@ impl Streaks {
             streak_list: vec![],
             sort_by: SortByField::Task,
             sort_dir: SortByDirection::Ascending,
-            filter_by: FilterByStatus::All
+            filter_by: FilterByStatus::All,
         };
 
         streaks.load_streaks();
@@ -324,14 +334,15 @@ impl Streaks {
         let sort_dir = self.sort_dir.clone();
         let filter_by = self.filter_by.clone();
         let streaks = self.db.get_sorted(sort_by, sort_dir);
-        let filtered_streaks = streaks.into_iter().filter(|streak| {
-            match filter_by {
+        let filtered_streaks = streaks
+            .into_iter()
+            .filter(|streak| match filter_by {
                 FilterByStatus::All => true,
                 FilterByStatus::Done => streak.status() == Status::Done,
                 FilterByStatus::Missed => streak.status() == Status::Missed,
                 FilterByStatus::Waiting => streak.status() == Status::Waiting,
-            }
-        }).collect();
+            })
+            .collect();
         self.streak_list = filtered_streaks;
     }
 
@@ -410,25 +421,5 @@ impl Streaks {
     fn filter_by(&mut self, field: FilterByStatus) {
         self.filter_by = field;
         self.load_streaks();
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-enum FilterByStatus {
-    All,
-    Done,
-    Missed,
-    Waiting,
-}
-
-impl FilterByStatus {
-    pub fn from_str(s: &str) -> Self {
-        match s {
-            "All" => FilterByStatus::All,
-            "Done" => FilterByStatus::Done,
-            "Missed" => FilterByStatus::Missed,
-            "Waiting" => FilterByStatus::Waiting,
-            _ => FilterByStatus::All,
-        }
     }
 }

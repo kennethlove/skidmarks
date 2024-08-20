@@ -99,14 +99,6 @@ fn get_one(db: &mut Database, id: Uuid) -> Option<Streak> {
     None
 }
 
-#[allow(dead_code)]
-fn get_one_by_index(db: &mut Database, idx: usize) -> Option<Streak> {
-    if let Some(streak) = db.get_by_index(idx) {
-        return Some(streak);
-    }
-    None
-}
-
 fn get_one_by_id(db: &mut Database, ident: &str) -> Option<Streak> {
     if let Some(streak) = db.get_by_id(ident) {
         return Some(streak);
