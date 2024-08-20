@@ -4291,7 +4291,7 @@ checksum = "38b58827f4464d87d377d175e90bf58eb00fd8716ff0a62f80356b5e61555d0d"
 
 [[package]]
 name = "skidmarks"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "ansi_term",
  "assert_cmd",
