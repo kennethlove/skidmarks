@@ -2,6 +2,7 @@ use crate::cli::get_database_url;
 use crate::db::Database;
 use crate::filtering::{filter_by_status, FilterByStatus};
 use crate::sorting::{SortByDirection, SortByField};
+use crate::streak::{Frequency, Streak};
 use dioxus::html::ScrollData;
 use ratatui::widgets::{
     Block, BorderType, Borders, Cell, HighlightSpacing, Paragraph, Row, Scrollbar,
@@ -22,15 +23,29 @@ use ratatui::{
 use std::io;
 use term_size::dimensions;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
+struct NewStreak {
+    task: String,
+    frequency: Frequency,
+}
+
+impl Default for NewStreak {
+    fn default() -> Self {
+        NewStreak {
+            task: String::default(),
+            frequency: Frequency::Daily,
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
 enum AppState {
     Normal,
     Insert,
-    Sorting,
-    Searching,
+    Search,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct App {
     app_state: AppState,
     table_state: TableState,
@@ -39,7 +54,9 @@ struct App {
     sort_by_field: SortByField,
     sort_by_direction: SortByDirection,
     filter_by_status: FilterByStatus,
-    tab_state: u8
+    tab_state: u8,
+    search_phrase: String,
+    new_streak: NewStreak,
 }
 
 impl App {
@@ -53,7 +70,9 @@ impl App {
             sort_by_field: SortByField::Task,
             sort_by_direction: SortByDirection::Ascending,
             filter_by_status: FilterByStatus::All,
-            tab_state: 0
+            tab_state: 0,
+            search_phrase: String::default(),
+            new_streak: NewStreak::default(),
         }
     }
 
@@ -87,7 +106,7 @@ impl App {
         self.scrollbar_state = self.scrollbar_state.position(i);
     }
 
-    pub fn checkin(&mut self) -> io::Result<()> {
+    pub fn check_in(&mut self) -> io::Result<()> {
         let i = self.table_state.selected().unwrap();
         let mut streak = self
             .db
@@ -100,6 +119,16 @@ impl App {
             .unwrap();
         streak.checkin();
         self.db.update(streak.id, streak)?;
+        self.db.save()?;
+        Ok(())
+    }
+
+    pub fn add_streak(&mut self) -> io::Result<()> {
+        let streak = match self.new_streak.frequency {
+            Frequency::Daily => Streak::new_daily(self.new_streak.task.clone()),
+            Frequency::Weekly => Streak::new_weekly(self.new_streak.task.clone()),
+        };
+        self.db.add(streak)?;
         self.db.save()?;
         Ok(())
     }
@@ -139,68 +168,98 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: &mut App) -> io::Res
         if event::poll(std::time::Duration::from_millis(16))? {
             if let event::Event::Key(key) = event::read()? {
                 if key.kind == KeyEventKind::Press {
-                    match key.code {
-                        KeyCode::Char('q') => break,
-                        KeyCode::Char('j') => app.select_down(),
-                        KeyCode::Char('k') => app.select_up(),
-                        KeyCode::Char('c') => app.checkin()?,
-                        KeyCode::Char('z') => {
-                            match app.sort_by_direction {
-                                SortByDirection::Ascending => app.sort_by_direction = SortByDirection::Descending,
-                                SortByDirection::Descending => app.sort_by_direction = SortByDirection::Ascending,
-                            }
-                        }
-                        KeyCode::Char('f') => {
-                            match app.filter_by_status {
+                    match app.app_state {
+                        AppState::Normal => match key.code {
+                            KeyCode::Char('q') => break,
+                            KeyCode::Char('j') => app.select_down(),
+                            KeyCode::Char('k') => app.select_up(),
+                            KeyCode::Char('c') => app.check_in()?,
+                            KeyCode::Char('z') => match app.sort_by_direction {
+                                SortByDirection::Ascending => {
+                                    app.sort_by_direction = SortByDirection::Descending
+                                }
+                                SortByDirection::Descending => {
+                                    app.sort_by_direction = SortByDirection::Ascending
+                                }
+                            },
+                            KeyCode::Char('f') => match app.filter_by_status {
                                 FilterByStatus::All => {
                                     app.tab_state = 1;
                                     app.filter_by_status = FilterByStatus::Waiting
-                                },
+                                }
                                 FilterByStatus::Waiting => {
                                     app.tab_state = 2;
                                     app.filter_by_status = FilterByStatus::Missed
-                                },
+                                }
                                 FilterByStatus::Missed => {
                                     app.tab_state = 3;
                                     app.filter_by_status = FilterByStatus::Done
-                                },
+                                }
                                 FilterByStatus::Done => {
                                     app.tab_state = 0;
                                     app.filter_by_status = FilterByStatus::All
-                                },
+                                }
+                            },
+                            KeyCode::Char('o') => match app.sort_by_field {
+                                SortByField::Task => app.sort_by_field = SortByField::Frequency,
+                                SortByField::Frequency => app.sort_by_field = SortByField::Status,
+                                SortByField::Status => app.sort_by_field = SortByField::LastCheckIn,
+                                SortByField::LastCheckIn => {
+                                    app.sort_by_field = SortByField::CurrentStreak
+                                }
+                                SortByField::CurrentStreak => {
+                                    app.sort_by_field = SortByField::LongestStreak
+                                }
+                                SortByField::LongestStreak => {
+                                    app.sort_by_field = SortByField::TotalCheckins
+                                }
+                                SortByField::TotalCheckins => app.sort_by_field = SortByField::Task,
+                            },
+                            KeyCode::Char('s') => {
+                                app.search_phrase = "".to_string();
+                                app.app_state = AppState::Search;
                             }
-                        }
-                        _ => {}
+                            KeyCode::Char('a') => {
+                                app.new_streak = NewStreak::default();
+                                app.app_state = AppState::Insert;
+                            }
+                            _ => {}
+                        },
+                        AppState::Insert => match key.code {
+                            KeyCode::Esc => app.app_state = AppState::Normal,
+                            KeyCode::Enter => {
+                                app.add_streak()?;
+                                app.app_state = AppState::Normal;
+                            }
+                            KeyCode::Backspace => {
+                                app.new_streak.task.pop();
+                            }
+                            KeyCode::Char(c) => {
+                                app.new_streak.task.push(c);
+                            }
+                            KeyCode::Tab => match app.new_streak.frequency {
+                                Frequency::Daily => app.new_streak.frequency = Frequency::Weekly,
+                                Frequency::Weekly => app.new_streak.frequency = Frequency::Daily,
+                            },
+                            _ => {}
+                        },
+                        AppState::Search => match key.code {
+                            KeyCode::Esc => app.app_state = AppState::Normal,
+                            KeyCode::Enter => app.app_state = AppState::Normal,
+                            KeyCode::Backspace => {
+                                app.search_phrase.pop();
+                            }
+                            KeyCode::Char(c) => {
+                                app.search_phrase.push(c);
+                            }
+                            _ => {}
+                        },
                     }
                 }
             }
         }
     }
     Ok(())
-}
-
-/// helper function to create a centered rect using up certain percentage of the available rect `r`
-#[allow(dead_code)]
-fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
-    // Cut the given rectangle into three vertical pieces
-    let popup_layout = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Percentage((100 - percent_y) / 2),
-            Constraint::Percentage(percent_y),
-            Constraint::Percentage((100 - percent_y) / 2),
-        ])
-        .split(r);
-
-    // Then cut the middle vertical piece into three width-wise pieces
-    Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Percentage((100 - percent_x) / 2),
-            Constraint::Percentage(percent_x),
-            Constraint::Percentage((100 - percent_x) / 2),
-        ])
-        .split(popup_layout[1])[1] // Return the middle chunk
 }
 
 /// Create the outermost layout and call functions to draw the header, main, and footer
@@ -210,15 +269,19 @@ fn layout_app(app: &mut App, frame: &mut Frame) -> io::Result<()> {
         .constraints(vec![
             Constraint::Length(2), // header
             Constraint::Fill(1),   // main
-            Constraint::Length(2), // footer
+            Constraint::Length(3), // footer
         ])
         .split(frame.area());
 
     draw_header(frame, chunks[0])?;
 
-    layout_main(app, frame, chunks[1])?;
+    match app.app_state {
+        AppState::Search => layout_search(app, frame, chunks[1])?,
+        AppState::Insert => layout_add(app, frame, chunks[1])?,
+        _ => layout_main(app, frame, chunks[1])?,
+    }
 
-    draw_footer(frame, chunks[2])?;
+    draw_footer(app, frame, chunks[2])?;
 
     Ok(())
 }
@@ -235,25 +298,26 @@ fn draw_header(frame: &mut Frame, area: Rect) -> io::Result<()> {
     Ok(())
 }
 
-fn draw_footer(frame: &mut Frame, area: Rect) -> io::Result<()> {
+fn draw_footer(app: &mut App, frame: &mut Frame, area: Rect) -> io::Result<()> {
     let block = Block::new()
         .borders(Borders::TOP)
         .border_type(BorderType::Thick);
-    let text = "j/k to move, c to checkin, z to reverse order, f to filter, q to quit";
-    let paragraph = Paragraph::new(text)
+    let text = match app.app_state {
+        AppState::Normal => "[j/k] move, [c] check in, [o] change order, [z] reverse order,\n[f] filter, [s] search, [a] add, [q] quit",
+        AppState::Insert => "[Esc] cancel, [Enter] save, [Tab] toggle frequency",
+        AppState::Search => "[Esc] cancel, [Enter] search, [Backspace] delete",
+    };
+    let help_text = Paragraph::new(text)
         .alignment(Alignment::Center)
         .block(block);
-    frame.render_widget(paragraph, area);
+    frame.render_widget(help_text, area);
     Ok(())
 }
 
 fn layout_main(app: &mut App, frame: &mut Frame, area: Rect) -> io::Result<()> {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(3),
-            Constraint::Fill(1),
-        ])
+        .constraints([Constraint::Length(3), Constraint::Fill(1)])
         .split(area);
 
     draw_tabs(app, frame, chunks[0])?;
@@ -265,7 +329,12 @@ fn layout_main(app: &mut App, frame: &mut Frame, area: Rect) -> io::Result<()> {
 
 fn draw_tabs(app: &mut App, frame: &mut Frame, area: Rect) -> io::Result<()> {
     let tabs = Tabs::new(vec!["All", "Waiting", "Missed", "Completed"])
-        .block(Block::default().borders(Borders::BOTTOM).title_alignment(Alignment::Left).title("Filter"))
+        .block(
+            Block::default()
+                .borders(Borders::BOTTOM)
+                .title_alignment(Alignment::Left)
+                .title("Filter"),
+        )
         .style(Style::default().fg(Color::White))
         .highlight_style(Style::default().fg(Color::Yellow))
         .select(app.tab_state.into())
@@ -324,24 +393,52 @@ fn draw_table(app: &mut App, frame: &mut Frame, area: Rect) -> io::Result<()> {
 
     let rows = get_rows(app);
 
-    let header_style = Style::default().fg(Color::Green);
+    let header_style = Style::default().add_modifier(Modifier::BOLD);
+    let sorted_by_style = Style::default().fg(Color::Yellow);
+    let sorted_icon = match app.sort_by_direction {
+        SortByDirection::Ascending => "⬆",
+        SortByDirection::Descending => "⬇",
+    };
+    let header_pairs = vec![
+        ("\nTask", SortByField::Task),
+        ("\nFreq.", SortByField::Frequency),
+        ("\nStatus", SortByField::Status),
+        ("Last\nCheckin", SortByField::LastCheckIn),
+        ("Current\nStreak", SortByField::CurrentStreak),
+        ("Longest\nStreak", SortByField::LongestStreak),
+        ("Total\nCheckins", SortByField::TotalCheckins),
+    ];
+    let header_row = Row::new(
+        header_pairs
+            .iter()
+            .map(|(name, field)| {
+                let style = if *field == app.sort_by_field {
+                    sorted_by_style
+                } else {
+                    header_style
+                };
+                let text = if *field == app.sort_by_field {
+                    format!("{} {}", name, sorted_icon)
+                } else {
+                    name.to_string()
+                };
+                Cell::from(text).style(style)
+            })
+            .collect::<Vec<Cell>>(),
+    );
 
-    let table = Table::new(rows, widths)
+    let table = Table::new(rows.clone(), widths)
         .column_spacing(1)
-        .header(
-            Row::new(vec![
-                Cell::from("\nTask"),
-                Cell::from("\nFreq"),
-                Cell::from(Text::from("\nStatus").alignment(Alignment::Center)),
-                Cell::from("Last\nCheck In"),
-                Cell::from("Current\nStreak"),
-                Cell::from("Longest\nStreak"),
-                Cell::from("Total\nCheckins"),
-            ])
-            .style(header_style)
-            .height(2),
-        )
-        .footer(Row::new(vec![format!("Total Tasks: {}", app.db.num_tasks())]))
+        .header(header_row.style(header_style).height(2))
+        .footer(Row::new(vec![
+            format!("Search: {}", app.search_phrase),
+            "".to_string(),
+            "".to_string(),
+            "".to_string(),
+            "".to_string(),
+            "".to_string(),
+            format!("{}/{}", rows.clone().len(), app.db.num_tasks()),
+        ]))
         .bg(Color::Black)
         .highlight_spacing(HighlightSpacing::WhenSelected)
         .style(Style::default().fg(Color::White))
@@ -358,7 +455,18 @@ fn get_rows(app: &mut App) -> Vec<Row<'static>> {
     let streaks = database
         .unwrap()
         .get_sorted(app.sort_by_field, app.sort_by_direction);
-    let streaks = filter_by_status(streaks, app.filter_by_status);
+    let mut streaks = filter_by_status(streaks, app.filter_by_status);
+    if !app.search_phrase.is_empty() {
+        streaks = streaks
+            .into_iter()
+            .filter(|streak| {
+                streak
+                    .task
+                    .to_lowercase()
+                    .contains(&app.search_phrase.to_lowercase())
+            })
+            .collect();
+    }
 
     let mut rows = vec![];
     let (w, _) = dimensions().unwrap();
@@ -396,4 +504,87 @@ fn get_rows(app: &mut App) -> Vec<Row<'static>> {
         rows.push(row.clone());
     }
     rows
+}
+
+fn layout_search(app: &mut App, frame: &mut Frame, area: Rect) -> io::Result<()> {
+    let layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Fill(1),
+            Constraint::Length(3),
+            Constraint::Fill(1),
+        ])
+        .split(area);
+    draw_search(app, frame, layout[1])?;
+
+    Ok(())
+}
+
+fn draw_search(app: &mut App, frame: &mut Frame, area: Rect) -> io::Result<()> {
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title("Search")
+        .title_alignment(Alignment::Center);
+    let paragraph = Paragraph::new(app.search_phrase.clone())
+        .style(Style::default().fg(Color::Yellow))
+        .block(block)
+        .alignment(Alignment::Left);
+    frame.render_widget(paragraph, area);
+    frame.set_cursor_position((area.x + 1 + app.search_phrase.len() as u16, area.y + 1));
+    Ok(())
+}
+
+fn layout_add(app: &mut App, frame: &mut Frame, area: Rect) -> io::Result<()> {
+    let layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Fill(1),
+            Constraint::Length(6),
+            Constraint::Fill(1),
+        ])
+        .split(area);
+    draw_add(app, frame, layout[1])?;
+
+    Ok(())
+}
+
+fn draw_add(app: &mut App, frame: &mut Frame, area: Rect) -> io::Result<()> {
+    let layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(3), Constraint::Length(3)])
+        .split(area);
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title("New Streak")
+        .title_alignment(Alignment::Center);
+    let task = Paragraph::new(app.new_streak.task.clone())
+        .style(Style::default().fg(Color::Yellow))
+        .block(block)
+        .alignment(Alignment::Left);
+    frame.render_widget(task, layout[0]);
+    frame.set_cursor_position((
+        layout[0].x + 1 + app.new_streak.task.len() as u16,
+        layout[0].y + 1,
+    ));
+    frame.render_widget(draw_add_tabs(app), layout[1]);
+    Ok(())
+}
+
+fn draw_add_tabs(app: &mut App) -> Tabs {
+    let select = match app.new_streak.frequency {
+        Frequency::Daily => 0,
+        Frequency::Weekly => 1,
+    };
+    let tabs = Tabs::new(vec!["Daily", "Weekly"])
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title_alignment(Alignment::Center)
+                .title("Frequency"),
+        )
+        .style(Style::default().fg(Color::White))
+        .highlight_style(Style::default().fg(Color::Yellow))
+        .select(select)
+        .divider(symbols::DOT);
+    tabs
 }
