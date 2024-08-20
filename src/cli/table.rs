@@ -24,7 +24,6 @@ pub fn build_table(streaks: Vec<Streak>) -> String {
         None => (60, 0),
     };
     let width = std::cmp::min(width.saturating_sub(60), 30);
-    dbg!(width);
 
     for streak in streaks.iter() {
         let mut wrapped_text = String::new();
