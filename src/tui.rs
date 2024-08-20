@@ -1,6 +1,6 @@
 use crate::cli::get_database_url;
 use crate::db::Database;
-use crate::filtering::FilterByStatus;
+use crate::filtering::{filter_by_status, FilterByStatus};
 use crate::sorting::{SortByDirection, SortByField};
 use dioxus::html::ScrollData;
 use ratatui::widgets::{
@@ -22,32 +22,38 @@ use ratatui::{
 use std::io;
 use term_size::dimensions;
 
-enum InputMode {
+#[derive(Clone)]
+enum AppState {
     Normal,
     Insert,
+    Sorting,
+    Searching,
 }
 
+#[derive(Clone)]
 struct App {
-    input_mode: InputMode,
+    app_state: AppState,
     table_state: TableState,
     scrollbar_state: ScrollbarState,
     db: Database,
     sort_by_field: SortByField,
     sort_by_direction: SortByDirection,
     filter_by_status: FilterByStatus,
+    tab_state: u8
 }
 
 impl App {
     pub fn new() -> Self {
         let db = Database::new(&get_database_url()).unwrap();
         App {
-            input_mode: InputMode::Normal,
+            app_state: AppState::Normal,
             table_state: TableState::default().with_selected(0),
             scrollbar_state: ScrollbarState::new(db.num_tasks()).position(0),
             db,
             sort_by_field: SortByField::Task,
             sort_by_direction: SortByDirection::Ascending,
             filter_by_status: FilterByStatus::All,
+            tab_state: 0
         }
     }
 
@@ -138,6 +144,32 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: &mut App) -> io::Res
                         KeyCode::Char('j') => app.select_down(),
                         KeyCode::Char('k') => app.select_up(),
                         KeyCode::Char('c') => app.checkin()?,
+                        KeyCode::Char('z') => {
+                            match app.sort_by_direction {
+                                SortByDirection::Ascending => app.sort_by_direction = SortByDirection::Descending,
+                                SortByDirection::Descending => app.sort_by_direction = SortByDirection::Ascending,
+                            }
+                        }
+                        KeyCode::Char('f') => {
+                            match app.filter_by_status {
+                                FilterByStatus::All => {
+                                    app.tab_state = 1;
+                                    app.filter_by_status = FilterByStatus::Waiting
+                                },
+                                FilterByStatus::Waiting => {
+                                    app.tab_state = 2;
+                                    app.filter_by_status = FilterByStatus::Missed
+                                },
+                                FilterByStatus::Missed => {
+                                    app.tab_state = 3;
+                                    app.filter_by_status = FilterByStatus::Done
+                                },
+                                FilterByStatus::Done => {
+                                    app.tab_state = 0;
+                                    app.filter_by_status = FilterByStatus::All
+                                },
+                            }
+                        }
                         _ => {}
                     }
                 }
@@ -148,6 +180,7 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: &mut App) -> io::Res
 }
 
 /// helper function to create a centered rect using up certain percentage of the available rect `r`
+#[allow(dead_code)]
 fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
     // Cut the given rectangle into three vertical pieces
     let popup_layout = Layout::default()
@@ -206,7 +239,7 @@ fn draw_footer(frame: &mut Frame, area: Rect) -> io::Result<()> {
     let block = Block::new()
         .borders(Borders::TOP)
         .border_type(BorderType::Thick);
-    let text = "Press 'q' to quit";
+    let text = "j/k to move, c to checkin, z to reverse order, f to filter, q to quit";
     let paragraph = Paragraph::new(text)
         .alignment(Alignment::Center)
         .block(block);
@@ -218,32 +251,30 @@ fn layout_main(app: &mut App, frame: &mut Frame, area: Rect) -> io::Result<()> {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(2),
+            Constraint::Length(3),
             Constraint::Fill(1),
-            Constraint::Length(4),
         ])
         .split(area);
 
-    draw_tabs(frame, chunks[0])?;
+    draw_tabs(app, frame, chunks[0])?;
 
     layout_content(app, frame, chunks[1])?;
-
-    draw_form(frame, chunks[2])?;
 
     Ok(())
 }
 
-fn draw_tabs(frame: &mut Frame, area: Rect) -> io::Result<()> {
+fn draw_tabs(app: &mut App, frame: &mut Frame, area: Rect) -> io::Result<()> {
     let tabs = Tabs::new(vec!["All", "Waiting", "Missed", "Completed"])
-        .block(Block::default().borders(Borders::BOTTOM))
+        .block(Block::default().borders(Borders::BOTTOM).title_alignment(Alignment::Left).title("Filter"))
         .style(Style::default().fg(Color::White))
         .highlight_style(Style::default().fg(Color::Yellow))
-        .select(0)
+        .select(app.tab_state.into())
         .divider(symbols::DOT);
     frame.render_widget(tabs, area);
     Ok(())
 }
 
+#[allow(dead_code)]
 fn draw_form(frame: &mut Frame, area: Rect) -> io::Result<()> {
     let form_layout = Layout::default()
         .direction(Direction::Horizontal)
@@ -268,7 +299,7 @@ fn draw_form(frame: &mut Frame, area: Rect) -> io::Result<()> {
 fn layout_content(app: &mut App, frame: &mut Frame, area: Rect) -> io::Result<()> {
     let chunks = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Fill(1), Constraint::Length(1)])
+        .constraints([Constraint::Fill(1), Constraint::Length(2)])
         .split(area);
 
     draw_table(app, frame, chunks[0])?;
@@ -291,7 +322,7 @@ fn draw_table(app: &mut App, frame: &mut Frame, area: Rect) -> io::Result<()> {
         Constraint::Length(7),  // Total Checkins
     ];
 
-    let rows = get_rows();
+    let rows = get_rows(app);
 
     let header_style = Style::default().fg(Color::Green);
 
@@ -310,7 +341,7 @@ fn draw_table(app: &mut App, frame: &mut Frame, area: Rect) -> io::Result<()> {
             .style(header_style)
             .height(2),
         )
-        .footer(Row::new(vec!["Total Tasks: 10"]))
+        .footer(Row::new(vec![format!("Total Tasks: {}", app.db.num_tasks())]))
         .bg(Color::Black)
         .highlight_spacing(HighlightSpacing::WhenSelected)
         .style(Style::default().fg(Color::White))
@@ -321,20 +352,21 @@ fn draw_table(app: &mut App, frame: &mut Frame, area: Rect) -> io::Result<()> {
     Ok(())
 }
 
-fn get_rows() -> Vec<Row<'static>> {
+fn get_rows(app: &mut App) -> Vec<Row<'static>> {
+    let app = app.clone();
     let database = Database::new(&get_database_url());
     let streaks = database
         .unwrap()
-        .get_sorted(SortByField::Task, SortByDirection::Ascending);
+        .get_sorted(app.sort_by_field, app.sort_by_direction);
+    let streaks = filter_by_status(streaks, app.filter_by_status);
 
     let mut rows = vec![];
     let (w, _) = dimensions().unwrap();
     let w = w.saturating_sub(50);
-    let mut h = 1;
 
     for streak in streaks {
         let task_lines = textwrap::wrap(&streak.task, w);
-        h = task_lines.len();
+        let h = task_lines.len();
         let task = task_lines.join("\n");
 
         let freq = streak.frequency.to_string();

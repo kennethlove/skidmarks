@@ -401,7 +401,7 @@ mod tests {
         let file_path = db_file.to_str().unwrap();
 
         let mut db = Database::create_from_file(file_path, DATABASE_PRELOAD).unwrap();
-        let result = db.get_by_index(1).unwrap();
+        let result = db.get_by_index(1, SortByField::Task, SortByDirection::Ascending, FilterByStatus::All).unwrap();
         let expected = db.streaks.iter().nth(1).unwrap().clone();
         assert_eq!(expected, result);
 
