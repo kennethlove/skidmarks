@@ -2,7 +2,7 @@
 
 Skidmarks is a command-line application written in Rust for managing streaks.
 It allows users to add and list streaks with different frequencies (daily or
-weekly).
+weekly) adn check in to those streaks to maintain them.
 
 ## Features
 
@@ -10,6 +10,7 @@ weekly).
 - List all existing streaks.
 - Check in on a streak to keep it going.
 - Remove a streak when it's no longer needed.
+- CLI, TUI, and GUI interfaces available.
 
 ## Installation
 
@@ -71,6 +72,24 @@ $ skidmarks list
  5 | Read a book     | weekly | ❌     |     None      |   0
 ```
 
+#### Filtering Streaks
+
+You can filter the list of streaks by using the `--done`, `--waiting`, or `--missed` flags.
+
+You can filter by frequency with the `--frequency [daily, weekly]` argument.
+
+#### Searching Streaks
+
+You can search the list of streaks by using the `--search` flag.
+
+```sh
+$ skidmarks list --search "Exercise"
+
+   | Streak          | Freq   | Status | Last Check In | Total
+---+-----------------+--------+--------+---------------+-------
+ 0 | Exercise        | daily  | ✅     |  2024-07-31   |   1
+```
+
 ### Checking In on a Streak
 
 To check in on a streak, use the `check-in <streak id>` command.
@@ -89,6 +108,22 @@ To remove a streak, use the `remove <streak id>` command.
 $ skidmarks remove 5
 
 🗑 Removed the "Read a book" streak
+```
+
+## TUI
+
+There is a TUI interface available for Skidmarks. To use it, run the following:
+
+```shell
+skidmarks tui
+```
+
+## GUI
+
+There is a GUI interface available for Skidmarks. To use it, run the following:
+
+```shell
+skidmarks gui
 ```
 
 ## Running Tests
