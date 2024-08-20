@@ -76,7 +76,7 @@ $ skidmarks list
 
 You can filter the list of streaks by using the `--done`, `--waiting`, or `--missed` flags.
 
-You can filter by frequency with the `--frequency [daily, weekly]` argument.
+You can filter by frequency with the `--daily` and `--weekly` flags.
 
 #### Searching Streaks
 
