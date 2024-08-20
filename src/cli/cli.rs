@@ -1,7 +1,6 @@
 use std::path::Path;
 
-use ansi_term::{Color, Style};
-use catppuccin::PALETTE;
+use ansi_term::Style;
 use clap::{Parser, Subcommand};
 use console::Emoji;
 use dirs;
@@ -136,16 +135,13 @@ pub fn get_database_url() -> String {
     path.to_string_lossy().to_string()
 }
 
-const fn ansi(color: &catppuccin::Color) -> ansi_term::Colour {
-    ansi_term::Colour::RGB(color.rgb.r, color.rgb.g, color.rgb.b)
-}
-
 /// Parses command line options
 pub fn parse() {
+    let app_styles = crate::color::AppStyles::new();
     let cli = Cli::parse();
     let db_url = get_database_url();
     let mut db = Database::new(&db_url).expect("Could not load database");
-    let response_style = Style::new().bold().fg(ansi(&PALETTE.mocha.colors.mauve));
+    let response_style = Style::new().bold().fg(app_styles.response_fg.into());
     match &cli.command {
         Commands::Add { task, frequency } => match frequency {
             Frequency::Daily => {
@@ -223,7 +219,7 @@ pub fn parse() {
             Err(e) => {
                 let response = Style::new()
                     .bold()
-                    .fg(Color::Red)
+                    .fg(app_styles.response_error_fg)
                     .paint("Error checking in:");
                 eprintln!("{response} {}", e)
             }

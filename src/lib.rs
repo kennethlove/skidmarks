@@ -1,4 +1,5 @@
 pub mod cli;
+pub mod color;
 pub mod db;
 pub mod filtering;
 pub mod gui;

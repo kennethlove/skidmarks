@@ -1,9 +1,9 @@
 use crate::cli::get_database_url;
+use crate::color::AppStyles;
 use crate::db::Database;
 use crate::filtering::{filter_by_status, FilterByStatus};
 use crate::sorting::{SortByDirection, SortByField};
 use crate::streak::{Frequency, Streak};
-use catppuccin::{self, Flavor};
 use ratatui::widgets::{
     Block, BorderType, Borders, Cell, HighlightSpacing, Paragraph, Row, Scrollbar,
     ScrollbarOrientation, ScrollbarState, Table, TableState, Tabs,
@@ -22,69 +22,6 @@ use ratatui::{
 };
 use std::io;
 use term_size::dimensions;
-
-static PALETTE: Flavor = catppuccin::PALETTE.mocha;
-
-#[derive(Clone, Debug)]
-struct AppStyles {
-    background: Color,
-    foreground: Color,
-    danger: Color,
-    row_bg: Color,
-    alt_row_bg: Color,
-    row_fg: Color,
-    alt_row_fg: Color,
-    highlight_bg: Color,
-    highlight_fg: Color,
-    tab_fg: Color,
-    selected_tab_fg: Color,
-}
-
-impl AppStyles {
-    fn new() -> Self {
-        let peach = Color::Rgb(
-            PALETTE.colors.peach.rgb.r,
-            PALETTE.colors.peach.rgb.g,
-            PALETTE.colors.peach.rgb.b,
-        );
-        let text = Color::Rgb(
-            PALETTE.colors.text.rgb.r,
-            PALETTE.colors.text.rgb.g,
-            PALETTE.colors.text.rgb.b,
-        );
-        let base = Color::Rgb(
-            PALETTE.colors.base.rgb.r,
-            PALETTE.colors.base.rgb.g,
-            PALETTE.colors.base.rgb.b,
-        );
-
-        AppStyles {
-            background: base,
-            foreground: text,
-            danger: Color::Rgb(
-                PALETTE.colors.red.rgb.r,
-                PALETTE.colors.red.rgb.g,
-                PALETTE.colors.red.rgb.b,
-            ),
-            row_bg: Color::Rgb(
-                PALETTE.colors.surface0.rgb.r,
-                PALETTE.colors.surface0.rgb.g,
-                PALETTE.colors.surface0.rgb.b,
-            ),
-            alt_row_bg: Color::Rgb(
-                PALETTE.colors.surface1.rgb.r,
-                PALETTE.colors.surface1.rgb.g,
-                PALETTE.colors.surface1.rgb.b,
-            ),
-            row_fg: text,
-            alt_row_fg: text,
-            highlight_bg: peach,
-            highlight_fg: base,
-            tab_fg: text,
-            selected_tab_fg: peach,
-        }
-    }
-}
 
 #[derive(Clone, Debug)]
 struct NewStreak {
