@@ -35,8 +35,11 @@ enum Commands {
         #[arg(long, default_value = "", help = "Search for task")]
         search: String,
 
-        #[arg(long, default_value = "", help = "Filter by frequency")]
-        frequency: String,
+        #[arg(long, action, group = "frequency", help = "Show daily streaks")]
+        daily: bool,
+
+        #[arg(long, action, group = "frequency", help = "Show weekly streaks")]
+        weekly: bool,
 
         #[arg(long, action, group = "status", help = "Show done streaks")]
         done: bool,
@@ -165,7 +168,8 @@ pub fn parse() {
         Commands::List {
             sort_by,
             search,
-            frequency,
+            daily,
+            weekly,
             done,
             waiting,
             missed,
@@ -175,14 +179,18 @@ pub fn parse() {
                 false => db.search(search),
             };
             let sort_by = get_sort_order(sort_by);
-            let frequency = match frequency.is_empty() {
-                true => None,
-                false => Some(Frequency::from_str(frequency)),
-            };
-            if let Some(frequency) = frequency {
+
+            if *daily {
                 streak_list = streak_list
                     .into_iter()
-                    .filter(|s| s.frequency == frequency)
+                    .filter(|s| s.frequency == Frequency::Daily)
+                    .collect();
+            }
+
+            if *weekly {
+                streak_list = streak_list
+                    .into_iter()
+                    .filter(|s| s.frequency == Frequency::Weekly)
                     .collect();
             }
 
