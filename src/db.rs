@@ -1,6 +1,7 @@
 use std::fs::{File, OpenOptions};
 use std::io::Write;
 
+use crate::filtering::{filter_by_status, FilterByStatus};
 use crate::sorting::{SortByDirection, SortByField};
 use crate::streak::{sort_streaks, Streak};
 use uuid::Uuid;
@@ -140,6 +141,11 @@ impl Database {
         sort_streaks(streaks, sort_field, sort_direction)
     }
 
+    pub fn get_filtered(&self, filter_field: FilterByStatus) -> Vec<Streak> {
+        let streaks = self.streaks.clone();
+        filter_by_status(streaks, filter_field)
+    }
+
     pub fn get_one(&mut self, id: Uuid) -> Option<Streak> {
         let streak = self.streaks.iter().find(|s| s.id == id);
         match streak {
@@ -148,8 +154,16 @@ impl Database {
         }
     }
 
-    pub fn get_by_index(&mut self, index: usize) -> Option<Streak> {
-        let streak = self.streaks.iter().nth(index);
+    pub fn get_by_index(
+        &mut self,
+        index: usize,
+        sort_field: SortByField,
+        sort_dir: SortByDirection,
+        filter_by: FilterByStatus,
+    ) -> Option<Streak> {
+        let streaks = self.get_sorted(sort_field, sort_dir);
+        let streaks = filter_by_status(streaks, filter_by);
+        let streak = streaks.iter().nth(index);
         match streak {
             Some(streak) => Some(streak.clone()),
             None => None,

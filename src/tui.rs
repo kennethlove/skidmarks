@@ -1,5 +1,6 @@
 use crate::cli::get_database_url;
 use crate::db::Database;
+use crate::filtering::FilterByStatus;
 use crate::sorting::{SortByDirection, SortByField};
 use dioxus::html::ScrollData;
 use ratatui::widgets::{
@@ -31,6 +32,9 @@ struct App {
     table_state: TableState,
     scrollbar_state: ScrollbarState,
     db: Database,
+    sort_by_field: SortByField,
+    sort_by_direction: SortByDirection,
+    filter_by_status: FilterByStatus,
 }
 
 impl App {
@@ -41,6 +45,9 @@ impl App {
             table_state: TableState::default().with_selected(0),
             scrollbar_state: ScrollbarState::new(db.num_tasks()).position(0),
             db,
+            sort_by_field: SortByField::Task,
+            sort_by_direction: SortByDirection::Ascending,
+            filter_by_status: FilterByStatus::All,
         }
     }
 
@@ -72,6 +79,23 @@ impl App {
         };
         self.table_state.select(Some(i));
         self.scrollbar_state = self.scrollbar_state.position(i);
+    }
+
+    pub fn checkin(&mut self) -> io::Result<()> {
+        let i = self.table_state.selected().unwrap();
+        let mut streak = self
+            .db
+            .get_by_index(
+                i,
+                self.sort_by_field.clone(),
+                self.sort_by_direction.clone(),
+                self.filter_by_status.clone(),
+            )
+            .unwrap();
+        streak.checkin();
+        self.db.update(streak.id, streak)?;
+        self.db.save()?;
+        Ok(())
     }
 }
 
@@ -113,6 +137,7 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: &mut App) -> io::Res
                         KeyCode::Char('q') => break,
                         KeyCode::Char('j') => app.select_down(),
                         KeyCode::Char('k') => app.select_up(),
+                        KeyCode::Char('c') => app.checkin()?,
                         _ => {}
                     }
                 }
