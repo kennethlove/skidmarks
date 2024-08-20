@@ -278,7 +278,7 @@ fn popup(mut is_open: Signal<Option<Uuid>>, mut streaks: Signal<Streaks>) -> Ele
     }
 
     rsx! {
-        div { class: { if is_open.read().is_some() { "modal is-active" } else { "modal" } },
+        div { class: if is_open.read().is_some() { "modal is-active" } else { "modal" },
             div { class: "modal-background" }
             div { class: "modal-content",
                 div { class: "box",
@@ -398,6 +398,7 @@ impl Streaks {
     fn field_and_emoji(&self, field: SortByField) -> String {
         let sorted_field = self.sort_by.clone();
         let field_name = field.to_string()[..1].to_uppercase() + &field.to_string()[1..];
+        let field_name = field_name.replace("_", " ");
         if field != sorted_field {
             return format!("{field_name}  ");
         }
