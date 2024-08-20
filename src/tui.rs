@@ -3,7 +3,6 @@ use crate::db::Database;
 use crate::filtering::{filter_by_status, FilterByStatus};
 use crate::sorting::{SortByDirection, SortByField};
 use crate::streak::{Frequency, Streak};
-use dioxus::html::ScrollData;
 use ratatui::widgets::{
     Block, BorderType, Borders, Cell, HighlightSpacing, Paragraph, Row, Scrollbar,
     ScrollbarOrientation, ScrollbarState, Table, TableState, Tabs,
