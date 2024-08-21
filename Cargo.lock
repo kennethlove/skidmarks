@@ -511,6 +511,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aa1798ea21d5f88f057b9a4d075bbf3e9cc4bba98da0d6197a2019f61f633bf4"
 dependencies = [
  "ansi_term",
+ "css-colors",
  "itertools 0.13.0",
  "ratatui 0.26.3",
  "serde",
@@ -936,6 +937,12 @@ dependencies = [
  "generic-array",
  "typenum",
 ]
+
+[[package]]
+name = "css-colors"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "22c2bbfc5708f23437b074ba4e699b14fd6d7181a61695bccc8d944b78739236"
 
 [[package]]
 name = "cssparser"
