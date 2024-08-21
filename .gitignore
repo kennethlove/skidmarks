@@ -2,3 +2,4 @@ target/**
 **.ron
 .idea/**
 .vscode/**
+dist/**
