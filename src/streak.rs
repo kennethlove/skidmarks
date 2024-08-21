@@ -34,6 +34,13 @@ impl Frequency {
         }
     }
 
+    pub fn as_str(&self) -> &str {
+        match self {
+            Frequency::Daily => "daily",
+            Frequency::Weekly => "weekly",
+        }
+    }
+
     pub fn to_string(&self) -> String {
         match self {
             Frequency::Daily => "daily".to_string(),
@@ -47,6 +54,16 @@ pub enum Status {
     Waiting,
     Done,
     Missed,
+}
+
+impl Status {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Status::Waiting => "waiting",
+            Status::Done => "done",
+            Status::Missed => "missed",
+        }
+    }
 }
 
 impl Display for Status {
@@ -139,7 +156,7 @@ impl Streak {
         }
     }
 
-    pub(crate) fn status(&self) -> Status {
+    pub fn status(&self) -> Status {
         if self.was_missed() {
             Status::Missed
         } else if self.done_in_period() {
@@ -149,11 +166,11 @@ impl Streak {
         }
     }
 
-    pub fn emoji_status(&self) -> String {
+    pub fn emoji_status(&self) -> &str {
         match self.status() {
-            Status::Done => "✅".to_string(),
-            Status::Missed => "❌".to_string(),
-            Status::Waiting => "⏳".to_string(),
+            Status::Done => "✅",
+            Status::Missed => "❌",
+            Status::Waiting => "⏳",
         }
     }
 

@@ -1,8 +1,8 @@
 use crate::cli::get_database_url;
+use crate::color::GuiStyles;
 use crate::filtering::FilterByStatus;
 use crate::sorting::{SortByDirection, SortByField};
 use crate::streak::Status;
-use crate::color::GuiStyles;
 use crate::{db::Database, streak::Frequency, streak::Streak};
 use dioxus::desktop::{use_global_shortcut, Config, WindowBuilder};
 use dioxus::prelude::*;
@@ -28,71 +28,88 @@ fn app() -> Element {
     });
 
     rsx! {
-        head::Link { rel: "stylesheet", href: asset!("./assets/bulma.min.css") }
-        head::Link { rel: "stylesheet", href: asset!("./assets/streaks.css") }
+        head::Link {
+            rel: "stylesheet",
+            href: "https://cdn.jsdelivr.net/npm/bulma@1.0.2/css/bulma.min.css"
+        }
+        // head::Link { rel: "stylesheet", href: asset!("./assets/streaks.css") }
 
         style { r#type: "text/css",
-            {format!(r#"body {{ background-color: {0}; color: {1}; }}"#, gui_styles.background, gui_styles.foreground)}
+            {format!(r#"
+            body {{
+                background-color: {0};
+                color: {1};
+            }}
+            "#,
+                gui_styles.background,
+                gui_styles.foreground
+            )}
         }
 
         div {
-            header { style: "background-color: {gui_styles.header_bg}",
-                h1 { style: "color: {gui_styles.header_fg}",
-                    class: "is-bold",
+            header {
+                class: "is-fixed",
+                style: "background-color: {gui_styles.header_bg}",
+                h1 {
+                    style: "color: {gui_styles.header_fg}",
+                    class: "is-size-1 has-text-centered has-text-weight-bold",
                     "Skidmarks"
                 }
             }
-            div { class: "section",
-                div { class: "columns",
-                    form { class: "form column is-three-quarters",
-                        input {
-                            class: "input",
-                            r#type: "search",
-                            placeholder: "Search",
-                            oninput: move |event| {
-                                let search = event.data().value();
-                                streaks.write().search(search);
-                            }
-                        }
-                    }
-                    div { class: "column",
-                        div { class: "select",
-                            select {
-                                class: "select",
-                                name: "status",
-                                oninput: move |event| {
-                                    let filter = FilterByStatus::from_str(&event.data().value());
-                                    streaks.write().filter_by(filter);
-                                    streaks.write().load_streaks();
-                                },
-                                option { "All" }
-                                option { "Done" }
-                                option { "Waiting" }
-                                option { "Missed" }
-                            }
-                        }
-                    }
-                    div { class: "column",
-                        button {
-                            class: "button",
-                            onclick: move |_| {
-                                streaks.write().load_streaks();
-                            },
-                            "Reset"
-                        }
+            div { class: "section p-2 mt-2", {streak_search(streaks)} }
+            main { class: "section p-2 mt-1 container", {streak_table(streaks, show_popup)} }
+            div { class: "section p-2 mt-1", {streak_form(streaks)} }
+            p { class: "has-text-centered is-size-7 pb-3", "Copyright © 2024 klove" }
+            {popup(show_popup, streaks)}
+        }
+    }
+}
+
+fn streak_search(mut streaks: Signal<Streaks>) -> Element {
+    rsx! {
+        form { class: "form columns is-1 is-0-mobile",
+            div { class: "column is-half",
+                input {
+                    class: "input",
+                    r#type: "search",
+                    placeholder: "Search",
+                    oninput: move |event| {
+                        let search = event.data().value();
+                        streaks.write().search(search);
                     }
                 }
             }
-            main { class: "section", {streak_table(streaks, show_popup)} }
-            div { class: "section", {streak_form(streaks)} }
-            {popup(show_popup, streaks)}
+            div { class: "column",
+                div { class: "select mr-2",
+                    select {
+                        class: "select",
+                        name: "status",
+                        oninput: move |event| {
+                            let filter = FilterByStatus::from_str(&event.data().value());
+                            streaks.write().filter_by(filter);
+                            streaks.write().load_streaks();
+                        },
+                        option { "All" }
+                        option { "Done" }
+                        option { "Waiting" }
+                        option { "Missed" }
+                    }
+                }
+                button {
+                    class: "button",
+                    onclick: move |_| {
+                        streaks.write().load_streaks();
+                    },
+                    "Reset"
+                }
+            }
         }
     }
 }
 
 fn streak_table(mut streaks: Signal<Streaks>, mut show_popup: Signal<Option<Uuid>>) -> Element {
     rsx! {
-        table { class: "table is-striped is-hoverable is-fullwidth",
+        table { class: "table is-striped is-hoverable is-narrow is-fullwidth",
             thead {
                 tr {
                     th {
@@ -180,11 +197,11 @@ fn streak_table(mut streaks: Signal<Streaks>, mut show_popup: Signal<Option<Uuid
                             td { class: "streak-longest-streak", "{longest_streak}" }
                             td { class: "streak-total-checkins", "{total_checkins}" }
                             td { class: "streak-actions",
-                                button { class: "button", onclick: move |_| {
+                                button { class: "button is-success", onclick: move |_| {
                                     streaks.write().checkin(&id)
                                     }, "✓"
                                 }
-                                button { class: "button", onclick: move |_| {
+                                button { class: "button is-danger", onclick: move |_| {
                                     show_popup.set(Some(id));
                                 }, "×"
                                 }
@@ -221,7 +238,7 @@ fn streak_form(mut streaks: Signal<Streaks>) -> Element {
         div {
             form {
                 id: "streak-form",
-                class: "form columns",
+                class: "form columns is-1 is-0-mobile",
                 oninput: move |event| {
                     values.set(event.values());
                 },
@@ -243,7 +260,7 @@ fn streak_form(mut streaks: Signal<Streaks>) -> Element {
                         });
                     streaks.write().load_streaks();
                 },
-                div { class: "column is-three-quarters",
+                div { class: "column is-half",
                     input {
                         class: "input",
                         r#type: "text",
@@ -256,7 +273,7 @@ fn streak_form(mut streaks: Signal<Streaks>) -> Element {
                     }
                 }
                 div { class: "column",
-                    div { class: "select",
+                    div { class: "select mr-2",
                         select {
                             class: "select",
                             name: "frequency",
@@ -267,8 +284,6 @@ fn streak_form(mut streaks: Signal<Streaks>) -> Element {
                             option { "Weekly" }
                         }
                     }
-                }
-                div { class: "column",
                     button { class: "button", r#type: "submit", "Add" }
                 }
             }
@@ -284,6 +299,7 @@ fn popup(mut is_open: Signal<Option<Uuid>>, mut streaks: Signal<Streaks>) -> Ele
         if streak.is_none() {
             is_open.set(None);
         }
+        streak = streak.clone();
     }
 
     rsx! {
@@ -291,8 +307,44 @@ fn popup(mut is_open: Signal<Option<Uuid>>, mut streaks: Signal<Streaks>) -> Ele
             div { class: "modal-background" }
             div { class: "modal-content",
                 div { class: "box",
-                    h1 { "Delete this streak?" }
-                    p { class: "is-size-3", {streak.as_ref().map_or("", |s| &s.task)} }
+                    h1 { class: "is-size-3", "Delete this streak?" }
+                    p { class: "is-size-5 has-text-centered",
+                        {streak.as_ref().map_or("", |s| &s.task)}
+                    }
+                    div { class: "columns",
+                        div { class: "column",
+                            h3 { "Frequency" }
+                            p { {streak.as_ref().map_or("", |s| &s.frequency.as_str())} }
+                        }
+                        div { class: "column",
+                            h3 { "Status" }
+                            p { {streak.as_ref().map_or("", |s| &s.emoji_status())} }
+                        }
+                        div { class: "column",
+                            h3 { "Last Checkin" }
+                            p {
+                                {streak.as_ref().map_or("None".to_string(), |s| s.last_checkin.unwrap().to_string())}
+                            }
+                        }
+                        div { class: "column",
+                            h3 { "Current Streak" }
+                            p {
+                                {streak.as_ref().map_or("".to_string(), |s| s.current_streak.to_string())}
+                            }
+                        }
+                        div { class: "column",
+                            h3 { "Longest Streak" }
+                            p {
+                                {streak.as_ref().map_or("".to_string(), |s| s.longest_streak.to_string())}
+                            }
+                        }
+                        div { class: "column",
+                            h3 { "Total Checkins" }
+                            p {
+                                {streak.as_ref().map_or("".to_string(), |s| s.total_checkins.to_string())}
+                            }
+                        }
+                    }
                     button {
                         class: "button is-danger",
                         onclick: move |_| {
@@ -409,7 +461,7 @@ impl Streaks {
         let field_name = field.to_string()[..1].to_uppercase() + &field.to_string()[1..];
         let field_name = field_name.replace("_", " ");
         if field != sorted_field {
-            return format!("{field_name}  ");
+            return format!("{field_name} ");
         }
         let sort_dir = self.sort_dir.clone();
         let emoji = match sort_dir {
