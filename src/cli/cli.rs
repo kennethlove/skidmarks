@@ -137,11 +137,11 @@ pub fn get_database_url() -> String {
 
 /// Parses command line options
 pub fn parse() {
-    let app_styles = crate::color::AppStyles::new();
+    let cli_styles = crate::color::CliStyles::new();
     let cli = Cli::parse();
     let db_url = get_database_url();
     let mut db = Database::new(&db_url).expect("Could not load database");
-    let response_style = Style::new().bold().fg(app_styles.response_fg.into());
+    let response_style = Style::new().bold().fg(cli_styles.response_fg.into());
     match &cli.command {
         Commands::Add { task, frequency } => match frequency {
             Frequency::Daily => {
@@ -219,7 +219,7 @@ pub fn parse() {
             Err(e) => {
                 let response = Style::new()
                     .bold()
-                    .fg(app_styles.response_error_fg)
+                    .fg(cli_styles.response_error_fg)
                     .paint("Error checking in:");
                 eprintln!("{response} {}", e)
             }

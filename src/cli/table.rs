@@ -1,14 +1,14 @@
-use crate::color::AppStyles;
 use crate::streak::Streak;
 use ansi_term::Style;
 use tabled::{builder::Builder, settings::Style as TabledStyle};
 use term_size::dimensions;
+use crate::color::CliStyles;
 
 /// Builds table of streaks from list
 pub fn build_table(streaks: Vec<Streak>) -> String {
-    let app_styles = AppStyles::new();
+    let cli_styles = CliStyles::new();
     let mut builder = Builder::new();
-    let header_style = Style::new().italic().fg(app_styles.table_header_fg);
+    let header_style = Style::new().italic().fg(cli_styles.table_header_fg);
     builder.push_record([
         header_style.paint("\nIdent").to_string(),
         header_style.paint("\nTask").to_string(),

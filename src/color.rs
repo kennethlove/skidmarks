@@ -11,7 +11,24 @@ const fn rgb(color: &catppuccin::Color) -> Color {
 }
 
 #[derive(Clone, Debug)]
-pub struct AppStyles {
+pub struct CliStyles {
+    pub response_fg: ansi_term::Color,
+    pub response_error_fg: ansi_term::Color,
+    pub table_header_fg: ansi_term::Color
+}
+
+impl CliStyles {
+    pub fn new() -> Self {
+        CliStyles {
+            response_fg: ansi(&PALETTE.colors.text),
+            response_error_fg: ansi(&PALETTE.colors.red),
+            table_header_fg: ansi(&PALETTE.colors.peach),
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct TuiStyles {
     pub background: Color,
     pub foreground: Color,
     pub danger: Color,
@@ -23,18 +40,15 @@ pub struct AppStyles {
     pub highlight_fg: Color,
     pub tab_fg: Color,
     pub selected_tab_fg: Color,
-    pub response_fg: ansi_term::Color,
-    pub response_error_fg: ansi_term::Color,
-    pub table_header_fg: ansi_term::Color,
 }
 
-impl AppStyles {
+impl TuiStyles {
     pub fn new() -> Self {
         let peach = rgb(&PALETTE.colors.peach);
         let text = rgb(&PALETTE.colors.text);
         let base = rgb(&PALETTE.colors.base);
 
-        AppStyles {
+        TuiStyles {
             background: base,
             foreground: text,
             danger: Color::Rgb(
@@ -58,9 +72,25 @@ impl AppStyles {
             highlight_fg: base,
             tab_fg: text,
             selected_tab_fg: peach,
-            response_fg: ansi(&PALETTE.colors.peach),
-            response_error_fg: ansi(&PALETTE.colors.red),
-            table_header_fg: ansi(&PALETTE.colors.peach),
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct GuiStyles {
+    pub header_bg: Color,
+    pub header_fg: Color,
+    pub background: String,
+    pub foreground: String,
+}
+
+impl GuiStyles {
+    pub fn new() -> Self {
+        GuiStyles {
+            header_bg: rgb(&PALETTE.colors.peach),
+            header_fg: rgb(&PALETTE.colors.surface0),
+            background: PALETTE.colors.base.hex.to_string(),
+            foreground: PALETTE.colors.text.hex.to_string(),
         }
     }
 }

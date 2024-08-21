@@ -1,5 +1,5 @@
 use crate::cli::get_database_url;
-use crate::color::AppStyles;
+use crate::color::TuiStyles;
 use crate::db::Database;
 use crate::filtering::{filter_by_status, FilterByStatus};
 use crate::sorting::{SortByDirection, SortByField};
@@ -58,7 +58,7 @@ struct App {
     tab_state: u8,
     search_phrase: String,
     new_streak: NewStreak,
-    styles: AppStyles,
+    styles: TuiStyles,
 }
 
 impl App {
@@ -75,7 +75,7 @@ impl App {
             tab_state: 0,
             search_phrase: String::default(),
             new_streak: NewStreak::default(),
-            styles: AppStyles::new(),
+            styles: TuiStyles::new(),
         }
     }
 
@@ -495,7 +495,7 @@ fn get_rows(app: &mut App) -> Vec<Row<'static>> {
             .collect();
     }
 
-    let styles = AppStyles::new();
+    let styles = TuiStyles::new();
 
     let mut rows = vec![];
     let (w, _) = dimensions().unwrap();

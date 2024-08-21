@@ -2,6 +2,7 @@ use crate::cli::get_database_url;
 use crate::filtering::FilterByStatus;
 use crate::sorting::{SortByDirection, SortByField};
 use crate::streak::Status;
+use crate::color::GuiStyles;
 use crate::{db::Database, streak::Frequency, streak::Streak};
 use dioxus::desktop::{use_global_shortcut, Config, WindowBuilder};
 use dioxus::prelude::*;
@@ -16,6 +17,7 @@ pub fn main() {
 
 fn app() -> Element {
     let mut streaks = use_signal(Streaks::new);
+    let gui_styles = GuiStyles::new();
 
     let show_popup = use_signal(|| None);
     _ = use_global_shortcut("CmdOrCtrl+Q", move || {
@@ -26,20 +28,17 @@ fn app() -> Element {
     });
 
     rsx! {
-        head {
-            link { rel: "stylesheet", href: asset!("./assets/bulma.min.css") }
-            link { rel: "stylesheet", href: asset!("./assets/streaks.css") }
-        }
-        div {
-            head {
-                link {
-                    rel: "stylesheet",
-                    href: "https://fonts.googleapis.com/icon?family=Material+Icons"
-                }
-            }
+        head::Link { rel: "stylesheet", href: asset!("./assets/bulma.min.css") }
+        head::Link { rel: "stylesheet", href: asset!("./assets/streaks.css") }
 
-            header { style: "background-color: {catppuccin::PALETTE.mocha.colors.mauve.hex.to_string()}",
-                h1 { style: "color: {catppuccin::PALETTE.mocha.colors.crust.hex.to_string()}",
+        style { r#type: "text/css",
+            {format!(r#"body {{ background-color: {0}; color: {1}; }}"#, gui_styles.background, gui_styles.foreground)}
+        }
+
+        div {
+            header { style: "background-color: {gui_styles.header_bg}",
+                h1 { style: "color: {gui_styles.header_fg}",
+                    class: "is-bold",
                     "Skidmarks"
                 }
             }
@@ -72,6 +71,8 @@ fn app() -> Element {
                                 option { "Missed" }
                             }
                         }
+                    }
+                    div { class: "column",
                         button {
                             class: "button",
                             onclick: move |_| {
@@ -82,7 +83,7 @@ fn app() -> Element {
                     }
                 }
             }
-            main { {streak_table(streaks, show_popup)} }
+            main { class: "section", {streak_table(streaks, show_popup)} }
             div { class: "section", {streak_form(streaks)} }
             {popup(show_popup, streaks)}
         }
@@ -217,52 +218,60 @@ fn streak_form(mut streaks: Signal<Streaks>) -> Element {
             h2 { "Submitted!" }
         }
 
-        form {
-            id: "streak-form",
-            class: "form",
-            oninput: move |event| {
-                values.set(event.values());
-            },
-            onsubmit: move |event| {
-                submitted_values.set(event.values());
-                let values = submitted_values.read();
-                let task = values.get("task").expect("Unable to get task value");
-                let default_frequency = FormValue(vec!["Daily".to_string()]);
-                let freq = values.get("frequency").unwrap_or(&default_frequency);
-                match freq.as_value().as_str() {
-                    "Daily" => streaks.write().new_streak(&task.as_value(), Frequency::Daily),
-                    "Weekly" => streaks.write().new_streak(&task.as_value(), Frequency::Weekly),
-                    _ => streaks.write().new_streak(&task.as_value(), Frequency::Daily),
-                };
-                task_signal.set(String::new());
-                freq_signal
-                    .set(FormValue {
-                        0: vec!["Daily".to_string()],
-                    });
-                streaks.write().load_streaks();
-            },
-            input {
-                class: "input",
-                r#type: "text",
-                name: "task",
-                placeholder: "Task",
-                value: task_signal.read().clone().into_value(),
+        div {
+            form {
+                id: "streak-form",
+                class: "form columns",
                 oninput: move |event| {
-                    task_signal.set(event.data().value());
+                    values.set(event.values());
+                },
+                onsubmit: move |event| {
+                    submitted_values.set(event.values());
+                    let values = submitted_values.read();
+                    let task = values.get("task").expect("Unable to get task value");
+                    let default_frequency = FormValue(vec!["Daily".to_string()]);
+                    let freq = values.get("frequency").unwrap_or(&default_frequency);
+                    match freq.as_value().as_str() {
+                        "Daily" => streaks.write().new_streak(&task.as_value(), Frequency::Daily),
+                        "Weekly" => streaks.write().new_streak(&task.as_value(), Frequency::Weekly),
+                        _ => streaks.write().new_streak(&task.as_value(), Frequency::Daily),
+                    };
+                    task_signal.set(String::new());
+                    freq_signal
+                        .set(FormValue {
+                            0: vec!["Daily".to_string()],
+                        });
+                    streaks.write().load_streaks();
+                },
+                div { class: "column is-three-quarters",
+                    input {
+                        class: "input",
+                        r#type: "text",
+                        name: "task",
+                        placeholder: "Task",
+                        value: task_signal.read().clone().into_value(),
+                        oninput: move |event| {
+                            task_signal.set(event.data().value());
+                        }
+                    }
+                }
+                div { class: "column",
+                    div { class: "select",
+                        select {
+                            class: "select",
+                            name: "frequency",
+                            oninput: move |_| {
+                                freq_signal.set(freq_value.clone());
+                            },
+                            option { "Daily" }
+                            option { "Weekly" }
+                        }
+                    }
+                }
+                div { class: "column",
+                    button { class: "button", r#type: "submit", "Add" }
                 }
             }
-            div { class: "select",
-                select {
-                    class: "select",
-                    name: "frequency",
-                    oninput: move |_| {
-                        freq_signal.set(freq_value.clone());
-                    },
-                    option { "Daily" }
-                    option { "Weekly" }
-                }
-            }
-            button { class: "button", r#type: "submit", "Add" }
         }
     )
 }
