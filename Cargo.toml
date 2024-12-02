@@ -22,15 +22,13 @@ dioxus = { version = "0.6.0-alpha.2", features = [
     "signals",
 ] }
 dirs = "5.0.1"
-lazy_static = "1.5.0"
-ratatui = "0.28.1-alpha.1"
+ratatui = "0.29.0"
 ron = "0.8.1"
 serde = { version = "1.0.204", features = ["derive"] }
-tabled = { version = "0.15.0", features = ["ansi"] }
+tabled = { version = "0.17.0", features = ["ansi"] }
 term_size = "0.3.2"
 textwrap = { version = "0.16.1" }
-unicode-width = "0.1.13"
 uuid = { version = "1.10.0", features = ["serde", "v4", "fast-rng"] }
 
 [dev-dependencies]
-rstest = "0.22.0"
+rstest = "0.23.0"

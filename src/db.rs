@@ -222,7 +222,7 @@ mod tests {
 
     use super::*;
 
-    const DATABASE_PRELOAD: &str = r#"[(id:"00e8a16c-0edd-4e90-8c3f-2ee7aa6a2210",task:"Poop",frequency:Daily,last_checkin:Some("2024-08-06"),total_checkins:2),(id:"77cbbb3f-2690-45a9-9a30-94a53556d93e",task:"Take a walk",frequency:Daily,last_checkin:Some("2024-08-07"),total_checkins:1),(id:"af1f4cc5-87b1-40b1-9fa3-2e0344d35d3b",task:"Eat brekkie",frequency:Daily,last_checkin:Some("2024-08-05"),total_checkins:3)]"#;
+    const DATABASE_PRELOAD: &str = r#"[(id:"00e8a16c-0edd-4e90-8c3f-2ee7aa6a2210",task:"Do stretches",frequency:Daily,last_checkin:Some("2024-08-06"),total_checkins:2),(id:"77cbbb3f-2690-45a9-9a30-94a53556d93e",task:"Take a walk",frequency:Daily,last_checkin:Some("2024-08-07"),total_checkins:1),(id:"af1f4cc5-87b1-40b1-9fa3-2e0344d35d3b",task:"Eat brekkie",frequency:Daily,last_checkin:Some("2024-08-05"),total_checkins:3)]"#;
     #[test]
     fn create_if_missing() {
         let temp = assert_fs::TempDir::new().unwrap();
@@ -401,8 +401,21 @@ mod tests {
         let file_path = db_file.to_str().unwrap();
 
         let mut db = Database::create_from_file(file_path, DATABASE_PRELOAD).unwrap();
-        let result = db.get_by_index(1, SortByField::Task, SortByDirection::Ascending, FilterByStatus::All).unwrap();
-        let expected = db.streaks.iter().nth(1).unwrap().clone();
+        dbg!("{:?}", &db);
+        let result = db
+            .get_by_index(
+                1,
+                SortByField::Task,          // Sort by the task name
+                SortByDirection::Ascending, // In alphabetical order
+                FilterByStatus::All,
+            )
+            .unwrap();
+        let expected = db
+            .streaks
+            .iter()
+            .nth(2) // Doesn't match result index, refer to database string.
+            .unwrap()
+            .clone();
         assert_eq!(expected, result);
 
         temp.close().unwrap();

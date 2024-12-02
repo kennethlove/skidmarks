@@ -1,15 +1,15 @@
-use crate::cli::get_database_url;
-use crate::color::GuiStyles;
-use crate::filtering::FilterByStatus;
-use crate::sorting::{SortByDirection, SortByField};
-use crate::streak::Status;
-use crate::{db::Database, streak::Frequency, streak::Streak};
 use dioxus::desktop::{use_global_shortcut, Config, WindowBuilder};
 use dioxus::prelude::*;
+use skidmarks::cli::get_database_url;
+use skidmarks::color::GuiStyles;
+use skidmarks::filtering::FilterByStatus;
+use skidmarks::sorting::{SortByDirection, SortByField};
+use skidmarks::streak::Status;
+use skidmarks::{db::Database, streak::Frequency, streak::Streak};
 use std::collections::HashMap;
 use uuid::Uuid;
 
-pub fn main() {
+fn main() {
     LaunchBuilder::desktop()
         .with_cfg(Config::new().with_window(WindowBuilder::new().with_resizable(true)))
         .launch(app)
@@ -182,11 +182,11 @@ fn streak_table(mut streaks: Signal<Streaks>, mut show_popup: Signal<Option<Uuid
                         Some(date) => date.to_string(),
                         None => "None".to_string(),
                     };
-                    
+
                     let current_streak = &streak.current_streak.to_string();
                     let longest_streak = &streak.longest_streak.to_string();
                     let total_checkins = &streak.total_checkins.to_string();
-                    
+
                     rsx! {
                         tr { class: "streak", key: "{id}",
                             td { class: "streak-name", "{streak_name}" }

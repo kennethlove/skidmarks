@@ -1,9 +1,3 @@
-use crate::cli::get_database_url;
-use crate::color::TuiStyles;
-use crate::db::Database;
-use crate::filtering::{filter_by_status, FilterByStatus};
-use crate::sorting::{SortByDirection, SortByField};
-use crate::streak::{Frequency, Streak};
 use ratatui::widgets::{
     Block, BorderType, Borders, Cell, HighlightSpacing, Paragraph, Row, Scrollbar,
     ScrollbarOrientation, ScrollbarState, Table, TableState, Tabs,
@@ -20,6 +14,12 @@ use ratatui::{
     text::Text,
     Terminal,
 };
+use skidmarks::cli::get_database_url;
+use skidmarks::color::TuiStyles;
+use skidmarks::db::Database;
+use skidmarks::filtering::{filter_by_status, FilterByStatus};
+use skidmarks::sorting::{SortByDirection, SortByField};
+use skidmarks::streak::{Frequency, Streak};
 use std::io;
 use term_size::dimensions;
 
@@ -153,27 +153,29 @@ impl App {
     }
 }
 
-pub fn main() -> io::Result<()> {
-    enable_raw_mode()?;
-    execute!(io::stdout(), EnterAlternateScreen, EnableMouseCapture)?;
-    let mut terminal = Terminal::new(CrosstermBackend::new(io::stdout()))?;
-    terminal.clear()?;
+fn main() {
+    enable_raw_mode().expect("Unable to enable raw mode");
+    execute!(io::stdout(), EnterAlternateScreen, EnableMouseCapture)
+        .expect("Unable to enter alternate screen and enable mouse capture");
+    let mut terminal =
+        Terminal::new(CrosstermBackend::new(io::stdout())).expect("Unable to create terminal");
+    terminal.clear().expect("Unable to clear terminal");
 
     let mut app = App::new();
     let res = run_app(&mut terminal, &mut app);
 
-    disable_raw_mode()?;
+    disable_raw_mode().expect("Unable to disable raw mode");
     execute!(
         terminal.backend_mut(),
         LeaveAlternateScreen,
         DisableMouseCapture
-    )?;
-    terminal.show_cursor()?;
+    )
+    .expect("Unable to leave alternate screen and disable mouse capture");
+    terminal.show_cursor().expect("Unable to show cursor");
 
     if let Err(err) = res {
         println!("{err:?}");
     }
-    Ok(())
 }
 
 fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: &mut App) -> io::Result<()> {
@@ -377,7 +379,7 @@ fn draw_tabs(app: &mut App, frame: &mut Frame, area: Rect) -> io::Result<()> {
         )
         .style(Style::default().fg(app.styles.tab_fg))
         .highlight_style(Style::default().fg(app.styles.selected_tab_fg))
-        .select(app.tab_state.into())
+        .select::<usize>(app.tab_state.into())
         .divider(symbols::DOT);
     frame.render_widget(tabs, area);
     Ok(())
