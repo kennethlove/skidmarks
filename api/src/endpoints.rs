@@ -10,7 +10,9 @@ pub async fn root() -> impl IntoResponse {
     r#"Skidmarks API
 
     GET /streak - list of streaks
+    POST /streak - create a streak
     GET /streak/<id> - an individual streak
+    PUT /streak/<id> - update an individual streak
     "#
 }
 
@@ -60,10 +62,27 @@ pub async fn update(
             current_streak.task = streak.task;
 
             match db.update(identifier, current_streak) {
-                Ok(streak) => Ok((StatusCode::NO_CONTENT, Json(streak))),
+                Ok(updated_streak) => {
+                    db.save().unwrap();
+                    Ok((StatusCode::NO_CONTENT, Json(updated_streak)))
+                }
                 _ => Err(StatusCode::BAD_REQUEST),
             }
         }
         None => return Err(StatusCode::NOT_FOUND),
+    }
+}
+
+pub async fn delete(
+    Path(identifier): Path<Uuid>,
+    State(state): State<AppState>,
+) -> Result<(), StatusCode> {
+    let mut db = state.database.lock().unwrap();
+    match db.delete(identifier) {
+        Ok(_) => {
+            db.save().unwrap();
+            Ok(())
+        }
+        _ => Err(StatusCode::NOT_FOUND),
     }
 }

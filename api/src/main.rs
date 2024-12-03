@@ -57,7 +57,9 @@ async fn main() {
         .route("/streak", get(endpoints::list).post(endpoints::create))
         .route(
             "/streak/{identifier}",
-            get(endpoints::detail).put(endpoints::update),
+            get(endpoints::detail)
+                .put(endpoints::update)
+                .delete(endpoints::delete),
         )
         .layer(cors_layer)
         .layer(TraceLayer::new_for_http())
