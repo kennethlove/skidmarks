@@ -32,9 +32,14 @@ pub async fn root() -> impl IntoResponse {
     r#"Skidmarks API
 
     GET /streak - list of streaks
+        * ?search=<TERM> - search for streaks with a term
+        * ?frequency=daily|weekly - filter streaks by frequency
+        * ?status=all|done|missed|waiting - filter streaks by status
+        * ?sort_by=id|task|frequency|last_checkin|current_streak|longest_streak|total_checkins - sort streaks
     POST /streak - create a streak
     GET /streak/<id> - an individual streak
     PUT /streak/<id> - update an individual streak
+    DELETE /streak/<id> - delete an individual streak
     "#
 }
 
