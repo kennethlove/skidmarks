@@ -1,10 +1,32 @@
 use crate::AppState;
-use axum::extract::{Path, State};
+use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::Json;
-use shared::streak::Streak;
+use serde::Deserialize;
+use shared::filtering::FilterByStatus;
+use shared::sorting::get_sort_order;
+use shared::streak::{Frequency, Streak};
 use uuid::Uuid;
+
+#[derive(Deserialize)]
+pub struct QueryParams {
+    sort_by: Option<String>,
+    search: Option<String>,
+    frequency: Option<String>,
+    status: Option<String>,
+}
+
+impl Default for QueryParams {
+    fn default() -> Self {
+        Self {
+            sort_by: None,
+            search: None,
+            frequency: None,
+            status: None,
+        }
+    }
+}
 
 pub async fn root() -> impl IntoResponse {
     r#"Skidmarks API
@@ -16,8 +38,45 @@ pub async fn root() -> impl IntoResponse {
     "#
 }
 
-pub async fn list(State(state): State<AppState>) -> Json<Vec<Streak>> {
-    let streaks = state.database.lock().unwrap().get_all();
+pub async fn list(
+    params: Option<Query<QueryParams>>,
+    State(state): State<AppState>,
+) -> Json<Vec<Streak>> {
+    let mut streaks: Vec<Streak> = vec![];
+    let mut db = state.database.lock().unwrap();
+
+    let Query(params) = params.unwrap_or_default();
+    if let Some(sort_by) = params.sort_by {
+        let (field, direction) = get_sort_order(&sort_by);
+        streaks = db.get_sorted(field, direction);
+    }
+
+    if let Some(search) = params.search {
+        streaks = db.search(&search);
+    }
+
+    if let Some(frequency) = params.frequency {
+        match frequency.to_lowercase().as_str() {
+            "daily" => {
+                streaks = db.get_by_frequency(Frequency::Daily);
+            }
+            "weekly" => {
+                streaks = db.get_by_frequency(Frequency::Weekly);
+            }
+            _ => {}
+        }
+    }
+
+    if let Some(status) = params.status {
+        let filter = match status.to_lowercase().as_str() {
+            "done" => FilterByStatus::Done,
+            "missed" => FilterByStatus::Missed,
+            "waiting" => FilterByStatus::Waiting,
+            _ => FilterByStatus::All,
+        };
+        streaks = db.get_filtered(filter);
+    }
+
     Json(streaks)
 }
 
@@ -69,7 +128,7 @@ pub async fn update(
                 _ => Err(StatusCode::BAD_REQUEST),
             }
         }
-        None => return Err(StatusCode::NOT_FOUND),
+        None => Err(StatusCode::NOT_FOUND),
     }
 }
 

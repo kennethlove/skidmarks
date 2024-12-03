@@ -4423,6 +4423,7 @@ name = "skidmarks-api"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "serde",
  "shared",
  "tokio",
  "tower 0.5.1",
