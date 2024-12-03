@@ -1,3 +1,4 @@
+use clap::Parser;
 use ratatui::widgets::{
     Block, BorderType, Borders, Cell, HighlightSpacing, Paragraph, Row, Scrollbar,
     ScrollbarOrientation, ScrollbarState, Table, TableState, Tabs,
@@ -14,14 +15,27 @@ use ratatui::{
     text::Text,
     Terminal,
 };
-use skidmarks::cli::get_database_url;
 use skidmarks::color::TuiStyles;
 use skidmarks::db::Database;
 use skidmarks::filtering::{filter_by_status, FilterByStatus};
 use skidmarks::sorting::{SortByDirection, SortByField};
 use skidmarks::streak::{Frequency, Streak};
 use std::io;
+use std::path::Path;
 use term_size::dimensions;
+
+#[derive(Debug, Parser)]
+#[command(version, about, long_about = None)]
+struct Cli {
+    #[clap(short, long, default_value = "skidmarks.ron")]
+    database_url: String,
+}
+
+fn get_database_url() -> String {
+    let cli = Cli::parse();
+    let path = Path::new(&dirs::data_local_dir().unwrap()).join(cli.database_url);
+    path.to_string_lossy().to_string()
+}
 
 #[derive(Clone, Debug)]
 struct NewStreak {
@@ -466,7 +480,7 @@ fn draw_table(app: &mut App, frame: &mut Frame, area: Rect) -> io::Result<()> {
         .bg(app.styles.row_bg)
         .style(Style::default().fg(app.styles.row_fg))
         .highlight_spacing(HighlightSpacing::WhenSelected)
-        .highlight_style(
+        .row_highlight_style(
             Style::default()
                 .bg(app.styles.highlight_bg)
                 .fg(app.styles.highlight_fg),

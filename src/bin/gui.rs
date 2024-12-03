@@ -1,13 +1,27 @@
+use clap::Parser;
 use dioxus::desktop::{use_global_shortcut, Config, WindowBuilder};
 use dioxus::prelude::*;
-use skidmarks::cli::get_database_url;
 use skidmarks::color::GuiStyles;
 use skidmarks::filtering::FilterByStatus;
 use skidmarks::sorting::{SortByDirection, SortByField};
 use skidmarks::streak::Status;
 use skidmarks::{db::Database, streak::Frequency, streak::Streak};
 use std::collections::HashMap;
+use std::path::Path;
 use uuid::Uuid;
+
+#[derive(Debug, Parser)]
+#[command(version, about, long_about = None)]
+struct Cli {
+    #[clap(short, long, default_value = "skidmarks.ron")]
+    database_url: String,
+}
+
+fn get_database_url() -> String {
+    let cli = Cli::parse();
+    let path = Path::new(&dirs::data_local_dir().unwrap()).join(cli.database_url);
+    path.to_string_lossy().to_string()
+}
 
 fn main() {
     LaunchBuilder::desktop()
