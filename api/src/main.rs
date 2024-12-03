@@ -1,20 +1,12 @@
 use axum::error_handling::HandleErrorLayer;
-use axum::http::{
-    header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, LOCATION},
-    Response,
-};
-use axum::response::IntoResponse;
-use axum::routing::{get, post};
-use axum::{extract::Path, http::StatusCode, BoxError, Router};
+use axum::routing::get;
+use axum::{http::StatusCode, BoxError, Router};
 use skidmarks_api::{endpoints, AppState};
-use std::sync::Arc;
 use std::time::Duration;
 use tower::ServiceBuilder;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-
-use shared::db::{get_database_url, Database};
 
 #[tokio::main]
 async fn main() {

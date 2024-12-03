@@ -184,7 +184,7 @@ impl Database {
     }
 
     pub fn get_by_frequency(&mut self, frequency: Frequency) -> Vec<Streak> {
-        let mut streaks = self.streaks.clone();
+        let streaks = self.streaks.clone();
         streaks
             .iter()
             .filter(|s| s.frequency == frequency)

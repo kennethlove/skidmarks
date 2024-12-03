@@ -97,7 +97,7 @@ pub async fn detail(
 }
 
 pub async fn create(
-    State(mut state): State<AppState>,
+    State(state): State<AppState>,
     Json(streak): Json<Streak>,
 ) -> Result<impl IntoResponse, StatusCode> {
     let mut db = state.database.lock().unwrap();
@@ -115,7 +115,7 @@ pub async fn update(
     Json(streak): Json<Streak>,
 ) -> Result<impl IntoResponse, StatusCode> {
     let mut db = state.database.lock().unwrap();
-    let mut existing_streak = db.get_one(identifier);
+    let existing_streak = db.get_one(identifier);
     match existing_streak {
         Some(mut current_streak) => {
             current_streak.longest_streak = streak.longest_streak;
