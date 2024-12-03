@@ -4,7 +4,6 @@ use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::Json;
 use shared::streak::Streak;
-use std::env::current_exe;
 use uuid::Uuid;
 
 pub async fn root() -> impl IntoResponse {
