@@ -1,6 +1,6 @@
 use crate::filtering::{filter_by_status, FilterByStatus};
 use crate::sorting::{SortByDirection, SortByField};
-use crate::streak::{sort_streaks, Streak};
+use crate::streak::{sort_streaks, Frequency, Streak};
 use clap::Parser;
 use serde::{Deserialize, Serialize};
 use std::fs::{File, OpenOptions};
@@ -183,11 +183,24 @@ impl Database {
         }
     }
 
+    pub fn get_by_frequency(&mut self, frequency: Frequency) -> Vec<Streak> {
+        let mut streaks = self.streaks.clone();
+        streaks
+            .iter()
+            .filter(|s| s.frequency == frequency)
+            .cloned()
+            .collect::<Vec<Streak>>()
+    }
+
     pub fn search(&mut self, query: &str) -> Vec<Streak> {
         let streaks = self.streaks.clone();
         streaks
             .iter()
-            .filter(|s| s.task.contains(query))
+            .filter(|s| {
+                s.task
+                    .to_lowercase()
+                    .contains(query.to_lowercase().as_str())
+            })
             .cloned()
             .collect()
     }

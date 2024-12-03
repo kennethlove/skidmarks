@@ -10,11 +10,11 @@ pub enum FilterByStatus {
 
 impl FilterByStatus {
     pub fn from_str(s: &str) -> Self {
-        match s {
-            "All" => FilterByStatus::All,
-            "Done" => FilterByStatus::Done,
-            "Missed" => FilterByStatus::Missed,
-            "Waiting" => FilterByStatus::Waiting,
+        match s.to_lowercase().as_str() {
+            "all" => FilterByStatus::All,
+            "done" => FilterByStatus::Done,
+            "missed" => FilterByStatus::Missed,
+            "waiting" => FilterByStatus::Waiting,
             _ => FilterByStatus::All,
         }
     }

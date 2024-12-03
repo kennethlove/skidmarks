@@ -19,6 +19,7 @@ tracing = "0.1.41"
 uuid = { version = "1.11.0", features = ["v4", "serde"] }
 
 shared = { path = "../shared" }
+serde = { version = "1.0.204", features = ["derive"] }
 
 [[bin]]
 name = "skidmarks-api"
