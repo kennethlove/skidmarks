@@ -55,7 +55,10 @@ async fn main() {
     let app = Router::new()
         .route("/", get(endpoints::root))
         .route("/streak", get(endpoints::list).post(endpoints::create))
-        .route("/streak/{identifier}", get(endpoints::detail))
+        .route(
+            "/streak/{identifier}",
+            get(endpoints::detail).put(endpoints::update),
+        )
         .layer(cors_layer)
         .layer(TraceLayer::new_for_http())
         .layer(timeout_layer)

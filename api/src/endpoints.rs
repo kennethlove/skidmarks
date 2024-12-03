@@ -4,6 +4,7 @@ use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::Json;
 use shared::streak::Streak;
+use std::env::current_exe;
 use uuid::Uuid;
 
 pub async fn root() -> impl IntoResponse {
@@ -40,5 +41,30 @@ pub async fn create(
     match streak {
         Ok(streak) => Ok((StatusCode::CREATED, Json(streak))),
         _ => Err(StatusCode::BAD_REQUEST),
+    }
+}
+
+pub async fn update(
+    Path(identifier): Path<Uuid>,
+    State(state): State<AppState>,
+    Json(streak): Json<Streak>,
+) -> Result<impl IntoResponse, StatusCode> {
+    let mut db = state.database.lock().unwrap();
+    let mut existing_streak = db.get_one(identifier);
+    match existing_streak {
+        Some(mut current_streak) => {
+            current_streak.longest_streak = streak.longest_streak;
+            current_streak.current_streak = streak.current_streak;
+            current_streak.frequency = streak.frequency;
+            current_streak.last_checkin = streak.last_checkin;
+            current_streak.total_checkins = streak.total_checkins;
+            current_streak.task = streak.task;
+
+            match db.update(identifier, current_streak) {
+                Ok(streak) => Ok((StatusCode::NO_CONTENT, Json(streak))),
+                _ => Err(StatusCode::BAD_REQUEST),
+            }
+        }
+        None => return Err(StatusCode::NOT_FOUND),
     }
 }
