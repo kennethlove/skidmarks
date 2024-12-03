@@ -1,11 +1,11 @@
 use clap::Parser;
 use dioxus::desktop::{use_global_shortcut, Config, WindowBuilder};
 use dioxus::prelude::*;
-use skidmarks::color::GuiStyles;
-use skidmarks::filtering::FilterByStatus;
-use skidmarks::sorting::{SortByDirection, SortByField};
-use skidmarks::streak::Status;
-use skidmarks::{db::Database, streak::Frequency, streak::Streak};
+use shared::color::GuiStyles;
+use shared::filtering::FilterByStatus;
+use shared::sorting::{SortByDirection, SortByField};
+use shared::streak::Status;
+use shared::{db::Database, streak::Frequency, streak::Streak};
 use std::collections::HashMap;
 use std::path::Path;
 use uuid::Uuid;
@@ -25,7 +25,21 @@ fn get_database_url() -> String {
 
 fn main() {
     LaunchBuilder::desktop()
-        .with_cfg(Config::new().with_window(WindowBuilder::new().with_resizable(true)))
+        .with_cfg(
+            Config::new()
+                .with_custom_head(
+                    r#"
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,300,0,0"
+          rel="stylesheet"/>
+    <link href="https://cdn.jsdelivr.net/npm/bulma@1.0.2/css/bulma.min.css" rel="stylesheet"/>
+    <link href="/streaks.css" rel="stylesheet"/>
+                "#
+                    .to_string(),
+                )
+                .with_window(WindowBuilder::new().with_resizable(true)),
+        )
         .launch(app)
 }
 
@@ -42,10 +56,10 @@ fn app() -> Element {
     });
 
     rsx! {
-        head::Link {
-            rel: "stylesheet",
-            href: "https://cdn.jsdelivr.net/npm/bulma@1.0.2/css/bulma.min.css"
-        }
+        // head::Link {
+        //     rel: "stylesheet",
+        //     href: "https://cdn.jsdelivr.net/npm/bulma@1.0.2/css/bulma.min.css"
+        // }
         // head::Link { rel: "stylesheet", href: asset!("./assets/streaks.css") }
 
         style { r#type: "text/css",

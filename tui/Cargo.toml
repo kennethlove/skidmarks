@@ -1,0 +1,17 @@
+[package]
+name = "skidmarks-tui"
+version = "0.1.0"
+edition = "2021"
+description = "A TUI for skidmarks"
+
+[dependencies]
+clap = { version = "4.5.11", features = ["derive"] }
+dirs = "5.0.1"
+ratatui = "0.29.0"
+term_size = "0.3.2"
+textwrap = { version = "0.16.1" }
+shared = { path = "../shared" }
+
+[[bin]]
+name = "skidmarks-tui"
+path = "src/main.rs"

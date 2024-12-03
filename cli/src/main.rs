@@ -6,7 +6,7 @@ use console::Emoji;
 use dirs;
 use uuid::Uuid;
 
-use skidmarks::{
+use shared::{
     db::Database,
     sorting::get_sort_order,
     streak::{sort_streaks, Frequency, Streak},
@@ -131,7 +131,7 @@ pub fn get_database_url() -> String {
 
 /// Parses command line options
 pub fn parse() {
-    let cli_styles = skidmarks::color::CliStyles::new();
+    let cli_styles = shared::color::CliStyles::new();
     let cli = Cli::parse();
     let db_url = get_database_url();
     let mut db = Database::new(&db_url).expect("Could not load database");

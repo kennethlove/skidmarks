@@ -15,11 +15,11 @@ use ratatui::{
     text::Text,
     Terminal,
 };
-use skidmarks::color::TuiStyles;
-use skidmarks::db::Database;
-use skidmarks::filtering::{filter_by_status, FilterByStatus};
-use skidmarks::sorting::{SortByDirection, SortByField};
-use skidmarks::streak::{Frequency, Streak};
+use shared::color::TuiStyles;
+use shared::db::Database;
+use shared::filtering::{filter_by_status, FilterByStatus};
+use shared::sorting::{SortByDirection, SortByField};
+use shared::streak::{Frequency, Streak};
 use std::io;
 use std::path::Path;
 use term_size::dimensions;

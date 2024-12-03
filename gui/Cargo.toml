@@ -1,0 +1,16 @@
+[package]
+name = "skidmarks-gui"
+version = "0.1.0"
+edition = "2021"
+description = "A GUI for skidmarks"
+
+[dependencies]
+clap = { version = "4.5.21", features = ["derive"] }
+dioxus = { version = "0.6.0-rc.0", features = ["desktop", "signals"] }
+dirs = "5.0.1"
+uuid = { version = "1.11.0", features = ["serde", "v4", "fast-rng"] }
+shared = { path = "../shared" }
+
+[[bin]]
+name = "skidmarks-gui"
+path = "src/main.rs"
