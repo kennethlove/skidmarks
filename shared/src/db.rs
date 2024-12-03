@@ -2,12 +2,13 @@ use crate::filtering::{filter_by_status, FilterByStatus};
 use crate::sorting::{SortByDirection, SortByField};
 use crate::streak::{sort_streaks, Streak};
 use clap::Parser;
+use serde::{Deserialize, Serialize};
 use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::path::Path;
 use uuid::Uuid;
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Database {
     pub filename: String,
     pub streaks: Vec<Streak>,
@@ -90,11 +91,11 @@ impl Database {
         Ok(db)
     }
 
-    pub fn add(&mut self, streak: Streak) -> Result<(), std::io::Error> {
+    pub fn add(&mut self, streak: Streak) -> Result<Streak, std::io::Error> {
         let mut streaks = self.streaks.clone();
-        streaks.push(streak);
+        streaks.push(streak.clone());
         self.streaks = streaks;
-        Ok(())
+        Ok(streak.clone())
     }
 
     pub fn update(&mut self, id: Uuid, streak: Streak) -> Result<(), std::io::Error> {

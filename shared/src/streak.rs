@@ -78,6 +78,7 @@ impl Display for Status {
 
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct Streak {
+    #[serde(default = "Uuid::new_v4")]
     pub id: Uuid,
     #[serde(default)]
     pub task: String,

@@ -1,5 +1,3 @@
-mod endpoints;
-
 use axum::error_handling::HandleErrorLayer;
 use axum::http::{
     header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, LOCATION},
@@ -8,14 +6,20 @@ use axum::http::{
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{extract::Path, http::StatusCode, BoxError, Router};
+use skidmarks_api::{endpoints, AppState};
+use std::sync::Arc;
 use std::time::Duration;
 use tower::ServiceBuilder;
 use tower_http::cors::{AllowOrigin, CorsLayer};
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
+use shared::db::{get_database_url, Database};
+
 #[tokio::main]
 async fn main() {
+    let shared_state = AppState::new();
+
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
@@ -49,16 +53,15 @@ async fn main() {
         .timeout(Duration::from_secs(10));
 
     let app = Router::new()
-        .route("/", get(root))
+        .route("/", get(endpoints::root))
+        .route("/streak", get(endpoints::list).post(endpoints::create))
+        .route("/streak/{identifier}", get(endpoints::detail))
         .layer(cors_layer)
         .layer(TraceLayer::new_for_http())
-        .layer(timeout_layer);
+        .layer(timeout_layer)
+        .with_state(shared_state);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     tracing::debug!("listening on {}", listener.local_addr().unwrap());
     axum::serve(listener, app).await.unwrap();
-}
-
-async fn root() -> &'static str {
-    "hello world"
 }
