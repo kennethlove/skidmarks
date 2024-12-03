@@ -1,14 +1,3 @@
-[package]
-name = "skidmarks"
-version = "0.1.9"
-edition = "2021"
-description = "A simple CLI for tracking streaks"
-repository = "https://github.com/kennethlove/skidmarks"
-readme = "README.md"
-license = "Apache-2.0"
-keywords = ["cli", "streaks", "habits", "tui", "gui"]
-categories = ["command-line-utilities"]
-
 [workspace]
 members = ["api", "cli", "gui", "shared", "tui", "web"]
 resolver = "2"

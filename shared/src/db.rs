@@ -1,9 +1,10 @@
-use std::fs::{File, OpenOptions};
-use std::io::Write;
-
 use crate::filtering::{filter_by_status, FilterByStatus};
 use crate::sorting::{SortByDirection, SortByField};
 use crate::streak::{sort_streaks, Streak};
+use clap::Parser;
+use std::fs::{File, OpenOptions};
+use std::io::Write;
+use std::path::Path;
 use uuid::Uuid;
 
 #[derive(Debug)]
@@ -214,6 +215,19 @@ impl Default for Database {
             filename: "skidmarks.ron".to_string(),
         }
     }
+}
+
+#[derive(Debug, Parser)]
+#[command(version, about, long_about = None)]
+pub struct DatabaseCli {
+    #[clap(short, long, default_value = "skidmarks.ron")]
+    database_url: String,
+}
+
+pub fn get_database_url() -> String {
+    let cli = DatabaseCli::parse();
+    let path = Path::new(&dirs::data_local_dir().unwrap()).join(cli.database_url);
+    path.to_string_lossy().to_string()
 }
 
 #[cfg(test)]

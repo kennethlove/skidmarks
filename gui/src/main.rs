@@ -1,27 +1,16 @@
-use clap::Parser;
 use dioxus::desktop::{use_global_shortcut, Config, WindowBuilder};
 use dioxus::prelude::*;
 use shared::color::GuiStyles;
 use shared::filtering::FilterByStatus;
 use shared::sorting::{SortByDirection, SortByField};
 use shared::streak::Status;
-use shared::{db::Database, streak::Frequency, streak::Streak};
+use shared::{
+    db::{get_database_url, Database},
+    streak::Frequency,
+    streak::Streak,
+};
 use std::collections::HashMap;
-use std::path::Path;
 use uuid::Uuid;
-
-#[derive(Debug, Parser)]
-#[command(version, about, long_about = None)]
-struct Cli {
-    #[clap(short, long, default_value = "skidmarks.ron")]
-    database_url: String,
-}
-
-fn get_database_url() -> String {
-    let cli = Cli::parse();
-    let path = Path::new(&dirs::data_local_dir().unwrap()).join(cli.database_url);
-    path.to_string_lossy().to_string()
-}
 
 fn main() {
     LaunchBuilder::desktop()
@@ -56,12 +45,6 @@ fn app() -> Element {
     });
 
     rsx! {
-        // head::Link {
-        //     rel: "stylesheet",
-        //     href: "https://cdn.jsdelivr.net/npm/bulma@1.0.2/css/bulma.min.css"
-        // }
-        // head::Link { rel: "stylesheet", href: asset!("./assets/streaks.css") }
-
         style { r#type: "text/css",
             {format!(r#"
             body {{

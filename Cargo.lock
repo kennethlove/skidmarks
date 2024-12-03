@@ -4217,6 +4217,7 @@ dependencies = [
  "catppuccin",
  "chrono",
  "clap",
+ "dirs",
  "ratatui 0.29.0",
  "ron",
  "serde",
@@ -4272,10 +4273,6 @@ checksum = "38b58827f4464d87d377d175e90bf58eb00fd8716ff0a62f80356b5e61555d0d"
 [[package]]
 name = "skidmarks"
 version = "0.1.9"
-
-[[package]]
-name = "skidmarks-cli"
-version = "0.1.0"
 dependencies = [
  "ansi_term",
  "assert_cmd",
@@ -4292,9 +4289,7 @@ dependencies = [
 name = "skidmarks-gui"
 version = "0.1.0"
 dependencies = [
- "clap",
  "dioxus",
- "dirs",
  "shared",
  "uuid",
 ]
@@ -4303,8 +4298,6 @@ dependencies = [
 name = "skidmarks-tui"
 version = "0.1.0"
 dependencies = [
- "clap",
- "dirs",
  "ratatui 0.29.0",
  "shared",
  "term_size",

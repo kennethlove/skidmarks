@@ -1,4 +1,3 @@
-use clap::Parser;
 use ratatui::widgets::{
     Block, BorderType, Borders, Cell, HighlightSpacing, Paragraph, Row, Scrollbar,
     ScrollbarOrientation, ScrollbarState, Table, TableState, Tabs,
@@ -16,26 +15,12 @@ use ratatui::{
     Terminal,
 };
 use shared::color::TuiStyles;
-use shared::db::Database;
+use shared::db::{get_database_url, Database};
 use shared::filtering::{filter_by_status, FilterByStatus};
 use shared::sorting::{SortByDirection, SortByField};
 use shared::streak::{Frequency, Streak};
 use std::io;
-use std::path::Path;
 use term_size::dimensions;
-
-#[derive(Debug, Parser)]
-#[command(version, about, long_about = None)]
-struct Cli {
-    #[clap(short, long, default_value = "skidmarks.ron")]
-    database_url: String,
-}
-
-fn get_database_url() -> String {
-    let cli = Cli::parse();
-    let path = Path::new(&dirs::data_local_dir().unwrap()).join(cli.database_url);
-    path.to_string_lossy().to_string()
-}
 
 #[derive(Clone, Debug)]
 struct NewStreak {

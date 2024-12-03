@@ -1,0 +1,12 @@
+[package]
+name = "api"
+version = "0.1.0"
+edition = "2021"
+description = "HTTP API for tracking streaks"
+repository = "https://github.com/kennethlove/skidmarks"
+readme = "README.md"
+license = "Apache-2.0"
+keywords = ["streaks", "habits", "http", "api"]
+categories = ["web-programming::http-server"]
+
+[dependencies]

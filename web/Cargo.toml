@@ -1,0 +1,12 @@
+[package]
+name = "web"
+version = "0.1.0"
+edition = "2021"
+description = "A web site for managing streaks"
+repository = "https://github.com/kennethlove/skidmarks"
+readme = "README.md"
+license = "Apache-2.0"
+keywords = ["streaks", "habits", "web"]
+categories = ["web-programming::http-server", "web-programming::http-client"]
+
+[dependencies]
