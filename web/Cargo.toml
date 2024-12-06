@@ -1,12 +1,22 @@
 [package]
 name = "web"
 version = "0.1.0"
+authors = ["Kenneth Love <11908+kennethlove@users.noreply.github.com>"]
 edition = "2021"
-description = "A web site for managing streaks"
-repository = "https://github.com/kennethlove/skidmarks"
-readme = "README.md"
-license = "Apache-2.0"
-keywords = ["streaks", "habits", "web"]
-categories = ["web-programming::http-server", "web-programming::http-client"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+dioxus = { version = "0.6.0-rc.0", features = ["router", "fullstack"] }
+dioxus-logger = "0.5"
+reqwest = { version = "0.12.9", features = ["json"] }
+
+streak = { path = "../streak" }
+
+[dependencies.getrandom]
+version = "0.2.15"
+features = ["js"]
+
+[features]
+default = ["web"]
+web = ["dioxus/web"]

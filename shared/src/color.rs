@@ -14,7 +14,7 @@ const fn rgb(color: &catppuccin::Color) -> Color {
 pub struct CliStyles {
     pub response_fg: ansi_term::Color,
     pub response_error_fg: ansi_term::Color,
-    pub table_header_fg: ansi_term::Color
+    pub table_header_fg: ansi_term::Color,
 }
 
 impl CliStyles {

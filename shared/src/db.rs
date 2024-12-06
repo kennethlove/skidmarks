@@ -1,11 +1,11 @@
-use crate::filtering::{filter_by_status, FilterByStatus};
-use crate::sorting::{SortByDirection, SortByField};
-use crate::streak::{sort_streaks, Frequency, Streak};
 use clap::Parser;
 use serde::{Deserialize, Serialize};
 use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::path::Path;
+use streak::filtering::FilterByStatus;
+use streak::sorting::{SortByDirection, SortByField};
+use streak::{filter_by_status, sort_streaks, Frequency, Streak};
 use uuid::Uuid;
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -205,14 +205,15 @@ impl Database {
             .collect()
     }
 
-    pub fn checkin(&mut self, id: Uuid) -> Result<(), std::io::Error> {
+    pub fn checkin(&mut self, id: Uuid) -> Result<Streak, std::io::Error> {
         let mut streaks = self.streaks.clone();
         let streak = streaks.iter_mut().find(|s| s.id == id);
         match streak {
             Some(streak) => {
                 streak.checkin();
-                self.streaks = streaks;
-                Ok(())
+                let final_streak = streak.clone();
+                self.streaks = streaks.clone();
+                Ok(final_streak)
             }
             None => Err(std::io::Error::new(
                 std::io::ErrorKind::NotFound,

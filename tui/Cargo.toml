@@ -15,6 +15,10 @@ term_size = "0.3.2"
 textwrap = { version = "0.16.1" }
 
 shared = { path = "../shared" }
+streak = { path = "../streak" }
+
+[dependencies.crossterm]
+version = "0.28.1"
 
 [[bin]]
 name = "skidmarks-tui"

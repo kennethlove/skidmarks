@@ -1,10 +1,14 @@
+pub mod filtering;
+pub mod sorting;
+
 use std::fmt::Display;
 
-use crate::sorting::{SortByDirection, SortByField};
 #[allow(unused_imports)]
 use chrono::{Local, NaiveDate};
 use clap::ValueEnum;
+use filtering::FilterByStatus;
 use serde::{Deserialize, Serialize};
+use sorting::{SortByDirection, SortByField};
 use uuid::Uuid;
 
 #[derive(
@@ -120,10 +124,10 @@ impl Streak {
         }
     }
 
-    pub fn checkin(&mut self) {
+    pub fn checkin(&mut self) -> Self {
         let date = Local::now().date_naive();
         if self.last_checkin.is_some() && self.last_checkin.unwrap() == date {
-            return;
+            return self.clone();
         }
         self.last_checkin = Some(date);
         self.current_streak += 1;
@@ -131,6 +135,7 @@ impl Streak {
             self.longest_streak = self.current_streak;
         }
         self.total_checkins += 1;
+        self.clone()
     }
 
     fn was_missed(&self) -> bool {
@@ -258,6 +263,24 @@ pub fn sort_streaks(
         }
     }
     streaks
+}
+
+pub fn filter_by_status(streaks: Vec<Streak>, status: FilterByStatus) -> Vec<Streak> {
+    match status {
+        FilterByStatus::All => streaks,
+        FilterByStatus::Done => streaks
+            .into_iter()
+            .filter(|streak| streak.status() == Status::Done)
+            .collect(),
+        FilterByStatus::Missed => streaks
+            .into_iter()
+            .filter(|streak| streak.status() == Status::Missed)
+            .collect(),
+        FilterByStatus::Waiting => streaks
+            .into_iter()
+            .filter(|streak| streak.status() == Status::Waiting)
+            .collect(),
+    }
 }
 
 #[cfg(test)]

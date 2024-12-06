@@ -4,9 +4,9 @@ use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::Json;
 use serde::Deserialize;
-use shared::filtering::FilterByStatus;
-use shared::sorting::get_sort_order;
-use shared::streak::{Frequency, Streak};
+use streak::filtering::FilterByStatus;
+use streak::sorting::get_sort_order;
+use streak::{Frequency, Streak};
 use uuid::Uuid;
 
 #[derive(Deserialize)]
@@ -47,8 +47,8 @@ pub async fn list(
     params: Option<Query<QueryParams>>,
     State(state): State<AppState>,
 ) -> Json<Vec<Streak>> {
-    let mut streaks: Vec<Streak> = vec![];
     let mut db = state.database.lock().unwrap();
+    let mut streaks: Vec<Streak> = db.get_all();
 
     let Query(params) = params.unwrap_or_default();
     if let Some(sort_by) = params.sort_by {
@@ -148,5 +148,22 @@ pub async fn delete(
             Ok(())
         }
         _ => Err(StatusCode::NOT_FOUND),
+    }
+}
+
+pub async fn checkin(
+    Path(identifier): Path<Uuid>,
+    State(state): State<AppState>,
+) -> Result<impl IntoResponse, StatusCode> {
+    let mut db = state.database.lock().unwrap();
+    match db.checkin(identifier) {
+        Ok(updated_streak) => {
+            db.save().unwrap();
+            Ok((StatusCode::OK, Json(updated_streak)))
+        }
+        Err(e) => {
+            eprintln!("{}", e);
+            Err(StatusCode::NOT_FOUND)
+        }
     }
 }

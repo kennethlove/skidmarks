@@ -17,8 +17,11 @@ dirs = "5.0.1"
 uuid = { version = "1.10.0", features = ["serde", "v4", "fast-rng"] }
 assert_cmd = "2.0.15"
 assert_fs = "1.1.2"
+term_size = "0.3.2"
+tabled = "0.17.0"
 
 shared = { path = "../shared" }
+streak = { path = "../streak" }
 
 [dev-dependencies]
 rstest = "0.23.0"

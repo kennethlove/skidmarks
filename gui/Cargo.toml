@@ -13,6 +13,7 @@ dioxus = { version = "0.6.0-rc.0", features = ["desktop", "signals"] }
 uuid = { version = "1.11.0", features = ["serde", "v4", "fast-rng"] }
 
 shared = { path = "../shared" }
+streak = { path = "../streak" }
 
 [[bin]]
 name = "skidmarks-gui"

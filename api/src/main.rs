@@ -1,5 +1,5 @@
 use axum::error_handling::HandleErrorLayer;
-use axum::routing::get;
+use axum::routing::{get, put};
 use axum::{http::StatusCode, BoxError, Router};
 use skidmarks_api::{endpoints, AppState};
 use std::time::Duration;
@@ -53,6 +53,7 @@ async fn main() {
                 .put(endpoints::update)
                 .delete(endpoints::delete),
         )
+        .route("/streak/{identifier}/check-in", put(endpoints::checkin))
         .layer(cors_layer)
         .layer(TraceLayer::new_for_http())
         .layer(timeout_layer)

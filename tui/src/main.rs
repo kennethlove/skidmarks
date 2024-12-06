@@ -16,10 +16,10 @@ use ratatui::{
 };
 use shared::color::TuiStyles;
 use shared::db::{get_database_url, Database};
-use shared::filtering::{filter_by_status, FilterByStatus};
-use shared::sorting::{SortByDirection, SortByField};
-use shared::streak::{Frequency, Streak};
 use std::io;
+use streak::filtering::FilterByStatus;
+use streak::sorting::{SortByDirection, SortByField};
+use streak::{filter_by_status, Frequency, Streak};
 use term_size::dimensions;
 
 #[derive(Clone, Debug)]

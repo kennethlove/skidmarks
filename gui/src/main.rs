@@ -1,15 +1,11 @@
 use dioxus::desktop::{use_global_shortcut, Config, WindowBuilder};
 use dioxus::prelude::*;
 use shared::color::GuiStyles;
-use shared::filtering::FilterByStatus;
-use shared::sorting::{SortByDirection, SortByField};
-use shared::streak::Status;
-use shared::{
-    db::{get_database_url, Database},
-    streak::Frequency,
-    streak::Streak,
-};
+use shared::db::{get_database_url, Database};
 use std::collections::HashMap;
+use streak::filtering::FilterByStatus;
+use streak::sorting::{SortByDirection, SortByField};
+use streak::{Frequency, Status, Streak};
 use uuid::Uuid;
 
 fn main() {

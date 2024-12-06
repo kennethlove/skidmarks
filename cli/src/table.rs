@@ -1,8 +1,8 @@
-use crate::streak::Streak;
 use ansi_term::Style;
+use shared::color::CliStyles;
+use streak::Streak;
 use tabled::{builder::Builder, settings::Style as TabledStyle};
 use term_size::dimensions;
-use crate::color::CliStyles;
 
 /// Builds table of streaks from list
 pub fn build_table(streaks: Vec<Streak>) -> String {

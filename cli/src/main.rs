@@ -1,3 +1,5 @@
+mod table;
+
 use std::path::Path;
 
 use ansi_term::Style;
@@ -6,12 +8,10 @@ use console::Emoji;
 use dirs;
 use uuid::Uuid;
 
-use shared::{
-    db::Database,
-    sorting::get_sort_order,
-    streak::{sort_streaks, Frequency, Streak},
-    table::build_table,
-};
+use shared::db::Database;
+use streak::sorting::get_sort_order;
+use streak::{sort_streaks, Frequency, Streak};
+use table::build_table;
 
 #[derive(Debug, Parser)]
 #[command(version, about, long_about = None)]
