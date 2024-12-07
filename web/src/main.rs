@@ -1,16 +1,34 @@
-use dioxus::dioxus_core::internal::generational_box::GenerationalRef;
 use dioxus::prelude::*;
 use dioxus_logger::tracing::Level;
-use std::cell::Ref;
+use serde::{Deserialize, Serialize};
 
-use streak::Streak;
+use streak::{Frequency, Streak};
 
 #[derive(Debug, Clone, Routable, PartialEq)]
 #[rustfmt::skip]
 enum Route {
     #[layout(Navbar)]
     #[route("/")]
-    Home {},
+    StreakTable {},
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct AppState {
+    streaks: Vec<Streak>,
+}
+
+impl AppState {
+    fn new() -> Self {
+        let streak_request = use_resource(move || async move { streak_server().await });
+        match streak_request() {
+            Some(Ok(streak_response)) => Self {
+                streaks: streak_response,
+            },
+            _ => Self {
+                streaks: Vec::new(),
+            },
+        }
+    }
 }
 
 const FAVICON: Asset = asset!("/assets/favicon.ico");
@@ -26,23 +44,29 @@ fn main() {
 #[component]
 fn App() -> Element {
     // Build cool things ✌️
+    let streak_request = use_resource(move || async move { streak_server().await });
+    let signal = Signal::new(AppState::new());
+    let mut state: Signal<AppState> = use_context_provider(|| signal);
+
+    use_effect(move || match streak_request() {
+        Some(Ok(response)) => state.write().streaks.extend(response),
+        Some(Err(err)) => (),
+        None => (),
+    });
 
     rsx! {
-        // Global app resources
-        document::Link { rel: "icon", href: FAVICON }
-        document::Link { rel: "stylesheet", href: MAIN_CSS }
-        document::Link { rel: "stylesheet", href: TAILWIND_CSS }
+        document::Link { href: "https://fonts.googleapis.com", rel: "preconnect" }
+        document::Link { href: "https://fonts.gstatic.com", rel: "preconnect", crossorigin: "true"}
+        document::Stylesheet { href: "https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,300,0,0" }
+        document::Stylesheet { href: asset!("/assets/main.css") }
+
+        h1 {
+            "Streaks"
+        }
+
+        StreakForm {}
 
         Router::<Route> {}
-    }
-}
-
-/// Home page
-#[component]
-fn Home() -> Element {
-    rsx! {
-        Streaks {}
-        Echo {}
     }
 }
 
@@ -53,7 +77,7 @@ fn Navbar() -> Element {
         div {
             id: "navbar",
             Link {
-                to: Route::Home {},
+                to: Route::StreakTable {},
                 "Home"
             }
         }
@@ -62,37 +86,11 @@ fn Navbar() -> Element {
     }
 }
 
-/// Echo component that demonstrates fullstack server functions.
-#[component]
-fn Echo() -> Element {
-    let mut response = use_signal(|| String::new());
-
-    rsx! {
-        div {
-            id: "echo",
-            h4 { "ServerFn Echo" }
-            input {
-                placeholder: "Type here to echo...",
-                oninput:  move |event| async move {
-                    let data = echo_server(event.value()).await.unwrap();
-                    response.set(data);
-                },
-            }
-
-            if !response().is_empty() {
-                p {
-                    "Server echoed: "
-                    i { "{response}" }
-                }
-            }
-        }
-    }
-}
-
 #[component]
 fn Streaks() -> Element {
-    let mut streak_signal: Signal<Vec<Streak>> = use_signal(|| vec![]);
     let streak_request = use_resource(move || async move { streak_server().await });
+    let state = use_context::<Signal<AppState>>();
+    let streaks = state.read().streaks.clone();
 
     rsx! {
         div {
@@ -100,6 +98,7 @@ fn Streaks() -> Element {
             h4 {
                 "Streaks"
             }
+
             match streak_request() {
                 Some(Ok(response)) => rsx! {
                     ul {
@@ -123,10 +122,180 @@ fn Streaks() -> Element {
     }
 }
 
-/// Echo the user input on the server.
-#[server(EchoServer)]
-async fn echo_server(input: String) -> Result<String, ServerFnError> {
-    Ok(input)
+#[component]
+fn StreakForm() -> Element {
+    let mut state = use_context::<Signal<AppState>>();
+
+    let mut task_signal = use_signal(|| "".to_string());
+    let mut frequency_signal = use_signal(|| Frequency::Daily);
+
+    rsx! {
+        form {
+            onsubmit: move |e| {
+                let mut new_streak: Streak = Streak::default();
+                let task = task_signal.read().clone();
+
+                match frequency_signal.read().clone() {
+                    Frequency::Daily => new_streak = Streak::new_daily(task.clone()),
+                    Frequency::Weekly => new_streak = Streak::new_weekly(task.clone())
+                }
+                state.write().streaks.push(new_streak.clone());
+
+                let save_streak = use_resource(move || {
+                    let url = "http://127.0.0.1:3000/streak";
+                    let new_streak = new_streak.clone();
+
+                    async move {
+                        let url = url.clone();
+                        let client = reqwest::Client::new();
+                        let response = client
+                            .post(url.clone())
+                            .json(&new_streak)
+                            .send()
+                            .await
+                            .unwrap();
+                        response.json::<Streak>().await.unwrap()
+                    }
+                });
+
+                task_signal.set("".to_string());
+                frequency_signal.set(Frequency::Daily);
+            },
+            label {
+                "Task",
+                input {
+                    oninput: move |e| {
+                        task_signal.set(e.value().clone());
+                    },
+                    value: task_signal.read().clone(),
+                    placeholder: "task"
+                }
+            }
+            label {
+                "Frequency",
+                select {
+                    onchange: move |event| {
+                        frequency_signal.set(Frequency::from_str(event.value().as_str()));
+                    },
+                    option {
+                        selected: frequency_signal.read().clone() == Frequency::Daily,
+                        value: "daily",
+                        "Daily"
+                    }
+                    option {
+                        selected: frequency_signal.read().clone() == Frequency::Weekly,
+                        value: "weekly",
+                        "Weekly"
+                    }
+                }
+            }
+            button {
+                type: "submit",
+                "Add"
+            }
+        }
+    }
+}
+
+#[component]
+fn StreakTable() -> Element {
+    let state = use_context::<Signal<AppState>>();
+
+    rsx! {
+        table {
+            thead {
+                th { "Task" }
+                th { "Status" }
+                th { "Frequency" }
+                th { "Last Check-in" }
+                th { "Current Streak" }
+                th { "Longest Streak" }
+                th { "Total Check-ins" }
+                th { "Tools" }
+            }
+            tbody {
+                for streak in state.read().streaks.iter() {
+                    StreakTableRow { streak: streak.clone() }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn StreakTableRow(mut streak: Streak) -> Element {
+    let mut state = use_context::<Signal<AppState>>();
+    let mut streak_signal = Signal::new(streak.clone());
+
+    let last_checkin = match streak_signal.read().last_checkin {
+        Some(checkin) => checkin.to_string(),
+        None => "Never".to_string(),
+    };
+
+    let streak = streak_signal.read().clone();
+
+    rsx! {
+        tr {
+            td { "{streak.task}" }
+            td { "{streak.emoji_status()}" }
+            td { "{streak.frequency}" }
+            td { {last_checkin} }
+            td { "{streak.current_streak}" }
+            td { "{streak.longest_streak}" }
+            td { "{streak.total_checkins}" }
+            td {
+                button {
+                    onclick: move |e| {
+                        let _ = use_resource(move || {
+                            let url = format!("http://127.0.0.1:3000/streak/{}/check-in", streak.id);
+                            let client = reqwest::Client::new();
+                            async move {
+                                let url = url.clone();
+                                let client = client.clone();
+                                let response = client.clone().put(url.clone()).send().await.unwrap();
+                                let updated_streak = response.json::<Streak>().await.unwrap();
+
+                                // streak_signal.set(updated_streak);
+
+                                // let mut streaks = state.read().streaks.clone();
+                                // let index: usize = streaks.iter().position(|st| st.id == updated_streak.id).unwrap();
+                                // streaks[index] = updated_streak;
+                                // state.set(AppState { streaks });
+                            }
+                        });
+                    },
+                    span {
+                        class: "material-symbols-outlined",
+                        "check_circle"
+                    }
+                }
+                button {
+                    onclick: move |e| {
+                        let _ = use_resource( move || {
+                            let url = format!("http://127.0.0.1:3000/streak/{}", streak.id);
+                            let client = reqwest::Client::new();
+                            async move {
+                                let url = url.clone();
+                                let client = client.clone();
+                                match client.clone().delete(url.clone()).send().await {
+                                    Ok(_) => {
+                                        let mut remaining_streaks = state.read().streaks.clone();
+                                        remaining_streaks.retain(|s| s.id != streak.id);
+                                        // state.set(AppState { streaks: remaining_streaks });
+                                    },
+                                    Err(_) => (),
+                                }
+                            }
+                        });
+                    },
+                    span {
+                        class: "material-symbols-outlined",
+                        "delete"
+                    }
+                }
+            }
+        }
+    }
 }
 
 #[server(StreakServer)]
