@@ -599,6 +599,9 @@
   .z-6 {
     z-index: 6;
   }
+  .z-7 {
+    z-index: 7;
+  }
   .z-auto {
     z-index: auto;
   }
@@ -706,6 +709,9 @@
   }
   .m-1 {
     margin: calc(var(--spacing) * 1);
+  }
+  .mx-auto {
+    margin-inline: auto;
   }
   .mt-1 {
     margin-top: calc(var(--spacing) * 1);
@@ -830,6 +836,9 @@
   .w-7 {
     width: calc(var(--spacing) * 7);
   }
+  .w-full {
+    width: 100%;
+  }
   .w-screen {
     width: 100vw;
   }
@@ -838,6 +847,9 @@
   }
   .max-w-screen {
     max-width: 100vw;
+  }
+  .min-w-fit {
+    min-width: fit-content;
   }
   .min-w-none {
     min-width: none;
@@ -1678,9 +1690,17 @@
   .align-top {
     vertical-align: top;
   }
+  .text-3xl {
+    font-size: var(--text-3xl);
+    line-height: var(--tw-leading, var(--text-3xl--line-height));
+  }
   .leading-none {
     --tw-leading: 1;
     line-height: 1;
+  }
+  .font-bold {
+    --tw-font-weight: var(--font-weight-bold);
+    font-weight: var(--font-weight-bold);
   }
   .text-balance {
     text-wrap: balance;
@@ -2195,6 +2215,26 @@
   .transform-view {
     transform-box: view-box;
   }
+  .sm\:w-full {
+    @media (width >= 40rem) {
+      width: 100%;
+    }
+  }
+  .md\:w-3\/4 {
+    @media (width >= 48rem) {
+      width: calc(3/4 * 100%);
+    }
+  }
+  .lg\:w-1\/2 {
+    @media (width >= 64rem) {
+      width: calc(1/2 * 100%);
+    }
+  }
+  .lg\:w-3\/4 {
+    @media (width >= 64rem) {
+      width: calc(3/4 * 100%);
+    }
+  }
 }
 @supports (-moz-orient: inline) {
   @layer base {
@@ -2220,6 +2260,7 @@
       --tw-border-style: solid;
       --tw-divide-y-reverse: 0;
       --tw-leading: initial;
+      --tw-font-weight: initial;
       --tw-ordinal: initial;
       --tw-slashed-zero: initial;
       --tw-numeric-figure: initial;
@@ -2389,6 +2430,10 @@
   initial-value: 0;
 }
 @property --tw-leading {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-font-weight {
   syntax: "*";
   inherits: false;
 }

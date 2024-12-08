@@ -97,15 +97,18 @@ fn App() -> Element {
     rsx! {
         document::Link { href: "https://fonts.googleapis.com", rel: "preconnect" }
         document::Link { href: "https://fonts.gstatic.com", rel: "preconnect", crossorigin: "true"}
-        document::Stylesheet { href: "https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,300,0,0" }
+        document::Stylesheet { href: "https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&icon_names=arrow_downward_alt,arrow_upward_alt,check_circle,delete,pending,verfied" }
         document::Stylesheet { href: asset!("/assets/main.css") }
-
-        h1 {
-            "Streaks"
+        div {
+            class: "containter mx-auto sm:w-full lg:w-3/4",
+            h1 {
+                class: "text-3xl font-bold",
+                "Skidmarks"
+            }
+            StreakForm {}
+            StreakTable {}
         }
 
-        StreakForm {}
-        StreakTable {}
     }
 }
 
@@ -187,18 +190,38 @@ fn StreakForm() -> Element {
 #[component]
 fn TableHeader(sort_by_field: SortByField, text: String) -> Element {
     let mut state = use_context::<Signal<AppState>>();
+    let mut direction = SortByDirection::Ascending;
 
     rsx! {
         th {
+            class: "min-w-fit text-pretty",
             onclick: move |_| {
-                let direction = match state.read().sort_by_direction {
-                    SortByDirection::Ascending => SortByDirection::Descending,
-                    SortByDirection::Descending => SortByDirection::Ascending,
-                };
+                if state.read().sort_by_field == sort_by_field {}
+                    direction = match state.read().sort_by_direction {
+                        SortByDirection::Ascending => SortByDirection::Descending,
+                        SortByDirection::Descending => SortByDirection::Ascending,
+                    };
+                }
                 state.write().sort_by_field = sort_by_field.clone();
                 state.write().sort_by_direction = direction.clone();
             },
-            "{text}"
+            "{text}",
+            if state.read().sort_by_field == sort_by_field {
+                match state.read().sort_by_direction {
+                    SortByDirection::Ascending => rsx! {
+                        span {
+                            class: "material-symbols-rounded",
+                            "arrow_upward_alt"
+                        }
+                    },
+                    SortByDirection::Descending => rsx! {
+                        span {
+                            class: "material-symbols-rounded",
+                            "arrow_downward_alt"
+                        }
+                    },
+                }
+            }
         }
     }
 }
@@ -209,14 +232,20 @@ fn StreakTable() -> Element {
 
     rsx! {
         table {
+            class: "w-full",
             thead {
+                tr {
+                    td { colspan: 3 }
+                    th { colspan: 2, "Check-ins" }
+                    th { colspan: 2, "Streaks" }
+                }
                 TableHeader { sort_by_field: SortByField::Task, text: "Task" }
                 TableHeader { sort_by_field: SortByField::Status, text: "Status" }
                 TableHeader { sort_by_field: SortByField::Frequency, text: "Frequency" }
-                TableHeader { sort_by_field: SortByField::LastCheckIn, text: "Last Check-in" }
-                TableHeader { sort_by_field: SortByField::CurrentStreak, text: "Current Streak" }
-                TableHeader { sort_by_field: SortByField::LongestStreak, text: "Longest Streak" }
-                TableHeader { sort_by_field: SortByField::TotalCheckins, text: "Total Check-ins" }
+                TableHeader { sort_by_field: SortByField::LastCheckIn, text: "Last" }
+                TableHeader { sort_by_field: SortByField::TotalCheckins, text: "Total" }
+                TableHeader { sort_by_field: SortByField::CurrentStreak, text: "Current" }
+                TableHeader { sort_by_field: SortByField::LongestStreak, text: "Longest" }
                 th { "Tools" }
             }
             tbody {
@@ -243,7 +272,7 @@ fn StreakTableRow(mut streak: Streak) -> Element {
         Status::Missed => {
             rsx! {
                 span {
-                    class: "material-symbols-outlined",
+                    class: "material-symbols-rounded",
                     "dangerous"
                 }
             }
@@ -251,7 +280,7 @@ fn StreakTableRow(mut streak: Streak) -> Element {
         Status::Done => {
             rsx! {
                 span {
-                    class: "material-symbols-outlined",
+                    class: "material-symbols-rounded",
                     "verified"
                 }
             }
@@ -259,7 +288,7 @@ fn StreakTableRow(mut streak: Streak) -> Element {
         Status::Waiting => {
             rsx! {
                 span {
-                    class: "material-symbols-outlined",
+                    class: "material-symbols-rounded",
                     "pending"
                 }
             }
@@ -290,7 +319,7 @@ fn CheckInButton(streak: Streak) -> Element {
         button {
             onclick: move |e| {state.read().checkin_streak(streak.id)},
             span {
-                class: "material-symbols-outlined",
+                class: "material-symbols-rounded",
                 "check_circle"
             }
         }
@@ -304,7 +333,7 @@ fn DeleteButton(streak: Streak) -> Element {
         button {
             onclick: move |e| {state.read().remove_streak(streak.id)},
             span {
-                class: "material-symbols-outlined",
+                class: "material-symbols-rounded",
                 "delete"
             }
         }
