@@ -1,18 +1,18 @@
 [application]
 
 # App (Project) Name
-name = "web"
+name = "Skidmarks"
 
 # `build` dist path
 out_dir = "dist"
 
 # resource (assets) file folder
-asset_dir = "none"
+asset_dir = "assets"
 
 [web.app]
 
 # HTML title tag content
-title = "web"
+title = "Skidmarks"
 
 [web.watcher]
 

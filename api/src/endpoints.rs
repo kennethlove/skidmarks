@@ -128,7 +128,7 @@ pub async fn update(
             match db.update(identifier, current_streak) {
                 Ok(updated_streak) => {
                     db.save().unwrap();
-                    Ok((StatusCode::NO_CONTENT, Json(updated_streak)))
+                    Ok((StatusCode::OK, Json(updated_streak)))
                 }
                 _ => Err(StatusCode::BAD_REQUEST),
             }
@@ -140,12 +140,12 @@ pub async fn update(
 pub async fn delete(
     Path(identifier): Path<Uuid>,
     State(state): State<AppState>,
-) -> Result<(), StatusCode> {
+) -> Result<impl IntoResponse, StatusCode> {
     let mut db = state.database.lock().unwrap();
     match db.delete(identifier) {
         Ok(_) => {
             db.save().unwrap();
-            Ok(())
+            Ok(StatusCode::NO_CONTENT)
         }
         _ => Err(StatusCode::NOT_FOUND),
     }

@@ -7,16 +7,20 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-dioxus = { version = "0.6.0-rc.0", features = ["router", "fullstack"] }
-dioxus-logger = "0.5"
+dioxus = { version = "0.6", features = ["router", "fullstack"] }
+dioxus-logger = "0.6"
 reqwest = { version = "0.12.9", features = ["json"] }
 serde = { version = "1.0.215", features = ["derive"] }
 
 streak = { path = "../streak" }
+uuid = { version = "1.11.0", features = ["v4"] }
 
 [dependencies.getrandom]
 version = "0.2.15"
 features = ["js"]
+
+[dependencies.wasm-bindgen]
+version = "0.2.99"
 
 [features]
 default = ["web"]

@@ -1,8 +1,11 @@
+use std::cell::Ref;
+use dioxus::dioxus_core::internal::generational_box::GenerationalRef;
 use dioxus::prelude::*;
 use dioxus_logger::tracing::Level;
 use serde::{Deserialize, Serialize};
 
 use streak::{Frequency, Streak};
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Routable, PartialEq)]
 #[rustfmt::skip]
@@ -29,12 +32,38 @@ impl AppState {
             },
         }
     }
-}
 
-const FAVICON: Asset = asset!("/assets/favicon.ico");
-const MAIN_CSS: Asset = asset!("/assets/main.css");
-const HEADER_SVG: Asset = asset!("/assets/header.svg");
-const TAILWIND_CSS: Asset = asset!("/assets/tailwind.css");
+    fn remove_streak(&self, streak_id: Uuid) {
+        let _ = use_resource(move || async move { delete_streak(streak_id).await });
+        let mut state = use_context::<Signal<AppState>>();
+        let streaks = state.read().streaks.clone();
+            use_effect(move || {
+                let mut streaks = streaks.clone();
+                streaks.retain(|s| s.id != streak_id);
+                state.write().streaks = streaks
+            });
+            dioxus_logger::tracing::info!("{:?}", state.read());
+    }
+
+    fn checkin_streak(&self, streak_id: Uuid) {
+        let updated_streak = use_resource(move || async move { check_in_streak(streak_id).await });
+        let mut state = use_context::<Signal<AppState>>();
+        let streaks = state.read().streaks.clone();
+        use_effect(move || {
+            let mut streaks = streaks.clone();
+            let index = streaks.iter().position(|s| s.id == streak_id);
+            if let Some(streak) = streaks.get_mut(index.unwrap()) {
+                streak.checkin();
+
+                if let Some(index) = index {
+                    streaks[index] = streak.clone();
+                }
+            }
+            state.write().streaks = streaks
+        });
+        dioxus_logger::tracing::info!("{:?}", state.read());
+    }
+}
 
 fn main() {
     dioxus_logger::init(Level::INFO).expect("failed to init logger");
@@ -87,42 +116,6 @@ fn Navbar() -> Element {
 }
 
 #[component]
-fn Streaks() -> Element {
-    let streak_request = use_resource(move || async move { streak_server().await });
-    let state = use_context::<Signal<AppState>>();
-    let streaks = state.read().streaks.clone();
-
-    rsx! {
-        div {
-            id: "streaks",
-            h4 {
-                "Streaks"
-            }
-
-            match streak_request() {
-                Some(Ok(response)) => rsx! {
-                    ul {
-                        for streak in response {
-                            li { {streak.task }}
-                        }
-                    }
-                },
-                Some(Err(err)) => rsx! {
-                    p {
-                        {format!("Trouble loading streaks: {}", err)}
-                    }
-                },
-                None => rsx! {
-                    p {
-                        "Loading..."
-                    }
-                }
-            }
-        }
-    }
-}
-
-#[component]
 fn StreakForm() -> Element {
     let mut state = use_context::<Signal<AppState>>();
 
@@ -142,7 +135,7 @@ fn StreakForm() -> Element {
                 state.write().streaks.push(new_streak.clone());
 
                 let save_streak = use_resource(move || {
-                    let url = "http://127.0.0.1:3000/streak";
+                    let url = "http://minty:3000/streak";
                     let new_streak = new_streak.clone();
 
                     async move {
@@ -244,64 +237,60 @@ fn StreakTableRow(mut streak: Streak) -> Element {
             td { "{streak.longest_streak}" }
             td { "{streak.total_checkins}" }
             td {
-                button {
-                    onclick: move |e| {
-                        let _ = use_resource(move || {
-                            let url = format!("http://127.0.0.1:3000/streak/{}/check-in", streak.id);
-                            let client = reqwest::Client::new();
-                            async move {
-                                let url = url.clone();
-                                let client = client.clone();
-                                let response = client.clone().put(url.clone()).send().await.unwrap();
-                                let updated_streak = response.json::<Streak>().await.unwrap();
-
-                                // streak_signal.set(updated_streak);
-
-                                // let mut streaks = state.read().streaks.clone();
-                                // let index: usize = streaks.iter().position(|st| st.id == updated_streak.id).unwrap();
-                                // streaks[index] = updated_streak;
-                                // state.set(AppState { streaks });
-                            }
-                        });
-                    },
-                    span {
-                        class: "material-symbols-outlined",
-                        "check_circle"
-                    }
-                }
-                button {
-                    onclick: move |e| {
-                        let _ = use_resource( move || {
-                            let url = format!("http://127.0.0.1:3000/streak/{}", streak.id);
-                            let client = reqwest::Client::new();
-                            async move {
-                                let url = url.clone();
-                                let client = client.clone();
-                                match client.clone().delete(url.clone()).send().await {
-                                    Ok(_) => {
-                                        let mut remaining_streaks = state.read().streaks.clone();
-                                        remaining_streaks.retain(|s| s.id != streak.id);
-                                        // state.set(AppState { streaks: remaining_streaks });
-                                    },
-                                    Err(_) => (),
-                                }
-                            }
-                        });
-                    },
-                    span {
-                        class: "material-symbols-outlined",
-                        "delete"
-                    }
-                }
+                CheckInButton { streak: streak.clone() }
+                DeleteButton { streak: streak.clone() }
             }
         }
     }
 }
 
-#[server(StreakServer)]
+#[component]
+fn CheckInButton(streak: Streak) -> Element {
+    let state = use_context::<Signal<AppState>>();
+    rsx! {
+        button {
+            onclick: move |e| {state.read().checkin_streak(streak.id)},
+            span {
+                class: "material-symbols-outlined",
+                "check_circle"
+            }
+        }
+    }
+}
+
+#[component]
+fn DeleteButton(streak: Streak) -> Element {
+    let state = use_context::<Signal<AppState>>();
+    rsx! {
+        button {
+            onclick: move |e| {state.read().remove_streak(streak.id)},
+            span {
+                class: "material-symbols-outlined",
+                "delete"
+            }
+        }
+    }
+}
+
+#[server]
 async fn streak_server() -> Result<Vec<Streak>, ServerFnError> {
-    let response = reqwest::get("http://localhost:3000/streak").await;
+    let response = reqwest::get("http://minty:3000/streak").await;
     let streaks = response?.json::<Vec<Streak>>().await.unwrap();
     dioxus_logger::tracing::info!("streak_server done");
     Ok(streaks)
+}
+
+#[server]
+async fn delete_streak(streak_id: Uuid) -> Result<Uuid, ServerFnError> {
+    let client = reqwest::Client::new();
+    let response = client.delete(format!("http://minty:3000/streak/{}", streak_id)).send().await;
+    Ok(streak_id)
+}
+
+#[server]
+async fn check_in_streak(streak_id: Uuid) -> Result<Streak, ServerFnError> {
+    let client = reqwest::Client::new();
+    let response = client.put(format!("http://minty:3000/streak/{}/check-in", streak_id)).send().await?;
+    let streak = response.json::<Streak>().await?;
+    Ok(streak)
 }
