@@ -4,20 +4,15 @@ use dioxus::prelude::*;
 use dioxus_logger::tracing::Level;
 use serde::{Deserialize, Serialize};
 
-use streak::{Frequency, Streak};
+use streak::{Frequency, Streak, Status, sort_streaks};
 use uuid::Uuid;
-
-#[derive(Debug, Clone, Routable, PartialEq)]
-#[rustfmt::skip]
-enum Route {
-    #[layout(Navbar)]
-    #[route("/")]
-    StreakTable {},
-}
+use streak::sorting::{SortByDirection, SortByField};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct AppState {
     streaks: Vec<Streak>,
+    sort_by_field: SortByField,
+    sort_by_direction: SortByDirection,
 }
 
 impl AppState {
@@ -26,11 +21,27 @@ impl AppState {
         match streak_request() {
             Some(Ok(streak_response)) => Self {
                 streaks: streak_response,
+                sort_by_field: SortByField::LastCheckIn,
+                sort_by_direction: SortByDirection::Ascending
             },
             _ => Self {
-                streaks: Vec::new(),
+                streaks: vec![],
+                sort_by_field: SortByField::LastCheckIn,
+                sort_by_direction: SortByDirection::Ascending
             },
         }
+    }
+
+    fn sort(self) -> Vec<Streak> {
+        let mut state = use_context::<Signal<AppState>>();
+
+        let sorted_streaks = sort_streaks(
+            self.streaks,
+            self.sort_by_field.clone(),
+            self.sort_by_direction.clone()
+        );
+
+        sorted_streaks
     }
 
     fn remove_streak(&self, streak_id: Uuid) {
@@ -94,24 +105,7 @@ fn App() -> Element {
         }
 
         StreakForm {}
-
-        Router::<Route> {}
-    }
-}
-
-/// Shared navbar component.
-#[component]
-fn Navbar() -> Element {
-    rsx! {
-        div {
-            id: "navbar",
-            Link {
-                to: Route::StreakTable {},
-                "Home"
-            }
-        }
-
-        Outlet::<Route> {}
+        StreakTable {}
     }
 }
 
@@ -191,23 +185,42 @@ fn StreakForm() -> Element {
 }
 
 #[component]
+fn TableHeader(sort_by_field: SortByField, text: String) -> Element {
+    let mut state = use_context::<Signal<AppState>>();
+
+    rsx! {
+        th {
+            onclick: move |_| {
+                let direction = match state.read().sort_by_direction {
+                    SortByDirection::Ascending => SortByDirection::Descending,
+                    SortByDirection::Descending => SortByDirection::Ascending,
+                };
+                state.write().sort_by_field = sort_by_field.clone();
+                state.write().sort_by_direction = direction.clone();
+            },
+            "{text}"
+        }
+    }
+}
+
+#[component]
 fn StreakTable() -> Element {
-    let state = use_context::<Signal<AppState>>();
+    let mut state = use_context::<Signal<AppState>>();
 
     rsx! {
         table {
             thead {
-                th { "Task" }
-                th { "Status" }
-                th { "Frequency" }
-                th { "Last Check-in" }
-                th { "Current Streak" }
-                th { "Longest Streak" }
-                th { "Total Check-ins" }
+                TableHeader { sort_by_field: SortByField::Task, text: "Task" }
+                TableHeader { sort_by_field: SortByField::Status, text: "Status" }
+                TableHeader { sort_by_field: SortByField::Frequency, text: "Frequency" }
+                TableHeader { sort_by_field: SortByField::LastCheckIn, text: "Last Check-in" }
+                TableHeader { sort_by_field: SortByField::CurrentStreak, text: "Current Streak" }
+                TableHeader { sort_by_field: SortByField::LongestStreak, text: "Longest Streak" }
+                TableHeader { sort_by_field: SortByField::TotalCheckins, text: "Total Check-ins" }
                 th { "Tools" }
             }
             tbody {
-                for streak in state.read().streaks.iter() {
+                for streak in state.read().clone().sort().iter() {
                     StreakTableRow { streak: streak.clone() }
                 }
             }
@@ -226,11 +239,37 @@ fn StreakTableRow(mut streak: Streak) -> Element {
     };
 
     let streak = streak_signal.read().clone();
+    let status = match streak.status() {
+        Status::Missed => {
+            rsx! {
+                span {
+                    class: "material-symbols-outlined",
+                    "dangerous"
+                }
+            }
+        },
+        Status::Done => {
+            rsx! {
+                span {
+                    class: "material-symbols-outlined",
+                    "verified"
+                }
+            }
+        },
+        Status::Waiting => {
+            rsx! {
+                span {
+                    class: "material-symbols-outlined",
+                    "pending"
+                }
+            }
+        }
+    };
 
     rsx! {
         tr {
             td { "{streak.task}" }
-            td { "{streak.emoji_status()}" }
+            td { {status} }
             td { "{streak.frequency}" }
             td { {last_checkin} }
             td { "{streak.current_streak}" }

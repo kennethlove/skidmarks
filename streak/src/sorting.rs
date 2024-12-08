@@ -1,6 +1,7 @@
 use std::fmt::Display;
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub enum SortByField {
     Task,
     Frequency,
@@ -52,7 +53,7 @@ impl SortByField {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum SortByDirection {
     Ascending,
     Descending,

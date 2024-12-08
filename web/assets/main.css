@@ -827,6 +827,9 @@
   .w-1\/2 {
     width: calc(1/2 * 100%);
   }
+  .w-7 {
+    width: calc(var(--spacing) * 7);
+  }
   .w-screen {
     width: 100vw;
   }
