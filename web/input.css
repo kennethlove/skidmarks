@@ -1,10 +1,11 @@
 @import "tailwindcss";
 
+/* fallback */
 @font-face {
     font-family: 'Material Symbols Rounded';
     font-style: normal;
     font-weight: 400;
-    src: url(https://fonts.gstatic.com/icon/font?kit=syl0-zNym6YjUruM-QrEh7-nyTnjDwKNJ_190FjpZIvDmUSVOK7BDB_Qb9vUSzq3wzLK-P0J-V_Zs-QtQth3-jOcbTCVpeRL2w5rwZu2rIelXxf5PvkQa8F91jIFVipfEkZO2gnGdRd-SsRYVr9-tw-PJl3434_JbJzokm7UcTxTZuJX2LqDjHqC-ZhdpzG2hgfEEppkNzb_PpzwK4D-S2s&skey=70ddea8fe54d532e&v=v222) format('woff2');
+    src: url('https://fonts.gstatic.com/icon/font?kit=syl0-zNym6YjUruM-QrEh7-nyTnjDwKNJ_190FjpZIvDmUSVOK7BDB_Qb9vUSzq3wzLK-P0J-V_Zs-QtQth3-jOcDTCVpeRL2w5rwZu2rIelXxGJKJBiCa9QmzcYUytfLFBF8gbdYD8KdNdGTZIxow2KKFjD9Z7SebSArmfdZg0KZupG07OCjHCF9JFbuAuP6AXCEJtXXzXAVY_hPLyQXmotA3kaNafa-cIid-1_cxs&skey=70ddea8fe54d532e&v=v222') format('woff');
 }
 
 .material-symbols-rounded {
@@ -19,6 +20,7 @@
     white-space: nowrap;
     word-wrap: normal;
     direction: ltr;
-    -webkit-font-feature-settings: 'liga';
-    -webkit-font-smoothing: antialiased;
+    -moz-font-feature-settings: 'liga';
+    -moz-osx-font-smoothing: grayscale;
 }
+

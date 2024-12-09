@@ -1,9 +1,10 @@
 use dioxus::dioxus_core::internal::generational_box::GenerationalRef;
+use dioxus::prelude::server_fn::codec::Json;
 use dioxus::prelude::*;
 use dioxus_logger::tracing::Level;
 use serde::{Deserialize, Serialize};
 use std::cell::Ref;
-
+use std::future::Future;
 use streak::filtering::FilterByStatus;
 use streak::sorting::{SortByDirection, SortByField};
 use streak::{filter_by_status, sort_streaks, Frequency, Status, Streak};
@@ -111,7 +112,6 @@ fn App() -> Element {
     rsx! {
         document::Link { href: "https://fonts.googleapis.com", rel: "preconnect" }
         document::Link { href: "https://fonts.gstatic.com", rel: "preconnect", crossorigin: "true" }
-        document::Stylesheet { href: "https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,400,0,0&icon_names=arrow_downward_alt,arrow_upward_alt,cached,check_circle,delete,pending,verified", rel: "stylesheet" }
         document::Stylesheet { href: asset!("/assets/main.css") }
         div {
             class: "container mx-auto sm:w-full lg:w-10/12",
@@ -125,6 +125,20 @@ fn App() -> Element {
                 StreakFilters {}
             }
             StreakTable {}
+
+            footer {
+                class: "mt-4",
+                p {
+                    class: "text-center text-sm",
+                    "Made with 💜 by "
+                    a {
+                        class: "underline",
+                        href: "https://thekennethlove.com",
+                        target: "_new",
+                        "klove"
+                    }
+                }
+            }
         }
 
     }
@@ -139,14 +153,14 @@ fn StreakFilters() -> Element {
         div {
             class: "border-l border-gray-300 pl-3",
             fieldset {
-                class: "flex flex-nowrap gap-0 select-none",
+                class: "flex flex-nowrap gap-0 select-none group",
                 legend {
                     class: "sr-only",
                     "Frequency"
                 }
                 div {
                     label {
-                        class: "flex cursor-pointer items-center justify-center rounded-l-md border border-gray-100 bg-white px-3 py-3 text-gray-900 hover:border-gray-200 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-500 has-[:checked]:text-white",
+                        class: "transition flex cursor-pointer items-center justify-center rounded-l-md border border-gray-100 bg-white px-3 py-3 text-gray-900 hover:border-blue-500 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-500 has-[:checked]:text-white",
                         input {
                             class: "sr-only",
                             name: "filter",
@@ -162,7 +176,7 @@ fn StreakFilters() -> Element {
                 }
                 div {
                     label {
-                        class: "flex cursor-pointer items-center justify-center border border-gray-100 bg-white px-3 py-3 text-gray-900 hover:border-gray-200 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-500 has-[:checked]:text-white",
+                        class: "transition flex cursor-pointer items-center justify-center border border-gray-100 bg-white px-3 py-3 text-gray-900 hover:border-blue-500 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-500 has-[:checked]:text-white",
                         input {
                             class: "sr-only",
                             name: "filter",
@@ -178,7 +192,7 @@ fn StreakFilters() -> Element {
                 }
                 div {
                     label {
-                        class: "flex cursor-pointer items-center justify-center border border-gray-100 bg-white px-3 py-3 text-gray-900 hover:border-gray-200 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-500 has-[:checked]:text-white",
+                        class: "transition flex cursor-pointer items-center justify-center border border-gray-100 bg-white px-3 py-3 text-gray-900 hover:border-blue-500 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-500 has-[:checked]:text-white",
                         input {
                             class: "sr-only",
                             name: "filter",
@@ -194,7 +208,7 @@ fn StreakFilters() -> Element {
                 }
                 div {
                     label {
-                        class: "flex cursor-pointer items-center justify-center rounded-r-md border border-gray-100 bg-white px-3 py-3 text-gray-900 hover:border-gray-200 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-500 has-[:checked]:text-white",
+                        class: "transition flex cursor-pointer items-center justify-center rounded-r-md border border-gray-100 bg-white px-3 py-3 text-gray-900 hover:border-blue-500 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-500 has-[:checked]:text-white",
                         input {
                             class: "sr-only",
                             name: "filter",
@@ -217,7 +231,7 @@ fn StreakFilters() -> Element {
 fn StreakForm() -> Element {
     let mut state = use_context::<Signal<AppState>>();
 
-    let mut task_signal = use_signal(|| "".to_string());
+    let mut task_signal = use_signal(|| String::default());
     let mut frequency_signal = use_signal(|| Frequency::Daily);
 
     rsx! {
@@ -229,33 +243,19 @@ fn StreakForm() -> Element {
                     let mut new_streak: Streak = Streak::default();
                     let task = task_signal.read().clone();
 
-                    dioxus_logger::tracing::info!("task started: {}", &frequency_signal.read());
-
                     match frequency_signal.read().clone() {
                         Frequency::Daily => new_streak = Streak::new_daily(task.clone()),
                         Frequency::Weekly => new_streak = Streak::new_weekly(task.clone())
                     }
-                    state.write().streaks.push(new_streak.clone());
 
-                    let save_streak = use_resource(move || {
-                        let url = "http://127.0.0.1:3000/streak";
-                        let new_streak = new_streak.clone();
-
-                        async move {
-                            let url = url.clone();
-                            let client = reqwest::Client::new();
-                            let response = client
-                                .post(url.clone())
-                                .json(&new_streak)
-                                .send()
-                                .await
-                                .unwrap();
-                            response.json::<Streak>().await.unwrap()
+                    let save_streak = create_streak(new_streak.clone());
+                    async move {
+                        if let Ok(streak) = save_streak.await {
+                            state.write().streaks.push(streak);
+                            task_signal.set(String::from(""));
+                            frequency_signal.set(Frequency::Daily);
                         }
-                    });
-
-                    task_signal.set("".to_string());
-                    frequency_signal.set(Frequency::Daily);
+                    }
                 },
                 label {
                     class: "grow relative block rounded-md border border-gray-200 shadow-sm focus-within:border-blue-600 focus-within:ring-1 focus-within:ring-blue-600",
@@ -273,14 +273,14 @@ fn StreakForm() -> Element {
                     }
                 }
                 fieldset {
-                    class: "flex flex-wrap gap-3 select-none",
+                    class: "flex flex-wrap gap-0 select-none",
                     legend {
                         class: "sr-only",
                         "Frequency"
                     }
                     div {
                         label {
-                            class: "flex cursor-pointer items-center justify-center rounded-md border border-gray-100 bg-white px-3 py-3 text-gray-900 hover:border-gray-200 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-500 has-[:checked]:text-white",
+                            class: "flex cursor-pointer transition items-center justify-center rounded-l-md border border-gray-100 bg-white px-3 py-3 text-gray-900 hover:border-blue-500 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-500 has-[:checked]:text-white",
                             input {
                                 class: "sr-only",
                                 name: "frequency",
@@ -298,7 +298,7 @@ fn StreakForm() -> Element {
                     }
                     div {
                         label {
-                            class: "flex cursor-pointer items-center justify-center rounded-md border border-gray-100 bg-white px-3 py-3 text-gray-900 hover:border-gray-200 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-500 has-[:checked]:text-white",
+                            class: "flex cursor-pointer transition items-center justify-center rounded-r-md border border-gray-100 bg-white px-3 py-3 text-gray-900 hover:border-blue-500 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-500 has-[:checked]:text-white",
                             input {
                                 class: "sr-only",
                                 name: "frequency",
@@ -317,7 +317,7 @@ fn StreakForm() -> Element {
                 }
 
                 button {
-                    class: "inline-block rounded border border-indigo-600 bg-indigo-600 px-6 text-sm font-medium text-white hover:bg-transparent hover:text-indigo-600 focus:outline-none focus:ring active:text-indigo-500 cursor-pointer",
+                    class: "inline-block rounded-md border border-gray-100 bg-blue-200 transition px-6 text-sm font-medium text-gray-900 hover:border-gray-200 hover:bg-blue-500 hover:text-white focus:outline-none focus:ring active:text-white cursor-pointer",
                     type: "submit",
                     "Add"
                 }
@@ -430,7 +430,7 @@ fn StreakTableRow(mut streak: Streak) -> Element {
         Status::Missed => {
             rsx! {
                 span {
-                    class: "material-symbols-outlined",
+                    class: "material-symbols-rounded",
                     title: "Missed, time to restart",
                     "cached"
                 }
@@ -482,7 +482,7 @@ fn CheckInButton(streak: Streak) -> Element {
     let state = use_context::<Signal<AppState>>();
     rsx! {
         button {
-            class: "cursor-pointer select-none",
+            class: "cursor-pointer select-none hover:text-green-500",
             onclick: move |e| {state.read().checkin_streak(streak.id)},
             span {
                 class: "material-symbols-rounded",
@@ -497,7 +497,7 @@ fn DeleteButton(streak: Streak) -> Element {
     let state = use_context::<Signal<AppState>>();
     rsx! {
         button {
-            class: "cursor-pointer select-none",
+            class: "cursor-pointer select-none hover:text-red-500",
             onclick: move |e| {state.read().remove_streak(streak.id)},
             span {
                 class: "material-symbols-rounded",
@@ -511,7 +511,6 @@ fn DeleteButton(streak: Streak) -> Element {
 async fn streak_server(filter: FilterByStatus) -> Result<Vec<Streak>, ServerFnError> {
     let response = reqwest::get(format!("http://127.0.0.1:3000/streak?status={}", filter)).await;
     let streaks = response?.json::<Vec<Streak>>().await.unwrap();
-    dioxus_logger::tracing::info!("streak_server done");
     Ok(streaks)
 }
 
@@ -533,6 +532,18 @@ async fn check_in_streak(streak_id: Uuid) -> Result<Streak, ServerFnError> {
             "http://127.0.0.1:3000/streak/{}/check-in",
             streak_id
         ))
+        .send()
+        .await?;
+    let streak = response.json::<Streak>().await?;
+    Ok(streak)
+}
+
+#[server]
+async fn create_streak(streak: Streak) -> Result<Streak, ServerFnError> {
+    let client = reqwest::Client::new();
+    let response = client
+        .post("http://127.0.0.1:3000/streak")
+        .json(&streak)
         .send()
         .await?;
     let streak = response.json::<Streak>().await?;
