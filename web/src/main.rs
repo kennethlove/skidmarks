@@ -64,7 +64,6 @@ impl AppState {
             streaks.retain(|s| s.id != streak_id);
             state.write().streaks = streaks
         });
-        dioxus_logger::tracing::info!("{:?}", state.read());
     }
 
     fn checkin_streak(&self, streak_id: Uuid) {
@@ -83,7 +82,6 @@ impl AppState {
             }
             state.write().streaks = streaks
         });
-        dioxus_logger::tracing::info!("{:?}", state.read());
     }
 }
 
@@ -231,6 +229,8 @@ fn StreakForm() -> Element {
                     let mut new_streak: Streak = Streak::default();
                     let task = task_signal.read().clone();
 
+                    dioxus_logger::tracing::info!("task started: {}", &frequency_signal.read());
+
                     match frequency_signal.read().clone() {
                         Frequency::Daily => new_streak = Streak::new_daily(task.clone()),
                         Frequency::Weekly => new_streak = Streak::new_weekly(task.clone())
@@ -238,7 +238,7 @@ fn StreakForm() -> Element {
                     state.write().streaks.push(new_streak.clone());
 
                     let save_streak = use_resource(move || {
-                        let url = "http://minty:3000/streak";
+                        let url = "http://127.0.0.1:3000/streak";
                         let new_streak = new_streak.clone();
 
                         async move {
@@ -286,7 +286,7 @@ fn StreakForm() -> Element {
                                 name: "frequency",
                                 r#type: "radio",
                                 checked: frequency_signal.read().clone() == Frequency::Daily,
-                                onselect: move |event| {
+                                onclick: move |event| {
                                     frequency_signal.set(Frequency::Daily)
                                 }
                             }
@@ -304,7 +304,7 @@ fn StreakForm() -> Element {
                                 name: "frequency",
                                 r#type: "radio",
                                 checked: frequency_signal.read().clone() == Frequency::Weekly,
-                                onselect: move |event| {
+                                onclick: move |event| {
                                     frequency_signal.set(Frequency::Weekly)
                                 }
                             }
@@ -509,7 +509,7 @@ fn DeleteButton(streak: Streak) -> Element {
 
 #[server]
 async fn streak_server(filter: FilterByStatus) -> Result<Vec<Streak>, ServerFnError> {
-    let response = reqwest::get(format!("http://minty:3000/streak?status={}", filter)).await;
+    let response = reqwest::get(format!("http://127.0.0.1:3000/streak?status={}", filter)).await;
     let streaks = response?.json::<Vec<Streak>>().await.unwrap();
     dioxus_logger::tracing::info!("streak_server done");
     Ok(streaks)
@@ -519,7 +519,7 @@ async fn streak_server(filter: FilterByStatus) -> Result<Vec<Streak>, ServerFnEr
 async fn delete_streak(streak_id: Uuid) -> Result<Uuid, ServerFnError> {
     let client = reqwest::Client::new();
     let response = client
-        .delete(format!("http://minty:3000/streak/{}", streak_id))
+        .delete(format!("http://127.0.0.1:3000/streak/{}", streak_id))
         .send()
         .await;
     Ok(streak_id)
@@ -529,7 +529,10 @@ async fn delete_streak(streak_id: Uuid) -> Result<Uuid, ServerFnError> {
 async fn check_in_streak(streak_id: Uuid) -> Result<Streak, ServerFnError> {
     let client = reqwest::Client::new();
     let response = client
-        .put(format!("http://minty:3000/streak/{}/check-in", streak_id))
+        .put(format!(
+            "http://127.0.0.1:3000/streak/{}/check-in",
+            streak_id
+        ))
         .send()
         .await?;
     let streak = response.json::<Streak>().await?;
