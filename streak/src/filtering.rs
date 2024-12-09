@@ -1,4 +1,7 @@
-#[derive(Clone, Debug, PartialEq)]
+use std::fmt::{Display, Formatter};
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub enum FilterByStatus {
     All,
     Done,
@@ -14,6 +17,17 @@ impl FilterByStatus {
             "missed" => FilterByStatus::Missed,
             "waiting" => FilterByStatus::Waiting,
             _ => FilterByStatus::All,
+        }
+    }
+}
+
+impl Display for FilterByStatus {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FilterByStatus::All => write!(f, "all"),
+            FilterByStatus::Done => write!(f, "done"),
+            FilterByStatus::Missed => write!(f, "missed"),
+            FilterByStatus::Waiting => write!(f, "waiting")
         }
     }
 }

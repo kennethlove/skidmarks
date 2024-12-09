@@ -4,8 +4,9 @@ use dioxus::prelude::*;
 use dioxus_logger::tracing::Level;
 use serde::{Deserialize, Serialize};
 
-use streak::{Frequency, Streak, Status, sort_streaks};
+use streak::{Frequency, Streak, Status, sort_streaks, filter_by_status};
 use uuid::Uuid;
+use streak::filtering::FilterByStatus;
 use streak::sorting::{SortByDirection, SortByField};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -13,28 +14,32 @@ struct AppState {
     streaks: Vec<Streak>,
     sort_by_field: SortByField,
     sort_by_direction: SortByDirection,
+    filter_by: FilterByStatus
 }
 
 impl AppState {
     fn new() -> Self {
-        let streak_request = use_resource(move || async move { streak_server().await });
+        let streak_request = use_resource(move || {
+            let filter = FilterByStatus::All;
+            async move { streak_server(filter).await }
+        });
         match streak_request() {
             Some(Ok(streak_response)) => Self {
                 streaks: streak_response,
                 sort_by_field: SortByField::LastCheckIn,
-                sort_by_direction: SortByDirection::Ascending
+                sort_by_direction: SortByDirection::Ascending,
+                filter_by: FilterByStatus::All
             },
             _ => Self {
                 streaks: vec![],
                 sort_by_field: SortByField::LastCheckIn,
-                sort_by_direction: SortByDirection::Ascending
+                sort_by_direction: SortByDirection::Ascending,
+                filter_by: FilterByStatus::All
             },
         }
     }
 
     fn sort(self) -> Vec<Streak> {
-        let mut state = use_context::<Signal<AppState>>();
-
         let sorted_streaks = sort_streaks(
             self.streaks,
             self.sort_by_field.clone(),
@@ -42,6 +47,15 @@ impl AppState {
         );
 
         sorted_streaks
+    }
+
+    fn filter(self) -> Vec<Streak> {
+        let filtered_streaks = filter_by_status(
+            self.streaks,
+            self.filter_by
+        );
+
+        filtered_streaks
     }
 
     fn remove_streak(&self, streak_id: Uuid) {
@@ -84,9 +98,16 @@ fn main() {
 #[component]
 fn App() -> Element {
     // Build cool things ✌️
-    let streak_request = use_resource(move || async move { streak_server().await });
     let signal = Signal::new(AppState::new());
     let mut state: Signal<AppState> = use_context_provider(|| signal);
+    let filter = state.read().filter_by.clone();
+
+    let streak_request = use_resource(move || {
+        let filter = filter.clone();
+        async move {
+            streak_server(filter).await
+        }
+    });
 
     use_effect(move || match streak_request() {
         Some(Ok(response)) => state.write().streaks.extend(response),
@@ -96,19 +117,104 @@ fn App() -> Element {
 
     rsx! {
         document::Link { href: "https://fonts.googleapis.com", rel: "preconnect" }
-        document::Link { href: "https://fonts.gstatic.com", rel: "preconnect", crossorigin: "true"}
-        document::Stylesheet { href: "https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&icon_names=arrow_downward_alt,arrow_upward_alt,check_circle,delete,pending,verfied" }
+        document::Link { href: "https://fonts.gstatic.com", rel: "preconnect", crossorigin: "true" }
         document::Stylesheet { href: asset!("/assets/main.css") }
         div {
-            class: "containter mx-auto sm:w-full lg:w-3/4",
+            class: "containter mx-auto sm:w-full lg:w-10/12",
             h1 {
-                class: "text-3xl font-bold",
+                class: "text-3xl font-bold pt-4",
                 "Skidmarks"
             }
-            StreakForm {}
+            div {
+                class: "flex flex-row flex-nowrap gap-3 py-4",
+                StreakForm {}
+                StreakFilters {}
+            }
             StreakTable {}
         }
 
+    }
+}
+
+#[component]
+fn StreakFilters() -> Element{
+    let mut state = use_context::<Signal<AppState>>();
+
+    rsx! {
+        div {
+            class: "border-l border-gray-300 pl-3",
+            fieldset {
+                class: "flex flex-wrap gap-3 select-none",
+                legend {
+                    class: "sr-only",
+                    "Frequency"
+                }
+                div {
+                    label {
+                        class: "flex cursor-pointer items-center justify-center rounded-md border border-gray-100 bg-white px-3 py-3 text-gray-900 hover:border-gray-200 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-500 has-[:checked]:text-white",
+                        input {
+                            class: "sr-only",
+                            name: "filter",
+                            r#type: "radio",
+                            checked: state.read().filter_by == FilterByStatus::All,
+                            onselect: move |e| { state.write().filter_by = FilterByStatus::All },
+                        }
+                        p {
+                            class: "text-sm font-medium",
+                            "All"
+                        }
+                    }
+                }
+                div {
+                    label {
+                        class: "flex cursor-pointer items-center justify-center rounded-md border border-gray-100 bg-white px-3 py-3 text-gray-900 hover:border-gray-200 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-500 has-[:checked]:text-white",
+                        input {
+                            class: "sr-only",
+                            name: "filter",
+                            r#type: "radio",
+                            checked: state.read().filter_by == FilterByStatus::Waiting,
+                            onselect: move |e| { state.write().filter_by = FilterByStatus::Waiting },
+                        }
+                        p {
+                            class: "text-sm font-medium",
+                            "Waiting"
+                        }
+                    }
+                }
+                div {
+                    label {
+                        class: "flex cursor-pointer items-center justify-center rounded-md border border-gray-100 bg-white px-3 py-3 text-gray-900 hover:border-gray-200 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-500 has-[:checked]:text-white",
+                        input {
+                            class: "sr-only",
+                            name: "filter",
+                            r#type: "radio",
+                            checked: state.read().filter_by == FilterByStatus::Missed,
+                            onselect: move |e| { state.write().filter_by = FilterByStatus::Missed },
+                        }
+                        p {
+                            class: "text-sm font-medium",
+                            "Missed"
+                        }
+                    }
+                }
+                div {
+                    label {
+                        class: "flex cursor-pointer items-center justify-center rounded-md border border-gray-100 bg-white px-3 py-3 text-gray-900 hover:border-gray-200 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-500 has-[:checked]:text-white",
+                        input {
+                            class: "sr-only",
+                            name: "filter",
+                            r#type: "radio",
+                            checked: state.read().filter_by == FilterByStatus::Done,
+                            onselect: move |e| { state.write().filter_by = FilterByStatus::Done },
+                        }
+                        p {
+                            class: "text-sm font-medium",
+                            "Done"
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -120,68 +226,104 @@ fn StreakForm() -> Element {
     let mut frequency_signal = use_signal(|| Frequency::Daily);
 
     rsx! {
-        form {
-            onsubmit: move |e| {
-                let mut new_streak: Streak = Streak::default();
-                let task = task_signal.read().clone();
+        div {
+            class: "w-2/3",
+            form {
+                class: "flex flex-row flex-nowrap gap-3 content-between justify-stretch",
+                onsubmit: move |e| {
+                    let mut new_streak: Streak = Streak::default();
+                    let task = task_signal.read().clone();
 
-                match frequency_signal.read().clone() {
-                    Frequency::Daily => new_streak = Streak::new_daily(task.clone()),
-                    Frequency::Weekly => new_streak = Streak::new_weekly(task.clone())
-                }
-                state.write().streaks.push(new_streak.clone());
-
-                let save_streak = use_resource(move || {
-                    let url = "http://minty:3000/streak";
-                    let new_streak = new_streak.clone();
-
-                    async move {
-                        let url = url.clone();
-                        let client = reqwest::Client::new();
-                        let response = client
-                            .post(url.clone())
-                            .json(&new_streak)
-                            .send()
-                            .await
-                            .unwrap();
-                        response.json::<Streak>().await.unwrap()
+                    match frequency_signal.read().clone() {
+                        Frequency::Daily => new_streak = Streak::new_daily(task.clone()),
+                        Frequency::Weekly => new_streak = Streak::new_weekly(task.clone())
                     }
-                });
+                    state.write().streaks.push(new_streak.clone());
 
-                task_signal.set("".to_string());
-                frequency_signal.set(Frequency::Daily);
-            },
-            label {
-                "Task",
-                input {
-                    oninput: move |e| {
-                        task_signal.set(e.value().clone());
-                    },
-                    value: task_signal.read().clone(),
-                    placeholder: "task"
-                }
-            }
-            label {
-                "Frequency",
-                select {
-                    onchange: move |event| {
-                        frequency_signal.set(Frequency::from_str(event.value().as_str()));
-                    },
-                    option {
-                        selected: frequency_signal.read().clone() == Frequency::Daily,
-                        value: "daily",
-                        "Daily"
+                    let save_streak = use_resource(move || {
+                        let url = "http://minty:3000/streak";
+                        let new_streak = new_streak.clone();
+
+                        async move {
+                            let url = url.clone();
+                            let client = reqwest::Client::new();
+                            let response = client
+                                .post(url.clone())
+                                .json(&new_streak)
+                                .send()
+                                .await
+                                .unwrap();
+                            response.json::<Streak>().await.unwrap()
+                        }
+                    });
+
+                    task_signal.set("".to_string());
+                    frequency_signal.set(Frequency::Daily);
+                },
+                label {
+                    class: "grow relative block rounded-md border border-gray-200 shadow-sm focus-within:border-blue-600 focus-within:ring-1 focus-within:ring-blue-600",
+                    input {
+                        class: "peer border-none bg-transparent placeholder-transparent focus:border-transparent focus:outline-none focus:ring-0 px-3 py-2",
+                        oninput: move |e| {
+                            task_signal.set(e.value().clone());
+                        },
+                        value: task_signal.read().clone(),
+                        placeholder: "Task"
                     }
-                    option {
-                        selected: frequency_signal.read().clone() == Frequency::Weekly,
-                        value: "weekly",
-                        "Weekly"
+                    span {
+                        class: "pointer-events-none absolute start-2.5 top-0 -translate-y-1/2 bg-white p-0.5 text-xs text-gray-700 transition-all peer-placeholder-shown:top-1/2 peer-placeholder-shown:text-sm peer-focus:top-0 peer-focus:text-xs",
+                        "Task",
                     }
                 }
-            }
-            button {
-                type: "submit",
-                "Add"
+                fieldset {
+                    class: "flex flex-wrap gap-3 select-none",
+                    legend {
+                        class: "sr-only",
+                        "Frequency"
+                    }
+                    div {
+                        label {
+                            class: "flex cursor-pointer items-center justify-center rounded-md border border-gray-100 bg-white px-3 py-3 text-gray-900 hover:border-gray-200 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-500 has-[:checked]:text-white",
+                            input {
+                                class: "sr-only",
+                                name: "frequency",
+                                r#type: "radio",
+                                checked: frequency_signal.read().clone() == Frequency::Daily,
+                                onselect: move |event| {
+                                    frequency_signal.set(Frequency::Daily)
+                                }
+                            }
+                            p {
+                                class: "text-sm font-medium",
+                                "Daily"
+                            }
+                        }
+                    }
+                    div {
+                        label {
+                            class: "flex cursor-pointer items-center justify-center rounded-md border border-gray-100 bg-white px-3 py-3 text-gray-900 hover:border-gray-200 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-500 has-[:checked]:text-white",
+                            input {
+                                class: "sr-only",
+                                name: "frequency",
+                                r#type: "radio",
+                                checked: frequency_signal.read().clone() == Frequency::Weekly,
+                                onselect: move |event| {
+                                    frequency_signal.set(Frequency::Weekly)
+                                }
+                            }
+                            p {
+                                class: "text-sm font-medium",
+                                "Weekly"
+                            }
+                        }
+                    }
+                }
+
+                button {
+                    class: "inline-block rounded border border-indigo-600 bg-indigo-600 px-6 text-sm font-medium text-white hover:bg-transparent hover:text-indigo-600 focus:outline-none focus:ring active:text-indigo-500 cursor-pointer",
+                    type: "submit",
+                    "Add"
+                }
             }
         }
     }
@@ -194,9 +336,9 @@ fn TableHeader(sort_by_field: SortByField, text: String) -> Element {
 
     rsx! {
         th {
-            class: "min-w-fit text-pretty",
+            class: "min-w-fit text-pretty cursor-pointer select-none border-x border-gray-200",
             onclick: move |_| {
-                if state.read().sort_by_field == sort_by_field {}
+                if state.read().sort_by_field == sort_by_field {
                     direction = match state.read().sort_by_direction {
                         SortByDirection::Ascending => SortByDirection::Descending,
                         SortByDirection::Descending => SortByDirection::Ascending,
@@ -210,13 +352,13 @@ fn TableHeader(sort_by_field: SortByField, text: String) -> Element {
                 match state.read().sort_by_direction {
                     SortByDirection::Ascending => rsx! {
                         span {
-                            class: "material-symbols-rounded",
+                            class: "material-symbols-rounded align-middle",
                             "arrow_upward_alt"
                         }
                     },
                     SortByDirection::Descending => rsx! {
                         span {
-                            class: "material-symbols-rounded",
+                            class: "material-symbols-rounded align-middle",
                             "arrow_downward_alt"
                         }
                     },
@@ -231,27 +373,46 @@ fn StreakTable() -> Element {
     let mut state = use_context::<Signal<AppState>>();
 
     rsx! {
-        table {
-            class: "w-full",
-            thead {
-                tr {
-                    td { colspan: 3 }
-                    th { colspan: 2, "Check-ins" }
-                    th { colspan: 2, "Streaks" }
+        div {
+            class: "overflow-hidden border-1 border-gray-200 rounded-lg",
+            table {
+                class: "min-w-full divide-y-2 divide-gray-200 bg-white text-sm",
+                thead {
+                    class: "bg-gray-300 select-none",
+                    tr {
+                        td { class: "border-x border-gray-200", colspan: 3 }
+                        th { class: "border-x border-b border-gray-200", colspan: 2, "Check-ins" }
+                        th { class: "border-x border-b border-gray-200", colspan: 2, "Streaks" }
+                        td { class: "border-x border-gray-200", colspan: "*" }
+                    }
+                    TableHeader { sort_by_field: SortByField::Task, text: "Task" }
+                    TableHeader { sort_by_field: SortByField::Status, text: "Status" }
+                    TableHeader { sort_by_field: SortByField::Frequency, text: "Frequency" }
+                    TableHeader { sort_by_field: SortByField::LastCheckIn, text: "Last" }
+                    TableHeader { sort_by_field: SortByField::TotalCheckins, text: "Total" }
+                    TableHeader { sort_by_field: SortByField::CurrentStreak, text: "Current" }
+                    TableHeader { sort_by_field: SortByField::LongestStreak, text: "Longest" }
+                    th { class: "border-x border-gray-200", "Tools" }
                 }
-                TableHeader { sort_by_field: SortByField::Task, text: "Task" }
-                TableHeader { sort_by_field: SortByField::Status, text: "Status" }
-                TableHeader { sort_by_field: SortByField::Frequency, text: "Frequency" }
-                TableHeader { sort_by_field: SortByField::LastCheckIn, text: "Last" }
-                TableHeader { sort_by_field: SortByField::TotalCheckins, text: "Total" }
-                TableHeader { sort_by_field: SortByField::CurrentStreak, text: "Current" }
-                TableHeader { sort_by_field: SortByField::LongestStreak, text: "Longest" }
-                th { "Tools" }
+                StreakTableBody {}
             }
-            tbody {
-                for streak in state.read().clone().sort().iter() {
-                    StreakTableRow { streak: streak.clone() }
-                }
+        }
+    }
+}
+
+#[component ]
+fn StreakTableBody() -> Element {
+    let state = use_context::<Signal<AppState>>();
+    let filter_field = state.read().filter_by.clone();
+    let sort_field = state.read().sort_by_field.clone();
+    let sort_direction = state.read().sort_by_direction.clone();
+    let mut streaks = state.read().clone().streaks;
+    streaks = sort_streaks(streaks.clone(), sort_field, sort_direction);
+    streaks = filter_by_status(streaks.clone(), filter_field);
+    rsx! {
+        tbody {
+            for streak in streaks {
+                StreakTableRow { streak: streak.clone() }
             }
         }
     }
@@ -297,8 +458,12 @@ fn StreakTableRow(mut streak: Streak) -> Element {
 
     rsx! {
         tr {
-            td { "{streak.task}" }
-            td { {status} }
+            class: "text-center odd:bg-gray-50",
+            td {
+                class: "text-left pl-2",
+                "{streak.task}"
+            }
+            td { class: "select-none", {status} }
             td { "{streak.frequency}" }
             td { {last_checkin} }
             td { "{streak.current_streak}" }
@@ -317,6 +482,7 @@ fn CheckInButton(streak: Streak) -> Element {
     let state = use_context::<Signal<AppState>>();
     rsx! {
         button {
+            class: "cursor-pointer select-none",
             onclick: move |e| {state.read().checkin_streak(streak.id)},
             span {
                 class: "material-symbols-rounded",
@@ -331,6 +497,7 @@ fn DeleteButton(streak: Streak) -> Element {
     let state = use_context::<Signal<AppState>>();
     rsx! {
         button {
+            class: "cursor-pointer select-none",
             onclick: move |e| {state.read().remove_streak(streak.id)},
             span {
                 class: "material-symbols-rounded",
@@ -341,8 +508,8 @@ fn DeleteButton(streak: Streak) -> Element {
 }
 
 #[server]
-async fn streak_server() -> Result<Vec<Streak>, ServerFnError> {
-    let response = reqwest::get("http://minty:3000/streak").await;
+async fn streak_server(filter: FilterByStatus) -> Result<Vec<Streak>, ServerFnError> {
+    let response = reqwest::get(format!("http://minty:3000/streak?status={}", filter)).await;
     let streaks = response?.json::<Vec<Streak>>().await.unwrap();
     dioxus_logger::tracing::info!("streak_server done");
     Ok(streaks)
