@@ -1,20 +1,20 @@
-use std::cell::Ref;
 use dioxus::dioxus_core::internal::generational_box::GenerationalRef;
 use dioxus::prelude::*;
 use dioxus_logger::tracing::Level;
 use serde::{Deserialize, Serialize};
+use std::cell::Ref;
 
-use streak::{Frequency, Streak, Status, sort_streaks, filter_by_status};
-use uuid::Uuid;
 use streak::filtering::FilterByStatus;
 use streak::sorting::{SortByDirection, SortByField};
+use streak::{filter_by_status, sort_streaks, Frequency, Status, Streak};
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct AppState {
     streaks: Vec<Streak>,
     sort_by_field: SortByField,
     sort_by_direction: SortByDirection,
-    filter_by: FilterByStatus
+    filter_by: FilterByStatus,
 }
 
 impl AppState {
@@ -28,13 +28,13 @@ impl AppState {
                 streaks: streak_response,
                 sort_by_field: SortByField::LastCheckIn,
                 sort_by_direction: SortByDirection::Ascending,
-                filter_by: FilterByStatus::All
+                filter_by: FilterByStatus::All,
             },
             _ => Self {
                 streaks: vec![],
                 sort_by_field: SortByField::LastCheckIn,
                 sort_by_direction: SortByDirection::Ascending,
-                filter_by: FilterByStatus::All
+                filter_by: FilterByStatus::All,
             },
         }
     }
@@ -43,17 +43,14 @@ impl AppState {
         let sorted_streaks = sort_streaks(
             self.streaks,
             self.sort_by_field.clone(),
-            self.sort_by_direction.clone()
+            self.sort_by_direction.clone(),
         );
 
         sorted_streaks
     }
 
     fn filter(self) -> Vec<Streak> {
-        let filtered_streaks = filter_by_status(
-            self.streaks,
-            self.filter_by
-        );
+        let filtered_streaks = filter_by_status(self.streaks, self.filter_by);
 
         filtered_streaks
     }
@@ -62,12 +59,12 @@ impl AppState {
         let _ = use_resource(move || async move { delete_streak(streak_id).await });
         let mut state = use_context::<Signal<AppState>>();
         let streaks = state.read().streaks.clone();
-            use_effect(move || {
-                let mut streaks = streaks.clone();
-                streaks.retain(|s| s.id != streak_id);
-                state.write().streaks = streaks
-            });
-            dioxus_logger::tracing::info!("{:?}", state.read());
+        use_effect(move || {
+            let mut streaks = streaks.clone();
+            streaks.retain(|s| s.id != streak_id);
+            state.write().streaks = streaks
+        });
+        dioxus_logger::tracing::info!("{:?}", state.read());
     }
 
     fn checkin_streak(&self, streak_id: Uuid) {
@@ -104,9 +101,7 @@ fn App() -> Element {
 
     let streak_request = use_resource(move || {
         let filter = filter.clone();
-        async move {
-            streak_server(filter).await
-        }
+        async move { streak_server(filter).await }
     });
 
     use_effect(move || match streak_request() {
@@ -118,9 +113,10 @@ fn App() -> Element {
     rsx! {
         document::Link { href: "https://fonts.googleapis.com", rel: "preconnect" }
         document::Link { href: "https://fonts.gstatic.com", rel: "preconnect", crossorigin: "true" }
+        document::Stylesheet { href: "https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,400,0,0&icon_names=arrow_downward_alt,arrow_upward_alt,cached,check_circle,delete,pending,verified", rel: "stylesheet" }
         document::Stylesheet { href: asset!("/assets/main.css") }
         div {
-            class: "containter mx-auto sm:w-full lg:w-10/12",
+            class: "container mx-auto sm:w-full lg:w-10/12",
             h1 {
                 class: "text-3xl font-bold pt-4",
                 "Skidmarks"
@@ -137,43 +133,44 @@ fn App() -> Element {
 }
 
 #[component]
-fn StreakFilters() -> Element{
+fn StreakFilters() -> Element {
     let mut state = use_context::<Signal<AppState>>();
+    let filter_by = state.read().filter_by.clone();
 
     rsx! {
         div {
             class: "border-l border-gray-300 pl-3",
             fieldset {
-                class: "flex flex-wrap gap-3 select-none",
+                class: "flex flex-nowrap gap-0 select-none",
                 legend {
                     class: "sr-only",
                     "Frequency"
                 }
                 div {
                     label {
-                        class: "flex cursor-pointer items-center justify-center rounded-md border border-gray-100 bg-white px-3 py-3 text-gray-900 hover:border-gray-200 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-500 has-[:checked]:text-white",
+                        class: "flex cursor-pointer items-center justify-center rounded-l-md border border-gray-100 bg-white px-3 py-3 text-gray-900 hover:border-gray-200 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-500 has-[:checked]:text-white",
                         input {
                             class: "sr-only",
                             name: "filter",
                             r#type: "radio",
-                            checked: state.read().filter_by == FilterByStatus::All,
-                            onselect: move |e| { state.write().filter_by = FilterByStatus::All },
+                            checked: filter_by == FilterByStatus::All,
+                            onclick: move |e| { state.write().filter_by = FilterByStatus::All },
                         }
                         p {
                             class: "text-sm font-medium",
-                            "All"
+                            "All",
                         }
                     }
                 }
                 div {
                     label {
-                        class: "flex cursor-pointer items-center justify-center rounded-md border border-gray-100 bg-white px-3 py-3 text-gray-900 hover:border-gray-200 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-500 has-[:checked]:text-white",
+                        class: "flex cursor-pointer items-center justify-center border border-gray-100 bg-white px-3 py-3 text-gray-900 hover:border-gray-200 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-500 has-[:checked]:text-white",
                         input {
                             class: "sr-only",
                             name: "filter",
                             r#type: "radio",
-                            checked: state.read().filter_by == FilterByStatus::Waiting,
-                            onselect: move |e| { state.write().filter_by = FilterByStatus::Waiting },
+                            checked: filter_by == FilterByStatus::Waiting,
+                            onclick: move |e| { state.write().filter_by = FilterByStatus::Waiting },
                         }
                         p {
                             class: "text-sm font-medium",
@@ -183,13 +180,13 @@ fn StreakFilters() -> Element{
                 }
                 div {
                     label {
-                        class: "flex cursor-pointer items-center justify-center rounded-md border border-gray-100 bg-white px-3 py-3 text-gray-900 hover:border-gray-200 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-500 has-[:checked]:text-white",
+                        class: "flex cursor-pointer items-center justify-center border border-gray-100 bg-white px-3 py-3 text-gray-900 hover:border-gray-200 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-500 has-[:checked]:text-white",
                         input {
                             class: "sr-only",
                             name: "filter",
                             r#type: "radio",
-                            checked: state.read().filter_by == FilterByStatus::Missed,
-                            onselect: move |e| { state.write().filter_by = FilterByStatus::Missed },
+                            checked: filter_by == FilterByStatus::Missed,
+                            onclick: move |e| { state.write().filter_by = FilterByStatus::Missed },
                         }
                         p {
                             class: "text-sm font-medium",
@@ -199,13 +196,13 @@ fn StreakFilters() -> Element{
                 }
                 div {
                     label {
-                        class: "flex cursor-pointer items-center justify-center rounded-md border border-gray-100 bg-white px-3 py-3 text-gray-900 hover:border-gray-200 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-500 has-[:checked]:text-white",
+                        class: "flex cursor-pointer items-center justify-center rounded-r-md border border-gray-100 bg-white px-3 py-3 text-gray-900 hover:border-gray-200 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-500 has-[:checked]:text-white",
                         input {
                             class: "sr-only",
                             name: "filter",
                             r#type: "radio",
-                            checked: state.read().filter_by == FilterByStatus::Done,
-                            onselect: move |e| { state.write().filter_by = FilterByStatus::Done },
+                            checked: filter_by == FilterByStatus::Done,
+                            onclick: move |e| { state.write().filter_by = FilterByStatus::Done },
                         }
                         p {
                             class: "text-sm font-medium",
@@ -400,7 +397,7 @@ fn StreakTable() -> Element {
     }
 }
 
-#[component ]
+#[component]
 fn StreakTableBody() -> Element {
     let state = use_context::<Signal<AppState>>();
     let filter_field = state.read().filter_by.clone();
@@ -433,23 +430,26 @@ fn StreakTableRow(mut streak: Streak) -> Element {
         Status::Missed => {
             rsx! {
                 span {
-                    class: "material-symbols-rounded",
-                    "dangerous"
+                    class: "material-symbols-outlined",
+                    title: "Missed, time to restart",
+                    "cached"
                 }
             }
-        },
+        }
         Status::Done => {
             rsx! {
                 span {
                     class: "material-symbols-rounded",
+                    title: "Done",
                     "verified"
                 }
             }
-        },
+        }
         Status::Waiting => {
             rsx! {
                 span {
                     class: "material-symbols-rounded",
+                    title: "Waiting",
                     "pending"
                 }
             }
@@ -518,14 +518,20 @@ async fn streak_server(filter: FilterByStatus) -> Result<Vec<Streak>, ServerFnEr
 #[server]
 async fn delete_streak(streak_id: Uuid) -> Result<Uuid, ServerFnError> {
     let client = reqwest::Client::new();
-    let response = client.delete(format!("http://minty:3000/streak/{}", streak_id)).send().await;
+    let response = client
+        .delete(format!("http://minty:3000/streak/{}", streak_id))
+        .send()
+        .await;
     Ok(streak_id)
 }
 
 #[server]
 async fn check_in_streak(streak_id: Uuid) -> Result<Streak, ServerFnError> {
     let client = reqwest::Client::new();
-    let response = client.put(format!("http://minty:3000/streak/{}/check-in", streak_id)).send().await?;
+    let response = client
+        .put(format!("http://minty:3000/streak/{}/check-in", streak_id))
+        .send()
+        .await?;
     let streak = response.json::<Streak>().await?;
     Ok(streak)
 }
