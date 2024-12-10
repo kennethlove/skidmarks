@@ -1,10 +1,12 @@
 use dioxus::dioxus_core::internal::generational_box::GenerationalRef;
+use dioxus::document::eval;
 use dioxus::prelude::server_fn::codec::Json;
 use dioxus::prelude::*;
 use dioxus_logger::tracing::Level;
 use serde::{Deserialize, Serialize};
 use std::cell::Ref;
 use std::future::Future;
+use std::iter::Extend;
 use streak::filtering::FilterByStatus;
 use streak::sorting::{SortByDirection, SortByField};
 use streak::{filter_by_status, sort_streaks, Frequency, Status, Streak};
@@ -16,6 +18,7 @@ struct AppState {
     sort_by_field: SortByField,
     sort_by_direction: SortByDirection,
     filter_by: FilterByStatus,
+    dark_mode: bool,
 }
 
 impl AppState {
@@ -30,12 +33,14 @@ impl AppState {
                 sort_by_field: SortByField::LastCheckIn,
                 sort_by_direction: SortByDirection::Ascending,
                 filter_by: FilterByStatus::All,
+                dark_mode: false,
             },
             _ => Self {
                 streaks: vec![],
                 sort_by_field: SortByField::LastCheckIn,
                 sort_by_direction: SortByDirection::Ascending,
                 filter_by: FilterByStatus::All,
+                dark_mode: false,
             },
         }
     }
@@ -112,38 +117,69 @@ fn App() -> Element {
         None => (),
     });
 
+    let mut classes = "bg-white dark:bg-gray-700 min-h-full min-h-screen".to_string();
+    if state.read().dark_mode {
+        classes.push_str(" dark")
+    }
+
     rsx! {
         document::Link { href: "https://fonts.googleapis.com", rel: "preconnect" }
         document::Link { href: "https://fonts.gstatic.com", rel: "preconnect", crossorigin: "true" }
         document::Stylesheet { href: asset!("/assets/main.css") }
         div {
-            class: "container mx-auto sm:w-full lg:w-10/12",
-            h1 {
-                class: "text-3xl font-bold pt-4",
-                "Skidmarks"
-            }
+            class: classes,
             div {
-                class: "flex flex-row flex-nowrap gap-3 py-4",
-                StreakForm {}
-                StreakFilters {}
-            }
-            StreakTable {}
+                class: "container mx-auto sm:w-full lg:w-10/12",
+                div {
+                    class: "flex flex-row flex-nowrap justify-between",
+                    h1 {
+                        class: "text-3xl font-bold pt-4 dark:text-white",
+                        "Skidmarks"
+                    }
+                    button {
+                        class: "pt-4 cursor-pointer",
+                        onclick: move |_| {
+                            let dark = state.read().dark_mode.clone();
+                            match dark {
+                                true => {
+                                    state.write().dark_mode = false;
+                                    eval("document.querySelector('html').classList.remove('dark')");
+                                },
+                                false => {
+                                    state.write().dark_mode = true;
+                                    eval("document.querySelector('html').classList.add('dark')");
+                                }
+                            };
+                        },
+                        span {
+                            class: "material-symbols-rounded dark:text-white",
+                            "contrast"
+                        }
+                    }
+                }
+                div {
+                    class: "flex flex-row flex-nowrap gap-3 py-4",
+                    StreakForm {}
+                    StreakFilters {}
+                }
+                StreakTable {}
 
-            footer {
-                class: "mt-4",
-                p {
-                    class: "text-center text-sm",
-                    "Made with 💜 by "
-                    a {
-                        class: "underline",
-                        href: "https://thekennethlove.com",
-                        target: "_new",
-                        "klove"
+                footer {
+                    class: "mt-4",
+                    p {
+                        class: "text-center text-sm dark:text-white",
+                        "Made with 💜 by "
+                        a {
+                            class: "underline",
+                            href: "https://thekennethlove.com",
+                            target: "_new",
+                            "klove"
+                        }
                     }
                 }
             }
+            DeleteModal {}
         }
-        DeleteModal {}
     }
 }
 
@@ -283,7 +319,7 @@ fn StreakForm() -> Element {
                     }
                     div {
                         label {
-                            class: "flex cursor-pointer transition items-center justify-center rounded-l-md border border-gray-100 bg-white px-3 py-3 text-gray-900 hover:border-blue-500 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-500 has-[:checked]:text-white",
+                            class: "flex cursor-pointer transition items-center justify-center rounded-l-md border border-gray-100 bg-white dark:bg-blue-800 dark:text-gray-200 dark:border-blue-800 px-3 py-3 text-gray-900 hover:border-blue-500 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-500 has-[:checked]:text-white",
                             input {
                                 class: "sr-only",
                                 name: "frequency",
@@ -301,7 +337,7 @@ fn StreakForm() -> Element {
                     }
                     div {
                         label {
-                            class: "flex cursor-pointer transition items-center justify-center rounded-r-md border border-gray-100 bg-white px-3 py-3 text-gray-900 hover:border-blue-500 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-500 has-[:checked]:text-white",
+                            class: "flex cursor-pointer transition items-center justify-center rounded-r-md border border-gray-100 bg-white dark:bg-blue-800 px-3 py-3 text-gray-900 dark:text-gray-200 dark:border-blue-800 hover:border-blue-500 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-500 has-[:checked]:text-white",
                             input {
                                 class: "sr-only",
                                 name: "frequency",

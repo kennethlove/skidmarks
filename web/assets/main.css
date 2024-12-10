@@ -577,9 +577,6 @@
   .mx-auto {
     margin-inline: auto;
   }
-  .mt-1 {
-    margin-top: calc(var(--spacing) * 1);
-  }
   .mt-4 {
     margin-top: calc(var(--spacing) * 4);
   }
@@ -603,6 +600,9 @@
   }
   .min-h-full {
     min-height: 100%;
+  }
+  .min-h-screen {
+    min-height: 100vh;
   }
   .w-2\/3 {
     width: calc(2/3 * 100%);
@@ -650,11 +650,11 @@
   .items-center {
     align-items: center;
   }
+  .justify-between {
+    justify-content: space-between;
+  }
   .justify-center {
     justify-content: center;
-  }
-  .justify-end {
-    justify-content: flex-end;
   }
   .justify-stretch {
     justify-content: stretch;
@@ -701,9 +701,6 @@
   }
   .overflow-y-hidden {
     overflow-y: hidden;
-  }
-  .rounded {
-    border-radius: 0.25rem;
   }
   .rounded-lg {
     border-radius: var(--radius-lg);
@@ -765,9 +762,6 @@
   .border-gray-400 {
     border-color: var(--color-gray-400);
   }
-  .border-indigo-600 {
-    border-color: var(--color-indigo-600);
-  }
   .bg-blue-200 {
     background-color: var(--color-blue-200);
   }
@@ -776,9 +770,6 @@
   }
   .bg-gray-300 {
     background-color: var(--color-gray-300);
-  }
-  .bg-indigo-600 {
-    background-color: var(--color-indigo-600);
   }
   .bg-transparent {
     background-color: transparent;
@@ -863,9 +854,6 @@
   }
   .text-gray-900 {
     color: var(--color-gray-900);
-  }
-  .text-white {
-    color: var(--color-white);
   }
   .italic {
     font-style: italic;
@@ -978,27 +966,6 @@
       }
     }
   }
-  .hover\:bg-gray-200 {
-    &:hover {
-      @media (hover: hover) {
-        background-color: var(--color-gray-200);
-      }
-    }
-  }
-  .hover\:bg-gray-500 {
-    &:hover {
-      @media (hover: hover) {
-        background-color: var(--color-gray-500);
-      }
-    }
-  }
-  .hover\:bg-transparent {
-    &:hover {
-      @media (hover: hover) {
-        background-color: transparent;
-      }
-    }
-  }
   .hover\:font-bold {
     &:hover {
       @media (hover: hover) {
@@ -1007,24 +974,10 @@
       }
     }
   }
-  .hover\:text-blue-500 {
-    &:hover {
-      @media (hover: hover) {
-        color: var(--color-blue-500);
-      }
-    }
-  }
   .hover\:text-green-500 {
     &:hover {
       @media (hover: hover) {
         color: var(--color-green-500);
-      }
-    }
-  }
-  .hover\:text-indigo-600 {
-    &:hover {
-      @media (hover: hover) {
-        color: var(--color-indigo-600);
       }
     }
   }
@@ -1065,11 +1018,6 @@
       outline-style: none;
     }
   }
-  .active\:text-indigo-500 {
-    &:active {
-      color: var(--color-indigo-500);
-    }
-  }
   .active\:text-white {
     &:active {
       color: var(--color-white);
@@ -1100,12 +1048,45 @@
       width: calc(10/12 * 100%);
     }
   }
+  .dark\:border-blue-800 {
+    &:where(.dark, .dark *) {
+      border-color: var(--color-blue-800);
+    }
+  }
+  .dark\:bg-blue-800 {
+    &:where(.dark, .dark *) {
+      background-color: var(--color-blue-800);
+    }
+  }
+  .dark\:bg-gray-500 {
+    &:where(.dark, .dark *) {
+      background-color: var(--color-gray-500);
+    }
+  }
+  .dark\:bg-gray-700 {
+    &:where(.dark, .dark *) {
+      background-color: var(--color-gray-700);
+    }
+  }
+  .dark\:text-gray-200 {
+    &:where(.dark, .dark *) {
+      color: var(--color-gray-200);
+    }
+  }
+  .dark\:text-white {
+    &:where(.dark, .dark *) {
+      color: var(--color-white);
+    }
+  }
+}
+html, body, #main {
+  min-height: 100%;
 }
 @font-face {
   font-family: 'Material Symbols Rounded';
   font-style: normal;
   font-weight: 400;
-  src: url('https://fonts.gstatic.com/icon/font?kit=syl0-zNym6YjUruM-QrEh7-nyTnjDwKNJ_190FjpZIvDmUSVOK7BDB_Qb9vUSzq3wzLK-P0J-V_Zs-QtQth3-jOcDTCVpeRL2w5rwZu2rIelXxGJKJBiCa9QmzcYUytfLFBF8gbdYD8KdNdGTZIxow2KKFjD9Z7SebSArmfdZg0KZupG07OCjHCF9JFbuAuP6AXCEJtXXzXAVY_hPLyQXmotA3kaNafa-cIid-1_cxs&skey=70ddea8fe54d532e&v=v222') format('woff');
+  src: url(https://fonts.gstatic.com/icon/font?kit=syl0-zNym6YjUruM-QrEh7-nyTnjDwKNJ_190FjpZIvDmUSVOK7BDB_Qb9vUSzq3wzLK-P0J-V_Zs-QtQth3-jOcDTCVpeRL2w5rwZu2rIelXxGJKJBiCa9QmzcYUytfLFBF8gbdYD8KdNdGTZIxow2KKFjD9Z7SebSArmfdZg0KZupG07OCjHCF9JFbuAuP6AXCEJtXUTLKV57nOJXjdAknAnwRJpiIiNc1cO9_eBhegEAvXb4_I33s&skey=70ddea8fe54d532e&v=v222) format('woff');
 }
 .material-symbols-rounded {
   font-family: 'Material Symbols Rounded';
