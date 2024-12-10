@@ -94,9 +94,12 @@ fn main() {
 #[component]
 fn App() -> Element {
     // Build cool things ✌️
-    let signal = Signal::new(AppState::new());
-    let mut state: Signal<AppState> = use_context_provider(|| signal);
+    let state = Signal::new(AppState::new());
+    let mut state: Signal<AppState> = use_context_provider(|| state);
     let filter = state.read().filter_by.clone();
+
+    let modal_state: Signal<Option<Streak>> = Signal::new(None);
+    let modal_state = use_context_provider(|| modal_state);
 
     let streak_request = use_resource(move || {
         let filter = filter.clone();
@@ -140,7 +143,7 @@ fn App() -> Element {
                 }
             }
         }
-
+        DeleteModal {}
     }
 }
 
@@ -495,13 +498,81 @@ fn CheckInButton(streak: Streak) -> Element {
 #[component]
 fn DeleteButton(streak: Streak) -> Element {
     let state = use_context::<Signal<AppState>>();
+    let mut modal_signal: Signal<Option<Streak>> = use_context();
     rsx! {
         button {
             class: "cursor-pointer select-none hover:text-red-500",
-            onclick: move |e| {state.read().remove_streak(streak.id)},
+            onclick: move |_| {
+                modal_signal.set(Some(streak.clone()));
+            },
             span {
                 class: "material-symbols-rounded",
                 "delete"
+            }
+        }
+    }
+}
+
+#[component]
+fn DeleteModal() -> Element {
+    let state = use_context::<Signal<AppState>>();
+    let mut streak: Streak = Streak::default();
+    let mut modal_signal: Signal<Option<Streak>> = use_context();
+
+    if modal_signal.read().clone().is_some() {
+        streak = modal_signal.read().clone().unwrap();
+    }
+
+    rsx! {
+        dialog {
+            open: modal_signal.read().clone().is_some(),
+            class: "relative z-10",
+            role: "confirm",
+            div { class: "fixed inset-0 bg-blue-500/25 transition-opacity backdrop-blur-sm backdrop-grayscale" }
+            div {
+                class: "fixed inset-0 z-10 w-screen h-screen overflow-y-hidden",
+                div {
+                    class: "flex items-center gap-4 min-h-full justify-center",
+                    div {
+                        class: "relative transform overflow-hidden p-2 rounded-xl",
+                        div {
+                            class: "mx-auto bg-white border border-blue-500 rounded-xl p-2",
+                            div {
+                                class: "flex-1",
+                                h1 {
+                                    class: "block text-2xl mb-4 font-medium text-gray-900 border-b-1 border-gray-400",
+                                    "Delete this streak?"
+                                }
+                                blockquote {
+                                    class: "px-2 italic",
+                                    "{streak.task}"
+                                }
+                            }
+                            div {
+                                class: "flex flex-col justify-center gap-4 mt-4 divide-y divide-gray-400",
+                                button {
+                                    r#type: "button",
+                                    class: "cursor-pointer select-none pb-2 hover:font-bold",
+                                    onclick: move |e| {
+                                        state.read().remove_streak(streak.id);
+                                        modal_signal.set(None);
+                                    },
+                                    span {
+                                        "Yes"
+                                    }
+                                }
+                                button {
+                                    r#type: "button",
+                                    class: "cursor-pointer select-none hover:font-bold pb-2",
+                                    onclick: move |e| { modal_signal.set(None) },
+                                    span {
+                                        "No"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
