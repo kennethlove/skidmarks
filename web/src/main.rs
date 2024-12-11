@@ -24,25 +24,12 @@ struct AppState {
 
 impl AppState {
     fn new() -> Self {
-        let streak_request = use_resource(move || {
-            let filter = FilterByStatus::All;
-            async move { streak_server(filter).await }
-        });
-        match streak_request() {
-            Some(Ok(streak_response)) => Self {
-                streaks: streak_response,
-                sort_by_field: SortByField::LastCheckIn,
-                sort_by_direction: SortByDirection::Ascending,
-                filter_by: FilterByStatus::All,
-                dark_mode: false,
-            },
-            _ => Self {
-                streaks: vec![],
-                sort_by_field: SortByField::LastCheckIn,
-                sort_by_direction: SortByDirection::Ascending,
-                filter_by: FilterByStatus::All,
-                dark_mode: false,
-            },
+        Self {
+            streaks: vec![],
+            sort_by_field: SortByField::LastCheckIn,
+            sort_by_direction: SortByDirection::Ascending,
+            filter_by: FilterByStatus::All,
+            dark_mode: false,
         }
     }
 
@@ -90,6 +77,22 @@ impl AppState {
             state.write().streaks = streaks
         });
     }
+
+    fn get_streaks(&self) {
+        let mut state = use_context::<Signal<AppState>>();
+        let filter = state.read().filter_by.clone();
+
+        let streak_request = use_resource(move || {
+            let filter = filter.clone();
+            async move { streak_server(filter).await }
+        });
+
+        use_effect(move || match streak_request() {
+            Some(Ok(response)) => state.write().streaks.extend(response),
+            Some(Err(err)) => (),
+            None => (),
+        });
+    }
 }
 
 fn main() {
@@ -107,16 +110,7 @@ fn App() -> Element {
     let modal_state: Signal<Option<Streak>> = Signal::new(None);
     let modal_state = use_context_provider(|| modal_state);
 
-    let streak_request = use_resource(move || {
-        let filter = filter.clone();
-        async move { streak_server(filter).await }
-    });
-
-    use_effect(move || match streak_request() {
-        Some(Ok(response)) => state.write().streaks.extend(response),
-        Some(Err(err)) => (),
-        None => (),
-    });
+    state.read().get_streaks();
 
     let mut classes =
         "bg-gradient-to-br from-pink-300 to-indigo-300 dark:from-emerald-950 dark:to-purple-900 min-h-full min-h-screen transition duration-150 selection:text-pink-200 selection:bg-purple-500 dark:selection:bg-emerald-200 dark:selection:text-purple-800"
