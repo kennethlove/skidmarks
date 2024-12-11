@@ -5,6 +5,7 @@ use dioxus::prelude::*;
 use dioxus_logger::tracing::Level;
 use serde::{Deserialize, Serialize};
 use std::cell::Ref;
+use std::convert::From;
 use std::future::Future;
 use std::iter::Extend;
 use streak::filtering::FilterByStatus;
@@ -118,7 +119,7 @@ fn App() -> Element {
     });
 
     let mut classes =
-        "bg-gradient-to-br from-pink-300 to-indigo-300 dark:from-pink-900 dark:to-indigo-900 min-h-full min-h-screen transition duration-150 selection:text-pink-200 selection:bg-purple-500"
+        "bg-gradient-to-br from-pink-300 to-indigo-300 dark:from-pink-900 dark:to-indigo-900 min-h-full min-h-screen transition duration-150 selection:text-pink-200 selection:bg-purple-500 dark:selection:bg-pink-200 dark:selection:text-purple-500"
             .to_string();
     if state.read().dark_mode {
         classes.push_str(" dark")
@@ -131,11 +132,11 @@ fn App() -> Element {
         div {
             class: classes,
             div {
-                class: "container mx-auto sm:w-3/4 lg:w-10/12 xs:w-full pt-5",
+                class: "container mx-auto sm:w-7/8 lg:w-10/12 xs:w-full pt-5",
                 div {
                     class: "flex flex-row flex-nowrap justify-between sm:justify-center relative",
                     h1 {
-                        class: "text-3xl font-bold text-purple-900 dark:text-purple-200",
+                        class: "text-3xl font-bold text-purple-900 dark:text-purple-100",
                         "Skidmarks"
                     }
                     button {
@@ -154,14 +155,14 @@ fn App() -> Element {
                             };
                         },
                         span {
-                            class: "material-symbols-rounded dark:text-purple-200 text-purple-500 hover:text-purple-900",
+                            class: "material-symbols-rounded dark:text-purple-100 text-purple-500 hover:text-pink-50",
                             title: "Switch to dark/light mode",
                             "contrast"
                         }
                     }
                 }
                 div {
-                    class: "flex flex-col lg:flex-row flex-wrap lg:flex-nowrap gap-3 py-4 lg:justify-center divide divide-gray-200",
+                    class: "flex flex-col lg:flex-row flex-wrap lg:flex-nowrap gap-3 py-4 lg:justify-center",
                     StreakForm {}
                     StreakFilters {}
                 }
@@ -200,7 +201,7 @@ fn FilterButton(props: FilterButtonProps) -> Element {
     rsx! {
         div {
             label {
-                class: "transition cursor-pointer inline-block rounded-md px-4 py-2 text-sm text-purple-500 hover:text-purple-700 focus:relative has-[:checked]:border-purple-500 has-[:checked]:bg-purple-500 has-[:checked]:text-pink-100 dark:has-[:checked]:border-purple-900 dark:has-[:checked]:bg-purple-900",
+                class: "transition cursor-pointer inline-block rounded-md px-4 py-2 text-sm text-purple-500 dark:text-purple-900 hover:text-purple-700 focus:relative has-[:checked]:border-purple-500 has-[:checked]:bg-purple-500 has-[:checked]:text-pink-100 dark:has-[:checked]:border-purple-900 dark:has-[:checked]:bg-purple-900",
                 input {
                     class: "sr-only",
                     name: "filter",
@@ -227,7 +228,7 @@ fn StreakFilters() -> Element {
         div {
             class: "lg:pl-4 self-center",
             fieldset {
-                class: "inline-flex rounded-lg border border-pink-100 bg-purple-50/75 p-1 dark:bg-gray-300 dark:border-gray-300 dark:text-gray-950 select-none",
+                class: "inline-flex rounded-lg border border-pink-100 bg-purple-50/75 p-1 dark:bg-purple-200/75 dark:border-purple-100 select-none",
                 legend {
                     class: "sr-only",
                     "Frequency"
@@ -272,9 +273,9 @@ fn StreakForm() -> Element {
                     }
                 },
                 label {
-                    class: "grow relative block overflow-hidden rounded-md border border-pink-100 shadow-sm focus-within:border-purple-500 focus-within:ring-1 focus-within:ring-purple-500 dark:bg-gray-300 bg-purple-50/75 focus-within:bg-pink-100 px-3 pt-1.5 transition",
+                    class: "grow relative block overflow-hidden rounded-md border border-pink-100 dark:border-purple-100 focus-within:border-purple-500 focus-within:ring-1 focus-within:ring-purple-500 dark:bg-purple-200/75 bg-purple-50/75 focus-within:bg-pink-50 px-3 pt-1.5 transition dark:focus-within:border-purple-100 dark:focus-within:ring-purple-100",
                     input {
-                        class: "peer h-8 border-none bg-transparent focus:border-transparent focus:outline-none focus:ring-0 p-0",
+                        class: "peer h-8 border-none bg-transparent focus:border-transparent focus:outline-none focus:ring-0 p-0 w-full",
                         oninput: move |e| {
                             task_signal.set(e.value().clone());
                         },
@@ -283,14 +284,14 @@ fn StreakForm() -> Element {
                     }
                 }
                 fieldset {
-                    class: "inline-flex rounded-lg border border-pink-100 bg-purple-50/75 p-1 dark:border-gray-300 dark:bg-gray-300 select-none",
+                    class: "inline-flex rounded-lg border border-pink-100 bg-purple-50/75 p-1 dark:border-purple-100 dark:bg-purple-200/75 select-none",
                     legend {
                         class: "sr-only",
                         "Frequency"
                     }
                     div {
                         label {
-                            class: "transition cursor-pointer inline-block rounded-md px-4 py-2 text-sm text-purple-500 hover:text-purple-700 focus:relative hover:border-purple-500 has-[:checked]:border-purple-500 has-[:checked]:bg-purple-500 has-[:checked]:text-pink-100 focus:bg-purple-500 focus:text-gray-700 focus:border-purple-500 focus:outline-none focus:ring dark:border-gray-300 dark:bg-gray-300 dark:has-[:checked]:border-purple-900 dark:has-[:checked]:bg-purple-900",
+                            class: "transition cursor-pointer inline-block rounded-md px-4 py-2 text-sm text-purple-900 hover:text-purple-700 focus:relative hover:border-purple-500 has-[:checked]:border-purple-500 has-[:checked]:bg-purple-500 has-[:checked]:text-pink-100 focus:bg-purple-500 focus:text-gray-700 focus:border-purple-500 focus:outline-none focus:ring dark:border-purple-300 bg-transparent dark:has-[:checked]:border-purple-900 dark:has-[:checked]:bg-purple-900 bg-transparent",
                             input {
                                 class: "sr-only",
                                 name: "frequency",
@@ -308,7 +309,7 @@ fn StreakForm() -> Element {
                     }
                     div {
                         label {
-                            class: "transition cursor-pointer inline-block rounded-md px-4 py-2 text-sm text-purple-500 hover:text-purple-700 focus:relative hover:border-purple-500 has-[:checked]:border-purple-500 has-[:checked]:bg-purple-500 has-[:checked]:text-pink-100 focus:bg-purple-500 focus:text-gray-700 focus:border-purple-500 focus:outline-none focus:ring dark:border-gray-300 dark:bg-gray-300 dark:has-[:checked]:border-purple-900 dark:has-[:checked]:bg-purple-900",
+                            class: "transition cursor-pointer inline-block rounded-md px-4 py-2 text-sm text-purple-500 dark:text-purple-900 hover:text-purple-700 focus:relative hover:border-purple-500 has-[:checked]:border-purple-500 has-[:checked]:bg-purple-500 has-[:checked]:text-pink-100 focus:bg-purple-500 focus:text-purple-700 focus:border-purple-500 focus:outline-none focus:ring dark:border-purple-300 bg-transparent dark:has-[:checked]:border-purple-900 dark:has-[:checked]:bg-purple-900",
                             input {
                                 class: "sr-only",
                                 name: "frequency",
@@ -327,7 +328,7 @@ fn StreakForm() -> Element {
                 }
 
                 button {
-                    class: "transition cursor-pointer inline-block rounded-lg px-4 leading-tight text-sm font-medium text-purple-500 bg-purple-50/75 border border-pink-100 hover:border-purple-500 hover:bg-purple-500 hover:text-pink-100 focus:bg-purple-500 focus:text-pink-100 focus:border-purple-500 focus:outline-none focus:ring dark:bg-gray-300 dark:hover:bg-purple-900",
+                    class: "transition cursor-pointer inline-block rounded-lg px-4 leading-tight text-sm font-medium text-purple-500 dark:text-purple-900 bg-purple-50/75 border border-pink-100 hover:border-purple-500 hover:bg-purple-500 hover:text-pink-100 focus:bg-purple-500 focus:text-pink-100 focus:border-purple-500 focus:outline-none focus:ring dark:bg-purple-200/75 dark:hover:bg-purple-900",
                     type: "submit",
                     "Add"
                 }
@@ -343,7 +344,7 @@ fn TableHeader(sort_by_field: SortByField, text: String) -> Element {
 
     rsx! {
         th {
-            class: "min-w-fit cursor-pointer select-none bg-purple-100 odd:bg-pink-50 odd:dark:bg-gray-400 text-purple-900",
+            class: "min-w-fit cursor-pointer select-none dark:even:bg-purple-800 even:bg-purple-100 odd:bg-pink-50 dark:odd:bg-purple-600 text-purple-900 dark:text-purple-100 flex flex-row flex-nowrap table-cell",
             onclick: move |_| {
                 if state.read().sort_by_field == sort_by_field {
                     direction = match state.read().sort_by_direction {
@@ -354,22 +355,30 @@ fn TableHeader(sort_by_field: SortByField, text: String) -> Element {
                 state.write().sort_by_field = sort_by_field.clone();
                 state.write().sort_by_direction = direction.clone();
             },
-            "{text}",
+            span {
+                class: "align-middle",
+                title: "Click to sort by this column",
+                "{text}"
+            }
             if state.read().sort_by_field == sort_by_field {
                 match state.read().sort_by_direction {
                     SortByDirection::Ascending => rsx! {
                         span {
                             class: "material-symbols-rounded align-middle",
+                            title: "Click to sort descending",
                             "arrow_upward_alt"
                         }
                     },
                     SortByDirection::Descending => rsx! {
                         span {
                             class: "material-symbols-rounded align-middle",
+                            title: "Click to sort ascending",
                             "arrow_downward_alt"
                         }
                     },
                 }
+            } else {
+                span { class: "text-muted font-24", "" }
             }
         }
     }
@@ -381,25 +390,27 @@ fn StreakTable() -> Element {
 
     rsx! {
         div {
-            class: "overflow-hidden border-1 border-pink-100 rounded-lg dark:border-gray-500",
+            class: "overflow-hidden border-1 border-pink-100 rounded-lg dark:border-purple-600",
             table {
-                class: "min-w-full divide-y-2 divide-gray-200 bg-white text-sm dark:bg-gray-300 dark:divide-gray-500",
+                class: "table-auto min-w-full bg-pink-100 dark:bg-purple-100",// border-spacing-y-0.5 border-separate border-purple-900",
                 thead {
-                    class: "bg-pink-100 select-none dark:bg-gray-500 text-purple-900",
+                    class: "bg-pink-100 select-none dark:bg-purple-800 text-purple-900 dark:text-purple-100",
                     tr {
                         td { colspan: 3 }
                         th { colspan: 2, "Check-ins" }
                         th { colspan: 2, "Streaks" }
                         td { colspan: "*" }
                     }
-                    TableHeader { sort_by_field: SortByField::Task, text: "Task" }
-                    TableHeader { sort_by_field: SortByField::Status, text: "Status" }
-                    TableHeader { sort_by_field: SortByField::Frequency, text: "Frequency" }
-                    TableHeader { sort_by_field: SortByField::LastCheckIn, text: "Last" }
-                    TableHeader { sort_by_field: SortByField::TotalCheckins, text: "Total" }
-                    TableHeader { sort_by_field: SortByField::CurrentStreak, text: "Current" }
-                    TableHeader { sort_by_field: SortByField::LongestStreak, text: "Longest" }
-                    th { class: "odd:dark:bg-gray-400 odd:bg-pink-50 text-purple-900", "Tools" }
+                    tr {
+                        TableHeader { sort_by_field: SortByField::Task, text: "Task" }
+                        TableHeader { sort_by_field: SortByField::Status, text: "Status" }
+                        TableHeader { sort_by_field: SortByField::Frequency, text: "Frequency" }
+                        TableHeader { sort_by_field: SortByField::LastCheckIn, text: "Last" }
+                        TableHeader { sort_by_field: SortByField::TotalCheckins, text: "Total" }
+                        TableHeader { sort_by_field: SortByField::CurrentStreak, text: "Current" }
+                        TableHeader { sort_by_field: SortByField::LongestStreak, text: "Longest" }
+                        th { class: "min-w-fit cursor-pointer select-none dark:even:bg-purple-800 even:bg-purple-100 odd:bg-pink-50 dark:odd:bg-purple-600 text-purple-900 dark:text-purple-100 flex flex-row flex-nowrap table-cell", "Tools" }
+                    }
                 }
                 StreakTableBody {}
             }
@@ -468,7 +479,7 @@ fn StreakTableRow(mut streak: Streak) -> Element {
 
     rsx! {
         tr {
-            class: "text-center text-purple-900 even:bg-pink-50 even:dark:bg-gray-400 odd:bg-purple-100 odd:dark:bg-gray-600 odd:dark:text-gray-300",
+            class: "text-center text-purple-900 dark:text-purple-100 even:bg-pink-50 dark:even:bg-purple-900 odd:bg-purple-100 dark:odd:bg-purple-800 dark:odd:text-purple-100",
             td {
                 class: "text-left pl-2",
                 "{streak.task}"
@@ -492,7 +503,7 @@ fn CheckInButton(streak: Streak) -> Element {
     let state = use_context::<Signal<AppState>>();
     rsx! {
         button {
-            class: "cursor-pointer select-none hover:text-green-500",
+            class: "cursor-pointer select-none hover:text-green-500 focus:text-green-500 focus:outline-none",
             onclick: move |e| {state.read().checkin_streak(streak.id)},
             span {
                 class: "material-symbols-rounded",
@@ -508,7 +519,7 @@ fn DeleteButton(streak: Streak) -> Element {
     let mut modal_signal: Signal<Option<Streak>> = use_context();
     rsx! {
         button {
-            class: "cursor-pointer select-none hover:text-red-500",
+            class: "cursor-pointer select-none hover:text-red-500 focus:text-red-500 focus:outline-none",
             onclick: move |_| {
                 modal_signal.set(Some(streak.clone()));
             },
@@ -535,7 +546,7 @@ fn DeleteModal() -> Element {
             open: modal_signal.read().clone().is_some(),
             class: "relative z-10",
             role: "confirm",
-            div { class: "fixed inset-0 bg-blue-700/25 transition-opacity backdrop-blur-sm" }
+            div { class: "fixed inset-0 bg-purple-500/25 dark:bg-purple-800/25 transition-opacity backdrop-blur-sm" }
             div {
                 class: "fixed inset-0 z-10 w-screen h-screen overflow-y-hidden",
                 div {
@@ -543,23 +554,23 @@ fn DeleteModal() -> Element {
                     div {
                         class: "relative transform overflow-hidden p-2 rounded-xl",
                         div {
-                            class: "mx-auto bg-white border border-purple-500 rounded-xl p-2 dark:bg-gray-400",
+                            class: "mx-auto bg-pink-50 border border-purple-500 rounded-xl p-2 dark:bg-purple-300",
                             div {
                                 class: "flex-1",
                                 h1 {
-                                    class: "block text-2xl mb-4 font-medium text-gray-900 border-b-1 border-gray-400 dark:border-purple-500",
+                                    class: "block select-none text-2xl mb-4 font-medium text-purple-900 border-b-2 border-purple-500 dark:border-purple-500",
                                     "Delete this streak?"
                                 }
                                 blockquote {
-                                    class: "px-2 italic bg-gray-200",
+                                    class: "p-2 italic bg-pink-200 dark:bg-purple-100 rounded-md",
                                     "{streak.task}"
                                 }
                             }
                             div {
-                                class: "flex flex-col justify-center gap-4 mt-4 divide-y divide-gray-400 dark:divide-purple-500",
+                                class: "flex flex-col justify-center mt-2 divide-y divide-purple-500 dark:divide-purple-500",
                                 button {
                                     r#type: "button",
-                                    class: "cursor-pointer select-none pb-2 hover:font-bold",
+                                    class: "rounded-t-md cursor-pointer select-none py-2 hover:font-bold focus:font-bold hover:bg-purple-200 focus:bg-purple-200 focus:outline-none dark:hover:text-purple-200 dark:hover:bg-purple-500 dark:focus:bg-purple-900",
                                     onclick: move |e| {
                                         state.read().remove_streak(streak.id);
                                         modal_signal.set(None);
@@ -570,7 +581,7 @@ fn DeleteModal() -> Element {
                                 }
                                 button {
                                     r#type: "button",
-                                    class: "cursor-pointer select-none hover:font-bold pb-2",
+                                    class: "rounded-b-md cursor-pointer select-none py-2 hover:font-bold focus:font-bold hover:bg-purple-200 focus:bg-purple-200 focus:outline-none dark:hover:text-purple-200 dark:hover:bg-purple-500 dark:focus:bg-purple-900",
                                     onclick: move |e| { modal_signal.set(None) },
                                     span {
                                         "No"
@@ -618,6 +629,10 @@ async fn check_in_streak(streak_id: Uuid) -> Result<Streak, ServerFnError> {
 
 #[server]
 async fn create_streak(streak: Streak) -> Result<Streak, ServerFnError> {
+    if streak.task.is_empty() {
+        return Err(ServerFnError::MissingArg("task".to_string()));
+    }
+
     let client = reqwest::Client::new();
     let response = client
         .post("http://127.0.0.1:3000/streak")
