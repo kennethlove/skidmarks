@@ -22,8 +22,8 @@ struct AppState {
     dark_mode: bool,
 }
 
-impl AppState {
-    fn new() -> Self {
+impl Default for AppState {
+    fn default() -> Self {
         Self {
             streaks: vec![],
             sort_by_field: SortByField::LastCheckIn,
@@ -32,23 +32,9 @@ impl AppState {
             dark_mode: false,
         }
     }
+}
 
-    fn sort(self) -> Vec<Streak> {
-        let sorted_streaks = sort_streaks(
-            self.streaks,
-            self.sort_by_field.clone(),
-            self.sort_by_direction.clone(),
-        );
-
-        sorted_streaks
-    }
-
-    fn filter(self) -> Vec<Streak> {
-        let filtered_streaks = filter_by_status(self.streaks, self.filter_by);
-
-        filtered_streaks
-    }
-
+impl AppState {
     fn remove_streak(&self, streak_id: Uuid) {
         let _ = use_resource(move || async move { delete_streak(streak_id).await });
         let mut state = use_context::<Signal<AppState>>();
@@ -103,7 +89,7 @@ fn main() {
 #[component]
 fn App() -> Element {
     // Build cool things ✌️
-    let state = Signal::new(AppState::new());
+    let state = Signal::new(AppState::default());
     let mut state: Signal<AppState> = use_context_provider(|| state);
     let filter = state.read().filter_by.clone();
 
