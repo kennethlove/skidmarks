@@ -118,7 +118,7 @@ fn App() -> Element {
     });
 
     let mut classes =
-        "bg-gradient-to-br from-purple-300 to-blue-900 dark:from-indigo-700 dark:to-purple-900 min-h-full min-h-screen transition duration-150"
+        "bg-gradient-to-br from-pink-300 to-indigo-300 dark:from-pink-900 dark:to-indigo-900 min-h-full min-h-screen transition duration-150 selection:text-pink-200 selection:bg-purple-500"
             .to_string();
     if state.read().dark_mode {
         classes.push_str(" dark")
@@ -135,7 +135,7 @@ fn App() -> Element {
                 div {
                     class: "flex flex-row flex-nowrap justify-between sm:justify-center relative",
                     h1 {
-                        class: "text-3xl font-bold text-purple-900 dark:text-blue-200",
+                        class: "text-3xl font-bold text-purple-900 dark:text-purple-200",
                         "Skidmarks"
                     }
                     button {
@@ -154,7 +154,8 @@ fn App() -> Element {
                             };
                         },
                         span {
-                            class: "material-symbols-rounded dark:text-blue-200 text-purple-900",
+                            class: "material-symbols-rounded dark:text-purple-200 text-purple-500 hover:text-purple-900",
+                            title: "Switch to dark/light mode",
                             "contrast"
                         }
                     }
@@ -169,7 +170,7 @@ fn App() -> Element {
                 footer {
                     class: "mt-4",
                     p {
-                        class: "text-center text-sm text-white",
+                        class: "text-center text-sm text-pink-50",
                         "Made with 💜 by "
                         a {
                             class: "underline",
@@ -199,7 +200,7 @@ fn FilterButton(props: FilterButtonProps) -> Element {
     rsx! {
         div {
             label {
-                class: "transition cursor-pointer inline-block rounded-md px-4 py-2 text-sm text-gray-500 hover:text-gray-700 hover:border-purple-500 focus:relative has-[:checked]:border-purple-500 has-[:checked]:bg-purple-500 has-[:checked]:text-white",
+                class: "transition cursor-pointer inline-block rounded-md px-4 py-2 text-sm text-purple-500 hover:text-purple-700 focus:relative has-[:checked]:border-purple-500 has-[:checked]:bg-purple-500 has-[:checked]:text-pink-100 dark:has-[:checked]:border-purple-900 dark:has-[:checked]:bg-purple-900",
                 input {
                     class: "sr-only",
                     name: "filter",
@@ -226,7 +227,7 @@ fn StreakFilters() -> Element {
         div {
             class: "lg:pl-4 self-center",
             fieldset {
-                class: "inline-flex rounded-lg border border-gray-100 bg-gray-100 p-1 dark:bg-gray-300 dark:border-gray-300 dark:text-gray-950",
+                class: "inline-flex rounded-lg border border-pink-100 bg-purple-50/75 p-1 dark:bg-gray-300 dark:border-gray-300 dark:text-gray-950 select-none",
                 legend {
                     class: "sr-only",
                     "Frequency"
@@ -271,7 +272,7 @@ fn StreakForm() -> Element {
                     }
                 },
                 label {
-                    class: "grow relative block overflow-hidden rounded-md border border-gray-100 shadow-sm focus-within:border-blue-600 focus-within:ring-1 focus-within:ring-blue-600 dark:bg-gray-300 bg-gray-100 px-3 pt-1.5",
+                    class: "grow relative block overflow-hidden rounded-md border border-pink-100 shadow-sm focus-within:border-purple-500 focus-within:ring-1 focus-within:ring-purple-500 dark:bg-gray-300 bg-purple-50/75 focus-within:bg-pink-100 px-3 pt-1.5 transition",
                     input {
                         class: "peer h-8 border-none bg-transparent focus:border-transparent focus:outline-none focus:ring-0 p-0",
                         oninput: move |e| {
@@ -282,14 +283,14 @@ fn StreakForm() -> Element {
                     }
                 }
                 fieldset {
-                    class: "inline-flex rounded-lg border border-gray-100 bg-gray-100 p-1 dark:border-gray-300 dark:bg-gray-300",
+                    class: "inline-flex rounded-lg border border-pink-100 bg-purple-50/75 p-1 dark:border-gray-300 dark:bg-gray-300 select-none",
                     legend {
                         class: "sr-only",
                         "Frequency"
                     }
                     div {
                         label {
-                            class: "transition cursor-pointer inline-block rounded-md px-4 py-2 text-sm text-gray-500 hover:text-gray-700 focus:relative hover:border-purple-500 has-[:checked]:border-purple-500 has-[:checked]:bg-purple-500 has-[:checked]:text-white focus:bg-purple-500 focus:text-gray-700 focus:border-purple-500 focus:outline-none focus:ring dark:border-gray-300 dark:bg-gray-300",
+                            class: "transition cursor-pointer inline-block rounded-md px-4 py-2 text-sm text-purple-500 hover:text-purple-700 focus:relative hover:border-purple-500 has-[:checked]:border-purple-500 has-[:checked]:bg-purple-500 has-[:checked]:text-pink-100 focus:bg-purple-500 focus:text-gray-700 focus:border-purple-500 focus:outline-none focus:ring dark:border-gray-300 dark:bg-gray-300 dark:has-[:checked]:border-purple-900 dark:has-[:checked]:bg-purple-900",
                             input {
                                 class: "sr-only",
                                 name: "frequency",
@@ -307,7 +308,7 @@ fn StreakForm() -> Element {
                     }
                     div {
                         label {
-                            class: "transition cursor-pointer inline-block rounded-md px-4 py-2 text-sm text-gray-500 hover:text-gray-700 focus:relative hover:border-purple-500 has-[:checked]:border-purple-500 has-[:checked]:bg-purple-500 has-[:checked]:text-white focus:bg-purple-500 focus:text-gray-700 focus:border-purple-500 focus:outline-none focus:ring dark:border-gray-300 dark:bg-gray-300",
+                            class: "transition cursor-pointer inline-block rounded-md px-4 py-2 text-sm text-purple-500 hover:text-purple-700 focus:relative hover:border-purple-500 has-[:checked]:border-purple-500 has-[:checked]:bg-purple-500 has-[:checked]:text-pink-100 focus:bg-purple-500 focus:text-gray-700 focus:border-purple-500 focus:outline-none focus:ring dark:border-gray-300 dark:bg-gray-300 dark:has-[:checked]:border-purple-900 dark:has-[:checked]:bg-purple-900",
                             input {
                                 class: "sr-only",
                                 name: "frequency",
@@ -326,7 +327,7 @@ fn StreakForm() -> Element {
                 }
 
                 button {
-                    class: "transition cursor-pointer inline-block rounded-lg px-4 leading-tight text-sm font-medium text-gray-500 bg-gray-100 border border-gray-100 hover:border-purple-500 hover:bg-purple-500 hover:text-gray-700 focus:bg-purple-500 focus:text-white focus:border-purple-500 focus:outline-none focus:ring dark:bg-gray-300",
+                    class: "transition cursor-pointer inline-block rounded-lg px-4 leading-tight text-sm font-medium text-purple-500 bg-purple-50/75 border border-pink-100 hover:border-purple-500 hover:bg-purple-500 hover:text-pink-100 focus:bg-purple-500 focus:text-pink-100 focus:border-purple-500 focus:outline-none focus:ring dark:bg-gray-300 dark:hover:bg-purple-900",
                     type: "submit",
                     "Add"
                 }
@@ -342,7 +343,7 @@ fn TableHeader(sort_by_field: SortByField, text: String) -> Element {
 
     rsx! {
         th {
-            class: "min-w-fit text-pretty cursor-pointer select-none odd:bg-gray-100 odd:dark:bg-gray-400 text-gray-900",
+            class: "min-w-fit cursor-pointer select-none bg-purple-100 odd:bg-pink-50 odd:dark:bg-gray-400 text-purple-900",
             onclick: move |_| {
                 if state.read().sort_by_field == sort_by_field {
                     direction = match state.read().sort_by_direction {
@@ -380,11 +381,11 @@ fn StreakTable() -> Element {
 
     rsx! {
         div {
-            class: "overflow-hidden border-1 border-gray-300 rounded-lg dark:border-gray-500",
+            class: "overflow-hidden border-1 border-pink-100 rounded-lg dark:border-gray-500",
             table {
                 class: "min-w-full divide-y-2 divide-gray-200 bg-white text-sm dark:bg-gray-300 dark:divide-gray-500",
                 thead {
-                    class: "bg-gray-300 select-none dark:bg-gray-500",
+                    class: "bg-pink-100 select-none dark:bg-gray-500 text-purple-900",
                     tr {
                         td { colspan: 3 }
                         th { colspan: 2, "Check-ins" }
@@ -398,7 +399,7 @@ fn StreakTable() -> Element {
                     TableHeader { sort_by_field: SortByField::TotalCheckins, text: "Total" }
                     TableHeader { sort_by_field: SortByField::CurrentStreak, text: "Current" }
                     TableHeader { sort_by_field: SortByField::LongestStreak, text: "Longest" }
-                    th { class: "border-x border-gray-200 dark:border-gray-500 odd:dark:bg-gray-400 odd:bg-gray-100 text-gray-900", "Tools" }
+                    th { class: "odd:dark:bg-gray-400 odd:bg-pink-50 text-purple-900", "Tools" }
                 }
                 StreakTableBody {}
             }
@@ -467,7 +468,7 @@ fn StreakTableRow(mut streak: Streak) -> Element {
 
     rsx! {
         tr {
-            class: "text-center even:bg-gray-300 even:dark:bg-gray-400 odd:bg-gray-100 odd:dark:bg-gray-600 odd:dark:text-gray-300",
+            class: "text-center text-purple-900 even:bg-pink-50 even:dark:bg-gray-400 odd:bg-purple-100 odd:dark:bg-gray-600 odd:dark:text-gray-300",
             td {
                 class: "text-left pl-2",
                 "{streak.task}"
