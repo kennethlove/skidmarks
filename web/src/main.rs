@@ -119,7 +119,7 @@ fn App() -> Element {
     });
 
     let mut classes =
-        "bg-gradient-to-br from-pink-300 to-indigo-300 dark:from-pink-900 dark:to-indigo-900 min-h-full min-h-screen transition duration-150 selection:text-pink-200 selection:bg-purple-500 dark:selection:bg-pink-200 dark:selection:text-purple-500"
+        "bg-gradient-to-br from-pink-300 to-indigo-300 dark:from-emerald-950 dark:to-purple-900 min-h-full min-h-screen transition duration-150 selection:text-pink-200 selection:bg-purple-500 dark:selection:bg-emerald-200 dark:selection:text-purple-800"
             .to_string();
     if state.read().dark_mode {
         classes.push_str(" dark")
@@ -136,7 +136,7 @@ fn App() -> Element {
                 div {
                     class: "flex flex-row flex-nowrap justify-between sm:justify-center relative",
                     h1 {
-                        class: "text-3xl font-bold text-purple-900 dark:text-purple-100",
+                        class: "text-3xl font-bold text-purple-900 dark:text-teal-700",
                         "Skidmarks"
                     }
                     button {
@@ -155,7 +155,7 @@ fn App() -> Element {
                             };
                         },
                         span {
-                            class: "material-symbols-rounded dark:text-purple-100 text-purple-500 hover:text-pink-50",
+                            class: "material-symbols-rounded dark:text-teal-700 text-purple-500 hover:text-pink-50 dark:hover:text-teal-600",
                             title: "Switch to dark/light mode",
                             "contrast"
                         }
@@ -344,7 +344,8 @@ fn TableHeader(sort_by_field: SortByField, text: String) -> Element {
 
     rsx! {
         th {
-            class: "min-w-fit cursor-pointer select-none dark:even:bg-purple-800 even:bg-purple-100 odd:bg-pink-50 dark:odd:bg-purple-600 text-purple-900 dark:text-purple-100 flex flex-row flex-nowrap table-cell",
+            class: "relative cursor-pointer select-none text-purple-900 dark:text-teal-200",
+            scope: "col",
             onclick: move |_| {
                 if state.read().sort_by_field == sort_by_field {
                     direction = match state.read().sort_by_direction {
@@ -356,29 +357,30 @@ fn TableHeader(sort_by_field: SortByField, text: String) -> Element {
                 state.write().sort_by_direction = direction.clone();
             },
             span {
-                class: "align-middle",
+                class: "align-middle pr-5",
                 title: "Click to sort by this column",
                 "{text}"
             }
-            if state.read().sort_by_field == sort_by_field {
-                match state.read().sort_by_direction {
-                    SortByDirection::Ascending => rsx! {
-                        span {
-                            class: "material-symbols-rounded align-middle",
-                            title: "Click to sort descending",
-                            "arrow_upward_alt"
-                        }
-                    },
-                    SortByDirection::Descending => rsx! {
-                        span {
-                            class: "material-symbols-rounded align-middle",
-                            title: "Click to sort ascending",
-                            "arrow_downward_alt"
-                        }
-                    },
+            span {
+                class: "absolute inset-y-0 right-0 top-0.5",
+                if state.read().sort_by_field == sort_by_field {
+                    match state.read().sort_by_direction {
+                        SortByDirection::Ascending => rsx! {
+                            span {
+                                class: "material-symbols-rounded",
+                                title: "Click to sort descending",
+                                "arrow_upward_alt"
+                            }
+                        },
+                        SortByDirection::Descending => rsx! {
+                            span {
+                                class: "material-symbols-rounded",
+                                title: "Click to sort ascending",
+                                "arrow_downward_alt"
+                            }
+                        },
+                    }
                 }
-            } else {
-                span { class: "text-muted font-24", "" }
             }
         }
     }
@@ -390,15 +392,21 @@ fn StreakTable() -> Element {
 
     rsx! {
         div {
-            class: "overflow-hidden border-1 border-pink-100 rounded-lg dark:border-purple-600",
+            class: "overflow-hidden border-1 border-pink-100 rounded-lg dark:border-teal-700",
             table {
-                class: "table-auto min-w-full bg-pink-100 dark:bg-purple-100",// border-spacing-y-0.5 border-separate border-purple-900",
+                class: "table table-auto min-w-full bg-pink-200 dark:bg-transparent border-spacing-0.5 border border-separate",
+                colgroup {
+                    col { span: 3, class: "bg-pink-50 dark:bg-teal-800/25" }
+                    col { span: 2, class: "bg-pink-100 dark:bg-teal-900/25" }
+                    col { span: 2, class: "bg-pink-50 dark:bg-teal-950/25" }
+                    col { span: 1, class: "bg-pink-100 dark:bg-teal-900/25" }
+                }
                 thead {
-                    class: "bg-pink-100 select-none dark:bg-purple-800 text-purple-900 dark:text-purple-100",
+                    class: "select-none text-purple-900 dark:text-teal-800",
                     tr {
                         td { colspan: 3 }
-                        th { colspan: 2, "Check-ins" }
-                        th { colspan: 2, "Streaks" }
+                        th { class: "text-purple-900 dark:text-teal-200", colspan: 2, scope: "col", "Check-ins" }
+                        th { class: "text-purple-900 dark:text-teal-200", colspan: 2, scope: "col", "Streaks" }
                         td { colspan: "*" }
                     }
                     tr {
@@ -409,7 +417,7 @@ fn StreakTable() -> Element {
                         TableHeader { sort_by_field: SortByField::TotalCheckins, text: "Total" }
                         TableHeader { sort_by_field: SortByField::CurrentStreak, text: "Current" }
                         TableHeader { sort_by_field: SortByField::LongestStreak, text: "Longest" }
-                        th { class: "min-w-fit cursor-pointer select-none dark:even:bg-purple-800 even:bg-purple-100 odd:bg-pink-50 dark:odd:bg-purple-600 text-purple-900 dark:text-purple-100 flex flex-row flex-nowrap table-cell", "Tools" }
+                        th { class: "cursor-pointer select-none text-purple-900 dark:text-teal-100", "Tools" } // dark:even:bg-purple-800 even:bg-purple-100 odd:bg-pink-50 dark:odd:bg-purple-600
                     }
                 }
                 StreakTableBody {}
@@ -479,7 +487,7 @@ fn StreakTableRow(mut streak: Streak) -> Element {
 
     rsx! {
         tr {
-            class: "text-center text-purple-900 dark:text-purple-100 even:bg-pink-50 dark:even:bg-purple-900 odd:bg-purple-100 dark:odd:bg-purple-800 dark:odd:text-purple-100",
+            class: "text-center text-purple-900 dark:text-teal-100",
             td {
                 class: "text-left pl-2",
                 "{streak.task}"
@@ -491,6 +499,7 @@ fn StreakTableRow(mut streak: Streak) -> Element {
             td { "{streak.longest_streak}" }
             td { "{streak.total_checkins}" }
             td {
+                class: "flex flex-row flex-nowrap",
                 CheckInButton { streak: streak.clone() }
                 DeleteButton { streak: streak.clone() }
             }
@@ -507,6 +516,7 @@ fn CheckInButton(streak: Streak) -> Element {
             onclick: move |e| {state.read().checkin_streak(streak.id)},
             span {
                 class: "material-symbols-rounded",
+                title: "Check-in",
                 "check_circle"
             }
         }
@@ -525,6 +535,7 @@ fn DeleteButton(streak: Streak) -> Element {
             },
             span {
                 class: "material-symbols-rounded",
+                title: "Delete",
                 "delete"
             }
         }
