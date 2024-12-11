@@ -136,7 +136,7 @@ fn App() -> Element {
                 div {
                     class: "flex flex-row flex-nowrap justify-between sm:justify-center relative",
                     h1 {
-                        class: "text-3xl font-bold text-purple-900 dark:text-teal-700",
+                        class: "text-3xl font-bold text-purple-900 dark:text-teal-500",
                         "Skidmarks"
                     }
                     button {
@@ -155,7 +155,7 @@ fn App() -> Element {
                             };
                         },
                         span {
-                            class: "material-symbols-rounded dark:text-teal-700 text-purple-500 hover:text-pink-50 dark:hover:text-teal-600",
+                            class: "material-symbols-rounded dark:text-teal-500 text-purple-500 hover:text-pink-50 dark:hover:text-teal-200",
                             title: "Switch to dark/light mode",
                             "contrast"
                         }

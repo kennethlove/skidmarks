@@ -1540,6 +1540,15 @@
       }
     }
   }
+  .dark\:hover\:text-teal-200 {
+    &:where(.dark, .dark *) {
+      &:hover {
+        @media (hover: hover) {
+          color: var(--color-teal-200);
+        }
+      }
+    }
+  }
   .dark\:hover\:text-teal-500 {
     &:where(.dark, .dark *) {
       &:hover {
