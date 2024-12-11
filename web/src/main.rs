@@ -117,7 +117,9 @@ fn App() -> Element {
         None => (),
     });
 
-    let mut classes = "bg-white dark:bg-gray-700 min-h-full min-h-screen".to_string();
+    let mut classes =
+        "bg-gradient-to-br from-purple-300 to-blue-900 dark:from-indigo-700 dark:to-purple-900 min-h-full min-h-screen"
+            .to_string();
     if state.read().dark_mode {
         classes.push_str(" dark")
     }
@@ -129,15 +131,15 @@ fn App() -> Element {
         div {
             class: classes,
             div {
-                class: "container mx-auto sm:w-full lg:w-10/12",
+                class: "container mx-auto sm:w-3/4 lg:w-10/12 xs:w-full pt-5",
                 div {
-                    class: "flex flex-row flex-nowrap justify-between",
+                    class: "flex flex-row flex-nowrap justify-between sm:justify-center relative",
                     h1 {
-                        class: "text-3xl font-bold pt-4 dark:text-white",
+                        class: "text-3xl font-bold text-purple-900 dark:text-blue-200",
                         "Skidmarks"
                     }
                     button {
-                        class: "pt-4 cursor-pointer",
+                        class: "cursor-pointer sm:absolute sm:right-0 sm:top-5",
                         onclick: move |_| {
                             let dark = state.read().dark_mode.clone();
                             match dark {
@@ -158,7 +160,7 @@ fn App() -> Element {
                     }
                 }
                 div {
-                    class: "flex flex-row flex-nowrap gap-3 py-4",
+                    class: "flex flex-col lg:flex-row flex-wrap lg:flex-nowrap gap-3 py-4 lg:justify-center divide divide-gray-200",
                     StreakForm {}
                     StreakFilters {}
                 }
@@ -167,7 +169,7 @@ fn App() -> Element {
                 footer {
                     class: "mt-4",
                     p {
-                        class: "text-center text-sm dark:text-white",
+                        class: "text-center text-sm text-white",
                         "Made with 💜 by "
                         a {
                             class: "underline",
@@ -183,6 +185,38 @@ fn App() -> Element {
     }
 }
 
+#[derive(Debug, Clone, Props, PartialEq)]
+struct FilterButtonProps {
+    button_text: String,
+    button_status: FilterByStatus,
+}
+
+#[component]
+fn FilterButton(props: FilterButtonProps) -> Element {
+    let mut state = use_context::<Signal<AppState>>();
+    let filter_by = state.read().filter_by.clone();
+
+    rsx! {
+        div {
+            label {
+                class: "transition cursor-pointer inline-block rounded-md px-4 py-2 text-sm text-gray-500 hover:text-gray-700 hover:border-purple-500 focus:relative has-[:checked]:border-purple-500 has-[:checked]:bg-purple-500 has-[:checked]:text-white",
+                input {
+                    class: "sr-only",
+                    name: "filter",
+                    r#type: "radio",
+                    checked: filter_by == props.button_status.clone(),
+                    onclick: move |e| { state.write().filter_by = props.button_status.clone(); },
+                }
+                p {
+                    class: "text-sm font-medium",
+                    "{props.button_text}",
+                }
+            }
+        }
+
+    }
+}
+
 #[component]
 fn StreakFilters() -> Element {
     let mut state = use_context::<Signal<AppState>>();
@@ -190,77 +224,17 @@ fn StreakFilters() -> Element {
 
     rsx! {
         div {
-            class: "border-l border-gray-300 pl-3",
+            class: "lg:pl-4 self-center",
             fieldset {
-                class: "flex flex-nowrap gap-0 select-none group",
+                class: "inline-flex rounded-lg border border-gray-100 bg-gray-100 p-1 dark:bg-gray-300 dark:border-gray-300 dark:text-gray-950",
                 legend {
                     class: "sr-only",
                     "Frequency"
                 }
-                div {
-                    label {
-                        class: "transition flex cursor-pointer items-center justify-center rounded-l-md border border-gray-100 bg-white px-3 py-3 text-gray-900 hover:border-blue-500 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-500 has-[:checked]:text-white",
-                        input {
-                            class: "sr-only",
-                            name: "filter",
-                            r#type: "radio",
-                            checked: filter_by == FilterByStatus::All,
-                            onclick: move |e| { state.write().filter_by = FilterByStatus::All },
-                        }
-                        p {
-                            class: "text-sm font-medium",
-                            "All",
-                        }
-                    }
-                }
-                div {
-                    label {
-                        class: "transition flex cursor-pointer items-center justify-center border border-gray-100 bg-white px-3 py-3 text-gray-900 hover:border-blue-500 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-500 has-[:checked]:text-white",
-                        input {
-                            class: "sr-only",
-                            name: "filter",
-                            r#type: "radio",
-                            checked: filter_by == FilterByStatus::Waiting,
-                            onclick: move |e| { state.write().filter_by = FilterByStatus::Waiting },
-                        }
-                        p {
-                            class: "text-sm font-medium",
-                            "Waiting"
-                        }
-                    }
-                }
-                div {
-                    label {
-                        class: "transition flex cursor-pointer items-center justify-center border border-gray-100 bg-white px-3 py-3 text-gray-900 hover:border-blue-500 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-500 has-[:checked]:text-white",
-                        input {
-                            class: "sr-only",
-                            name: "filter",
-                            r#type: "radio",
-                            checked: filter_by == FilterByStatus::Missed,
-                            onclick: move |e| { state.write().filter_by = FilterByStatus::Missed },
-                        }
-                        p {
-                            class: "text-sm font-medium",
-                            "Missed"
-                        }
-                    }
-                }
-                div {
-                    label {
-                        class: "transition flex cursor-pointer items-center justify-center rounded-r-md border border-gray-100 bg-white px-3 py-3 text-gray-900 hover:border-blue-500 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-500 has-[:checked]:text-white",
-                        input {
-                            class: "sr-only",
-                            name: "filter",
-                            r#type: "radio",
-                            checked: filter_by == FilterByStatus::Done,
-                            onclick: move |e| { state.write().filter_by = FilterByStatus::Done },
-                        }
-                        p {
-                            class: "text-sm font-medium",
-                            "Done"
-                        }
-                    }
-                }
+                FilterButton { button_text: "All".to_string(), button_status: FilterByStatus::All }
+                FilterButton { button_text: "Waiting".to_string(), button_status: FilterByStatus::Waiting }
+                FilterButton { button_text: "Missed".to_string(), button_status: FilterByStatus::Missed }
+                FilterButton { button_text: "Done".to_string(), button_status: FilterByStatus::Done }
             }
         }
     }
@@ -275,9 +249,9 @@ fn StreakForm() -> Element {
 
     rsx! {
         div {
-            class: "w-2/3",
+            class: "lg:w-2/3 w-full",
             form {
-                class: "flex flex-row flex-nowrap gap-3 content-between justify-stretch",
+                class: "flex flex-row lg:flex-nowrap gap-3 lg:content-between lg:justify-stretch xs:flex-col",
                 onsubmit: move |e| {
                     let mut new_streak: Streak = Streak::default();
                     let task = task_signal.read().clone();
@@ -297,29 +271,25 @@ fn StreakForm() -> Element {
                     }
                 },
                 label {
-                    class: "grow relative block rounded-md border border-gray-200 shadow-sm focus-within:border-blue-600 focus-within:ring-1 focus-within:ring-blue-600",
+                    class: "grow relative block overflow-hidden rounded-md border border-gray-100 shadow-sm focus-within:border-blue-600 focus-within:ring-1 focus-within:ring-blue-600 dark:bg-gray-300 bg-gray-100 px-3 pt-1.5",
                     input {
-                        class: "peer border-none bg-transparent placeholder-transparent focus:border-transparent focus:outline-none focus:ring-0 px-3 py-2",
+                        class: "peer h-8 border-none bg-transparent focus:border-transparent focus:outline-none focus:ring-0 p-0",
                         oninput: move |e| {
                             task_signal.set(e.value().clone());
                         },
                         value: task_signal.read().clone(),
                         placeholder: "Task"
                     }
-                    span {
-                        class: "pointer-events-none absolute start-2.5 top-0 -translate-y-1/2 bg-white p-0.5 text-xs text-gray-700 transition-all peer-placeholder-shown:top-1/2 peer-placeholder-shown:text-sm peer-focus:top-0 peer-focus:text-xs",
-                        "Task",
-                    }
                 }
                 fieldset {
-                    class: "flex flex-wrap gap-0 select-none",
+                    class: "inline-flex rounded-lg border border-gray-100 bg-gray-100 p-1 dark:border-gray-300 dark:bg-gray-300",
                     legend {
                         class: "sr-only",
                         "Frequency"
                     }
                     div {
                         label {
-                            class: "flex cursor-pointer transition items-center justify-center rounded-l-md border border-gray-100 bg-white dark:bg-blue-800 dark:text-gray-200 dark:border-blue-800 px-3 py-3 text-gray-900 hover:border-blue-500 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-500 has-[:checked]:text-white",
+                            class: "transition cursor-pointer inline-block rounded-md px-4 py-2 text-sm text-gray-500 hover:text-gray-700 focus:relative hover:border-purple-500 has-[:checked]:border-purple-500 has-[:checked]:bg-purple-500 has-[:checked]:text-white focus:bg-purple-500 focus:text-gray-700 focus:border-purple-500 focus:outline-none focus:ring dark:border-gray-300 dark:bg-gray-300",
                             input {
                                 class: "sr-only",
                                 name: "frequency",
@@ -337,7 +307,7 @@ fn StreakForm() -> Element {
                     }
                     div {
                         label {
-                            class: "flex cursor-pointer transition items-center justify-center rounded-r-md border border-gray-100 bg-white dark:bg-blue-800 px-3 py-3 text-gray-900 dark:text-gray-200 dark:border-blue-800 hover:border-blue-500 has-[:checked]:border-blue-500 has-[:checked]:bg-blue-500 has-[:checked]:text-white",
+                            class: "transition cursor-pointer inline-block rounded-md px-4 py-2 text-sm text-gray-500 hover:text-gray-700 focus:relative hover:border-purple-500 has-[:checked]:border-purple-500 has-[:checked]:bg-purple-500 has-[:checked]:text-white focus:bg-purple-500 focus:text-gray-700 focus:border-purple-500 focus:outline-none focus:ring dark:border-gray-300 dark:bg-gray-300",
                             input {
                                 class: "sr-only",
                                 name: "frequency",
@@ -356,7 +326,7 @@ fn StreakForm() -> Element {
                 }
 
                 button {
-                    class: "inline-block rounded-md border border-gray-100 bg-blue-200 transition px-6 text-sm font-medium text-gray-900 hover:border-gray-200 hover:bg-blue-500 hover:text-white focus:outline-none focus:ring active:text-white cursor-pointer",
+                    class: "transition cursor-pointer inline-block rounded-lg px-4 leading-tight text-sm font-medium text-gray-500 bg-gray-100 border border-gray-100 hover:border-purple-500 hover:bg-purple-500 hover:text-gray-700 focus:bg-purple-500 focus:text-white focus:border-purple-500 focus:outline-none focus:ring dark:bg-gray-300",
                     type: "submit",
                     "Add"
                 }
@@ -372,7 +342,7 @@ fn TableHeader(sort_by_field: SortByField, text: String) -> Element {
 
     rsx! {
         th {
-            class: "min-w-fit text-pretty cursor-pointer select-none border-x border-gray-200",
+            class: "min-w-fit text-pretty cursor-pointer select-none odd:bg-gray-100 odd:dark:bg-gray-400 text-gray-900",
             onclick: move |_| {
                 if state.read().sort_by_field == sort_by_field {
                     direction = match state.read().sort_by_direction {
@@ -410,16 +380,16 @@ fn StreakTable() -> Element {
 
     rsx! {
         div {
-            class: "overflow-hidden border-1 border-gray-200 rounded-lg",
+            class: "overflow-hidden border-1 border-gray-300 rounded-lg dark:border-gray-500",
             table {
-                class: "min-w-full divide-y-2 divide-gray-200 bg-white text-sm",
+                class: "min-w-full divide-y-2 divide-gray-200 bg-white text-sm dark:bg-gray-300 dark:divide-gray-500",
                 thead {
-                    class: "bg-gray-300 select-none",
+                    class: "bg-gray-300 select-none dark:bg-gray-500",
                     tr {
-                        td { class: "border-x border-gray-200", colspan: 3 }
-                        th { class: "border-x border-b border-gray-200", colspan: 2, "Check-ins" }
-                        th { class: "border-x border-b border-gray-200", colspan: 2, "Streaks" }
-                        td { class: "border-x border-gray-200", colspan: "*" }
+                        td { colspan: 3 }
+                        th { colspan: 2, "Check-ins" }
+                        th { colspan: 2, "Streaks" }
+                        td { colspan: "*" }
                     }
                     TableHeader { sort_by_field: SortByField::Task, text: "Task" }
                     TableHeader { sort_by_field: SortByField::Status, text: "Status" }
@@ -428,7 +398,7 @@ fn StreakTable() -> Element {
                     TableHeader { sort_by_field: SortByField::TotalCheckins, text: "Total" }
                     TableHeader { sort_by_field: SortByField::CurrentStreak, text: "Current" }
                     TableHeader { sort_by_field: SortByField::LongestStreak, text: "Longest" }
-                    th { class: "border-x border-gray-200", "Tools" }
+                    th { class: "border-x border-gray-200 dark:border-gray-500 odd:dark:bg-gray-400 odd:bg-gray-100 text-gray-900", "Tools" }
                 }
                 StreakTableBody {}
             }
@@ -497,7 +467,7 @@ fn StreakTableRow(mut streak: Streak) -> Element {
 
     rsx! {
         tr {
-            class: "text-center odd:bg-gray-50",
+            class: "text-center even:bg-gray-300 even:dark:bg-gray-400 odd:bg-gray-100 odd:dark:bg-gray-600 odd:dark:text-gray-300",
             td {
                 class: "text-left pl-2",
                 "{streak.task}"
@@ -564,7 +534,7 @@ fn DeleteModal() -> Element {
             open: modal_signal.read().clone().is_some(),
             class: "relative z-10",
             role: "confirm",
-            div { class: "fixed inset-0 bg-blue-500/25 transition-opacity backdrop-blur-sm backdrop-grayscale" }
+            div { class: "fixed inset-0 bg-blue-700/25 transition-opacity backdrop-blur-sm" }
             div {
                 class: "fixed inset-0 z-10 w-screen h-screen overflow-y-hidden",
                 div {
@@ -572,20 +542,20 @@ fn DeleteModal() -> Element {
                     div {
                         class: "relative transform overflow-hidden p-2 rounded-xl",
                         div {
-                            class: "mx-auto bg-white border border-blue-500 rounded-xl p-2",
+                            class: "mx-auto bg-white border border-purple-500 rounded-xl p-2 dark:bg-gray-400",
                             div {
                                 class: "flex-1",
                                 h1 {
-                                    class: "block text-2xl mb-4 font-medium text-gray-900 border-b-1 border-gray-400",
+                                    class: "block text-2xl mb-4 font-medium text-gray-900 border-b-1 border-gray-400 dark:border-purple-500",
                                     "Delete this streak?"
                                 }
                                 blockquote {
-                                    class: "px-2 italic",
+                                    class: "px-2 italic bg-gray-200",
                                     "{streak.task}"
                                 }
                             }
                             div {
-                                class: "flex flex-col justify-center gap-4 mt-4 divide-y divide-gray-400",
+                                class: "flex flex-col justify-center gap-4 mt-4 divide-y divide-gray-400 dark:divide-purple-500",
                                 button {
                                     r#type: "button",
                                     class: "cursor-pointer select-none pb-2 hover:font-bold",
