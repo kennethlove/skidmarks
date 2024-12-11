@@ -1022,6 +1022,12 @@
   .text-indigo-600 {
     color: var(--color-indigo-600);
   }
+  .text-purple-200 {
+    color: var(--color-purple-200);
+  }
+  .text-purple-400 {
+    color: var(--color-purple-400);
+  }
   .text-purple-900 {
     color: var(--color-purple-900);
   }
@@ -1070,6 +1076,14 @@
     transition-property: opacity;
     transition-timing-function: var(--tw-ease, var(--default-transition-timing-function));
     transition-duration: var(--tw-duration, var(--default-transition-duration));
+  }
+  .duration-75 {
+    --tw-duration: 75ms;
+    transition-duration: 75ms;
+  }
+  .duration-150 {
+    --tw-duration: 150ms;
+    transition-duration: 150ms;
   }
   .select-none {
     -webkit-user-select: none;
@@ -1338,6 +1352,16 @@
   .sm\:relative {
     @media (width >= 40rem) {
       position: relative;
+    }
+  }
+  .sm\:top-0 {
+    @media (width >= 40rem) {
+      top: calc(var(--spacing) * 0);
+    }
+  }
+  .sm\:top-2 {
+    @media (width >= 40rem) {
+      top: calc(var(--spacing) * 2);
     }
   }
   .sm\:top-4 {
@@ -1669,6 +1693,11 @@
       color: var(--color-blue-200);
     }
   }
+  .dark\:text-gray-100 {
+    &:where(.dark, .dark *) {
+      color: var(--color-gray-100);
+    }
+  }
   .dark\:text-gray-200 {
     &:where(.dark, .dark *) {
       color: var(--color-gray-200);
@@ -1874,6 +1903,7 @@ html, body, #main {
       --tw-backdrop-opacity: initial;
       --tw-backdrop-saturate: initial;
       --tw-backdrop-sepia: initial;
+      --tw-duration: initial;
     }
   }
 }
@@ -2132,6 +2162,10 @@ html, body, #main {
   inherits: false;
 }
 @property --tw-backdrop-sepia {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-duration {
   syntax: "*";
   inherits: false;
 }

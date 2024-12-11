@@ -118,7 +118,7 @@ fn App() -> Element {
     });
 
     let mut classes =
-        "bg-gradient-to-br from-purple-300 to-blue-900 dark:from-indigo-700 dark:to-purple-900 min-h-full min-h-screen"
+        "bg-gradient-to-br from-purple-300 to-blue-900 dark:from-indigo-700 dark:to-purple-900 min-h-full min-h-screen transition duration-150"
             .to_string();
     if state.read().dark_mode {
         classes.push_str(" dark")
@@ -139,7 +139,7 @@ fn App() -> Element {
                         "Skidmarks"
                     }
                     button {
-                        class: "cursor-pointer sm:absolute sm:right-0 sm:top-5",
+                        class: "cursor-pointer sm:absolute sm:right-0 sm:top-2",
                         onclick: move |_| {
                             let dark = state.read().dark_mode.clone();
                             match dark {
@@ -154,7 +154,7 @@ fn App() -> Element {
                             };
                         },
                         span {
-                            class: "material-symbols-rounded dark:text-white",
+                            class: "material-symbols-rounded dark:text-blue-200 text-purple-900",
                             "contrast"
                         }
                     }
