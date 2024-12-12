@@ -1,13 +1,15 @@
 [package]
-name = "web"
+name = "fullstack"
 version = "0.1.0"
 authors = ["Kenneth Love <11908+kennethlove@users.noreply.github.com>"]
 edition = "2021"
 
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
 [dependencies]
-dioxus = { version = "0.6", features = ["web"] }
+dioxus = { version = "0.6", features = ["fullstack"] }
 dioxus-logger = "0.6"
-gloo-storage = "0.3.0"
+reqwest = { version = "0.12.9", features = ["json"] }
 serde = { version = "1.0.215", features = ["derive"] }
 
 streak = { path = "../streak" }

@@ -1,0 +1,13 @@
+[package]
+name = "components"
+version = "0.1.0"
+edition = "2021"
+description = "Common utilities for skidmarks"
+repository = "https://github.com/kennethlove/skidmarks"
+
+[dependencies]
+serde = { version = "1.0.204", features = ["derive"] }
+uuid = { version = "1.11.0", features = ["serde", "v4", "fast-rng"] }
+shared = { path = "../shared" }
+streak = { path = "../streak" }
+dioxus = "0.6.0"

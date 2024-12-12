@@ -1,5 +1,5 @@
 [workspace]
-members = ["api", "cli", "gui", "shared", "streak", "tui", "web", "web"]
+members = ["api", "cli", "fullstack", "gui", "shared", "streak", "tui", "web"]
 resolver = "2"
 
 [profile]
