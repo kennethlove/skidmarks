@@ -215,8 +215,8 @@ impl Default for Streak {
 
 pub fn sort_streaks(
     mut streaks: Vec<Streak>,
-    sort_field: SortByField,
-    sort_direction: SortByDirection,
+    sort_field: &SortByField,
+    sort_direction: &SortByDirection,
 ) -> Vec<Streak> {
     match (sort_field, sort_direction) {
         (SortByField::Task, SortByDirection::Ascending) => {
@@ -265,7 +265,7 @@ pub fn sort_streaks(
     streaks
 }
 
-pub fn filter_by_status(streaks: Vec<Streak>, status: FilterByStatus) -> Vec<Streak> {
+pub fn filter_by_status(streaks: Vec<Streak>, status: &FilterByStatus) -> Vec<Streak> {
     match status {
         FilterByStatus::All => streaks,
         FilterByStatus::Done => streaks

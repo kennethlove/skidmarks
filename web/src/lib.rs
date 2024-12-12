@@ -6,7 +6,7 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use streak::filtering::FilterByStatus;
 use streak::sorting::{SortByDirection, SortByField};
-use streak::Streak;
+use streak::{filter_by_status, sort_streaks, Streak};
 use uuid::Uuid;
 
 /// A persistent storage hook that can be used to store data across application reloads.
@@ -62,7 +62,8 @@ impl<T: Serialize + DeserializeOwned + Clone + 'static> UsePersistent<T> {
     }
 }
 
-fn get_saved_state(storage: UsePersistent<AppState>) -> AppState { //Signal<AppState> {
+fn get_saved_state(storage: UsePersistent<AppState>) -> AppState {
+    //Signal<AppState> {
     let mut state = AppState::default();
     if !storage.get().streaks.is_empty() {
         state = storage.get();
@@ -97,22 +98,32 @@ impl AppState {
         self.dark_mode = !self.dark_mode;
     }
 
+    fn get_sorted_streaks(&self) -> Vec<Streak> {
+        let streaks = self.streaks.clone();
+        let streaks = sort_streaks(streaks, &self.sort_by_field, &self.sort_by_direction);
+        let streaks = filter_by_status(streaks, &self.filter_by);
+        streaks
+    }
+
     fn add_streak(&mut self, streak: Streak) {
         self.streaks.push(streak);
     }
 
-    fn check_in_streak(&mut self, streak: &Streak) {
+    fn check_in_streak(&mut self, streak: &Streak) -> Streak {
+        let mut streak = streak.clone();
+        streak.checkin();
+        streak
+    }
+
+    fn update_streak(&mut self, streak: &Streak) -> Vec<Streak> {
         let mut streaks = self.streaks.clone();
         let Some(index) = streaks.iter().position(|s| s.id == streak.id) else {
-            return;
+            return streaks;
         };
 
-        if let Some(streak) = streaks.get_mut(index) {
-            streak.checkin();
-            streaks[index] = streak.clone();
-        } else {
-            return;
-        }
+        streaks[index] = streak.clone();
+        dioxus_logger::tracing::info!("streak added {:?}", &streak);
+        streaks
     }
 
     fn remove_streak(&self, streak_id: Uuid) {

@@ -6,8 +6,8 @@ use streak::Streak;
 #[component]
 pub fn App() -> Element {
     let mut storage = use_persistent("skidmarks", || AppState::default());
+    let streak_signal = use_context_provider(|| Signal::new(storage.get().streaks.clone()));
 
-    let filter = storage.get().filter_by.clone();
     let dark_mode: Signal<bool> = Signal::new(storage.get().dark_mode);
 
     let modal_state: Signal<Option<Streak>> = Signal::new(None);
@@ -39,7 +39,7 @@ pub fn App() -> Element {
                         class: "cursor-pointer sm:absolute sm:right-0 sm:top-2",
                         onclick: move |_| {
                             let mut state = storage.get();
-                            state.dark_mode = !state.dark_mode;
+                            state.toggle_dark_mode();
                             storage.set(state);
                         },
                         span {
@@ -51,10 +51,11 @@ pub fn App() -> Element {
                 }
                 div {
                     class: "flex flex-col lg:flex-row flex-wrap lg:flex-nowrap gap-3 py-4 lg:justify-center",
-                    // StreakForm {}
-                    // StreakFilters {}
+                    StreakForm {}
+                    StreakFilters {}
                 }
-                // StreakTable {}
+
+                StreakTable {}
 
                 footer {
                     class: "mt-4",

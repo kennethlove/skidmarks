@@ -5,8 +5,8 @@ use streak::{Frequency, Streak};
 
 #[component]
 pub fn StreakForm() -> Element {
-    // let mut state = use_context::<Signal<AppState>>();
-    // let mut storage = use_persistent("skidmarks", || state.read().clone());
+    let mut storage = use_persistent("skidmarks", || AppState::default());
+    let mut streak_signal: Signal<Vec<Streak>> = use_context();
 
     let mut task_signal = use_signal(|| String::default());
     let mut frequency_signal = use_signal(|| Frequency::Daily);
@@ -28,8 +28,10 @@ pub fn StreakForm() -> Element {
                         Frequency::Weekly => new_streak = Streak::new_weekly(task.clone())
                     }
 
-                    // state.write().streaks.push(new_streak);
-                    // storage.set(state.read().clone());
+                    let mut state = storage.get();
+                    state.streaks.push(new_streak.clone());
+                    streak_signal.write().push(new_streak.clone());
+                    storage.set(state);
 
                     task_signal.set(String::from(""));
                     frequency_signal.set(Frequency::Daily);

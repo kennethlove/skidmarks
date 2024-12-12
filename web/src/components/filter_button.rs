@@ -1,6 +1,8 @@
-use crate::AppState;
+use crate::{use_persistent, AppState};
 use dioxus::prelude::*;
+use std::clone::Clone;
 use streak::filtering::FilterByStatus;
+use streak::Streak;
 
 #[derive(Debug, Clone, Props, PartialEq)]
 pub struct FilterButtonProps {
@@ -10,8 +12,8 @@ pub struct FilterButtonProps {
 
 #[component]
 pub fn FilterButton(props: FilterButtonProps) -> Element {
-    let mut state = use_context::<Signal<AppState>>();
-    let filter_by = state.read().filter_by.clone();
+    let mut storage = use_persistent("skidmarks", || AppState::default());
+    let mut streak_signal: Signal<Vec<Streak>> = use_context();
 
     rsx! {
         div {
@@ -21,8 +23,13 @@ pub fn FilterButton(props: FilterButtonProps) -> Element {
                     class: "sr-only",
                     name: "filter",
                     r#type: "radio",
-                    checked: filter_by == props.button_status.clone(),
-                    onclick: move |e| { state.write().filter_by = props.button_status.clone(); },
+                    checked: storage.get().filter_by == props.button_status.clone(),
+                    onclick: move |e| {
+                        let mut state = storage.get();
+                        state.filter_by = props.button_status.clone();
+                        storage.set(state);
+                        streak_signal.set(storage.get().get_sorted_streaks());
+                    },
                 }
                 p {
                     class: "text-sm font-medium",

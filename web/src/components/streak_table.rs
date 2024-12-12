@@ -6,23 +6,26 @@ use streak::{filter_by_status, sort_streaks, Status, Streak};
 
 #[component]
 pub fn TableHeader(sort_by_field: SortByField, text: String) -> Element {
-    // let mut direction = state.read().sort_by_direction.clone();
+    let mut storage = use_persistent("skidmarks", || AppState::default());
+    let mut streak_signal: Signal<Vec<Streak>> = use_context();
+    let mut direction = storage.get().sort_by_direction.clone();
 
     rsx! {
         th {
             class: "relative cursor-pointer select-none text-purple-900 dark:text-teal-200",
             scope: "col",
             onclick: move |_| {
-                // if storage.get().sort_by_field == sort_by_field {
-                //     direction = match storage.get().sort_by_direction {
-                //         SortByDirection::Ascending => SortByDirection::Descending,
-                //         SortByDirection::Descending => SortByDirection::Ascending,
-                //     };
-                // }
-                // state.write().sort_by_field = sort_by_field.clone();
-                // state.write().sort_by_direction = direction.clone();
-                //
-                // storage.set(state.read().clone());
+                direction = match storage.get().sort_by_direction {
+                    SortByDirection::Ascending => SortByDirection::Descending,
+                    SortByDirection::Descending => SortByDirection::Ascending,
+                };
+
+                let mut state = storage.get();
+                state.sort_by_field = sort_by_field.clone();
+                state.sort_by_direction = direction.clone();
+                storage.set(state);
+
+                streak_signal.set(storage.get().get_sorted_streaks());
             },
             span {
                 class: "align-middle pr-5",
@@ -31,24 +34,22 @@ pub fn TableHeader(sort_by_field: SortByField, text: String) -> Element {
             }
             span {
                 class: "absolute inset-y-0 right-0 top-0.5",
-                // if state.read().sort_by_field == sort_by_field {
-                //     match state.read().sort_by_direction {
-                //         SortByDirection::Ascending => rsx! {
-                //             span {
-                //                 class: "material-symbols-rounded",
-                //                 title: "Click to sort descending",
-                //                 "arrow_upward_alt"
-                //             }
-                //         },
-                //         SortByDirection::Descending => rsx! {
-                //             span {
-                //                 class: "material-symbols-rounded",
-                //                 title: "Click to sort ascending",
-                //                 "arrow_downward_alt"
-                //             }
-                //         },
-                //     }
-                // }
+                match storage.get().sort_by_direction {
+                    SortByDirection::Ascending => rsx! {
+                        span {
+                            class: "material-symbols-rounded",
+                            title: "Click to sort descending",
+                            "arrow_upward_alt"
+                        }
+                    },
+                    SortByDirection::Descending => rsx! {
+                        span {
+                            class: "material-symbols-rounded",
+                            title: "Click to sort ascending",
+                            "arrow_downward_alt"
+                        }
+                    },
+                }
             }
         }
     }
@@ -94,24 +95,13 @@ pub fn StreakTable() -> Element {
 
 #[component]
 pub fn StreakTableBody() -> Element {
-    // let storage = use_persistent("skidmarks", || AppState::default());
-    // let mut state = use_context::<Signal<AppState>>();
-    //
-    // let filter_field = state.read().filter_by.clone();
-    // let sort_field = state.read().sort_by_field.clone();
-    // let sort_direction = state.read().sort_by_direction.clone();
-    // let mut streaks = state.read().streaks.clone();
-    //
-    // dioxus_logger::tracing::info!("{:?}", state);
-    // dioxus_logger::tracing::info!("{:?}", storage.get());
-    //
-    // streaks = sort_streaks(streaks.clone(), sort_field, sort_direction);
-    // streaks = filter_by_status(streaks.clone(), filter_field);
+    let mut storage = use_persistent("skidmarks", || AppState::default());
+    let streak_signal: Signal<Vec<Streak>> = use_context();
+    let streaks = storage.get().get_sorted_streaks();
 
-    let streaks: Vec<Streak> = vec![];
     rsx! {
         tbody {
-            for streak in streaks {
+            for streak in streak_signal.read().clone() {
                 StreakTableRow { streak: streak.clone() }
             }
         }
@@ -120,7 +110,6 @@ pub fn StreakTableBody() -> Element {
 
 #[component]
 pub fn StreakTableRow(mut streak: Streak) -> Element {
-    let mut state = use_context::<Signal<AppState>>();
     let mut streak_signal = Signal::new(streak.clone());
 
     let last_checkin = match streak_signal.read().last_checkin {
@@ -175,7 +164,7 @@ pub fn StreakTableRow(mut streak: Streak) -> Element {
             td {
                 class: "flex flex-row flex-nowrap",
                 CheckInButton { streak: streak.clone() }
-                DeleteButton { streak: streak.clone() }
+                // DeleteButton { streak: streak.clone() }
             }
         }
     }

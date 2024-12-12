@@ -1,13 +1,10 @@
 use crate::components::FilterButton;
-use crate::AppState;
+use crate::{use_persistent, AppState};
 use dioxus::prelude::*;
 use streak::filtering::FilterByStatus;
 
 #[component]
 pub fn StreakFilters() -> Element {
-    // let mut state = use_context::<Signal<AppState>>();
-    // let filter_by = state.read().filter_by.clone();
-
     rsx! {
         div {
             class: "lg:pl-4 self-center",
