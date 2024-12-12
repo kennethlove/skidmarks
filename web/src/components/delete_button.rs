@@ -4,7 +4,6 @@ use streak::Streak;
 
 #[component]
 pub fn DeleteButton(streak: Streak) -> Element {
-    let state = use_context::<Signal<AppState>>();
     let mut modal_signal: Signal<Option<Streak>> = use_context();
     rsx! {
         button {

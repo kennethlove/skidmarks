@@ -71,7 +71,7 @@ pub fn App() -> Element {
                     }
                 }
             }
-            // DeleteModal {}
+            DeleteModal {}
         }
     }
 }

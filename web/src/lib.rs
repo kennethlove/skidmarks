@@ -122,19 +122,19 @@ impl AppState {
         };
 
         streaks[index] = streak.clone();
-        dioxus_logger::tracing::info!("streak added {:?}", &streak);
         streaks
     }
 
-    fn remove_streak(&self, streak_id: Uuid) {
-        todo!();
-        // let _ = use_resource(move || async move { delete_streak(streak_id).await });
-        // let mut state = use_context::<Signal<AppState>>();
-        // let streaks = state.read().streaks.clone();
-        // use_effect(move || {
-        //     let mut streaks = streaks.clone();
-        //     streaks.retain(|s| s.id != streak_id);
-        //     state.write().streaks = streaks
-        // });
+    fn remove_streak(&self, streak: &Streak) {
+        let mut storage = use_persistent("skidmarks", || AppState::default());
+        let mut streak_signal: Signal<Vec<Streak>> = use_context();
+
+        let mut streaks = storage.get().streaks.clone();
+        streaks.retain(|s| s.id != streak.id);
+
+        let mut state = storage.get();
+        state.streaks = streaks.clone();
+        storage.set(state);
+        streak_signal.set(streaks.clone());
     }
 }

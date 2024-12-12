@@ -1,10 +1,11 @@
-use crate::AppState;
+use crate::{use_persistent, AppState};
 use dioxus::prelude::*;
 use streak::Streak;
 
 #[component]
 pub fn DeleteModal() -> Element {
-    let state = use_context::<Signal<AppState>>();
+    let mut storage = use_persistent("skidmarks", || AppState::default());
+
     let mut streak: Streak = Streak::default();
     let mut modal_signal: Signal<Option<Streak>> = use_context();
 
@@ -43,7 +44,7 @@ pub fn DeleteModal() -> Element {
                                     r#type: "button",
                                     class: "rounded-t-md cursor-pointer select-none py-2 hover:font-bold focus:font-bold hover:bg-purple-200 focus:bg-purple-200 focus:outline-none dark:hover:text-purple-200 dark:hover:bg-purple-500 dark:focus:bg-purple-900",
                                     onclick: move |e| {
-                                        state.read().remove_streak(streak.id);
+                                        storage.get().remove_streak(&streak);
                                         modal_signal.set(None);
                                     },
                                     span {

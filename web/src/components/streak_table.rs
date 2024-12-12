@@ -164,7 +164,7 @@ pub fn StreakTableRow(mut streak: Streak) -> Element {
             td {
                 class: "flex flex-row flex-nowrap",
                 CheckInButton { streak: streak.clone() }
-                // DeleteButton { streak: streak.clone() }
+                DeleteButton { streak: streak.clone() }
             }
         }
     }
