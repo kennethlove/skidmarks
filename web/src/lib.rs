@@ -105,10 +105,6 @@ impl AppState {
         streaks
     }
 
-    fn add_streak(&mut self, streak: Streak) {
-        self.streaks.push(streak);
-    }
-
     fn check_in_streak(&mut self, streak: &Streak) -> Streak {
         let mut streak = streak.clone();
         streak.checkin();

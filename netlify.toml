@@ -1,0 +1,3 @@
+[build]
+command = "rustup toolchain install stable && rustup default stable && dx build --release --platform web"
+publish = "web/dist/"
