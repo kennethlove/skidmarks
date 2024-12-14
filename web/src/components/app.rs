@@ -73,5 +73,10 @@ pub fn App() -> Element {
             }
             DeleteModal {}
         }
+        script {
+            src: "//gc.zgo.at/count.js",
+            "data-goatcounter": "https://skidmarks.goatcounter.com/com",
+            async: true,
+        }
     }
 }
