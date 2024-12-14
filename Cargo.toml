@@ -1,36 +1,15 @@
-[package]
-name = "skidmarks"
-version = "0.1.9"
-edition = "2021"
-description = "A simple CLI for tracking streaks"
-repository = "https://github.com/kennethlove/skidmarks"
-readme = "README.md"
-license = "Apache-2.0"
-keywords = ["cli", "streaks", "habits", "tui", "gui"]
-categories = ["command-line-utilities"]
+[workspace]
+members = ["api", "cli", "fullstack", "gui", "shared", "streak", "tui", "web"]
+resolver = "2"
 
-[dependencies]
-ansi_term = "0.12.1"
-assert_cmd = "2.0.15"
-assert_fs = "1.1.2"
-catppuccin = { version = "2.4.0", features = ["ansi-term", "css-colors", "ratatui"] }
-chrono = { version = "0.4.38", features = ["serde"] }
-clap = { version = "4.5.11", features = ["derive"] }
-console = "0.15.8"
-dioxus = { version = "0.6.0-alpha.2", features = [
-    "desktop",
-    "signals",
-] }
-dirs = "5.0.1"
-lazy_static = "1.5.0"
-ratatui = "0.28.1-alpha.1"
-ron = "0.8.1"
-serde = { version = "1.0.204", features = ["derive"] }
-tabled = { version = "0.15.0", features = ["ansi"] }
-term_size = "0.3.2"
-textwrap = { version = "0.16.1" }
-unicode-width = "0.1.13"
-uuid = { version = "1.10.0", features = ["serde", "v4", "fast-rng"] }
+[profile]
 
-[dev-dependencies]
-rstest = "0.22.0"
+[profile.wasm-dev]
+inherits = "dev"
+opt-level = 1
+
+[profile.server-dev]
+inherits = "dev"
+
+[profile.android-dev]
+inherits = "dev"

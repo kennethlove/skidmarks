@@ -1,0 +1,27 @@
+[package]
+name = "skidmarks-api"
+version = "0.1.0"
+edition = "2021"
+description = "HTTP API for tracking streaks"
+repository = "https://github.com/kennethlove/skidmarks"
+readme = "README.md"
+license = "Apache-2.0"
+keywords = ["streaks", "habits", "http", "api"]
+categories = ["web-programming::http-server"]
+
+[dependencies]
+axum = { version = "0.8.0-alpha.1", features = ["macros"] }
+serde = { version = "1.0.204", features = ["derive"] }
+tower = { version = "0.5.1", features = ["util", "timeout"] }
+tower-http = { version = "0.6.2", features = ["add-extension", "cors", "trace"] }
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+tokio = { version = "1.41.1", features = ["full"] }
+tracing = "0.1.41"
+uuid = { version = "1.11.0", features = ["v4", "serde"] }
+
+shared = { path = "../shared" }
+streak = { path = "../streak" }
+
+[[bin]]
+name = "skidmarks-api"
+path = "src/main.rs"

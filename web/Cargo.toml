@@ -1,0 +1,25 @@
+[package]
+name = "web"
+version = "0.1.0"
+authors = ["Kenneth Love <11908+kennethlove@users.noreply.github.com>"]
+edition = "2021"
+
+[dependencies]
+dioxus = { version = "0.6", features = ["web"] }
+dioxus-logger = "0.6"
+gloo-storage = "0.3.0"
+serde = { version = "1.0.215", features = ["derive"] }
+
+streak = { path = "../streak" }
+uuid = { version = "1.11.0", features = ["v4"] }
+
+[dependencies.getrandom]
+version = "0.2.15"
+features = ["js"]
+
+[dependencies.wasm-bindgen]
+version = "0.2.99"
+
+[features]
+default = ["web"]
+web = ["dioxus/web"]

@@ -1,0 +1,20 @@
+[package]
+name = "skidmarks-gui"
+version = "0.1.0"
+edition = "2021"
+description = "A GUI for tracking streaks"
+repository = "https://github.com/kennethlove/skidmarks"
+readme = "README.md"
+license = "Apache-2.0"
+keywords = ["streaks", "habits", "gui"]
+
+[dependencies]
+dioxus = { version = "0.6.0-rc.0", features = ["desktop", "signals"] }
+uuid = { version = "1.11.0", features = ["serde", "v4", "fast-rng"] }
+
+shared = { path = "../shared" }
+streak = { path = "../streak" }
+
+[[bin]]
+name = "skidmarks-gui"
+path = "src/main.rs"

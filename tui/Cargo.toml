@@ -1,0 +1,25 @@
+[package]
+name = "skidmarks-tui"
+version = "0.1.0"
+edition = "2021"
+description = "A TUI for tracking streaks"
+repository = "https://github.com/kennethlove/skidmarks"
+readme = "README.md"
+license = "Apache-2.0"
+keywords = ["streaks", "habits", "tui"]
+categories = ["command-line-utilities"]
+
+[dependencies]
+ratatui = "0.29.0"
+term_size = "0.3.2"
+textwrap = { version = "0.16.1" }
+
+shared = { path = "../shared" }
+streak = { path = "../streak" }
+
+[dependencies.crossterm]
+version = "0.28.1"
+
+[[bin]]
+name = "skidmarks-tui"
+path = "src/main.rs"

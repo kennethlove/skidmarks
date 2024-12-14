@@ -1,0 +1,3 @@
+[build]
+command = "cargo install dioxus-cli && cd web && dx build --release --platform web"
+publish = "dist/"
