@@ -32,7 +32,7 @@ pub fn App() -> Element {
                 div {
                     class: "flex flex-row flex-nowrap justify-between sm:justify-center relative",
                     h1 {
-                        class: "text-3xl font-bold text-purple-900 dark:text-teal-500",
+                        class: "text-3xl font-bold text-purple-899 dark:text-teal-500",
                         "Skidmarks"
                     }
                     button {

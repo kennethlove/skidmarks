@@ -7,7 +7,6 @@ use serde::{Deserialize, Serialize};
 use streak::filtering::FilterByStatus;
 use streak::sorting::{SortByDirection, SortByField};
 use streak::{filter_by_status, sort_streaks, Streak};
-use uuid::Uuid;
 
 /// A persistent storage hook that can be used to store data across application reloads.
 #[allow(clippy::needless_return)]

@@ -2,10 +2,12 @@ pub mod filtering;
 pub mod sorting;
 
 use std::fmt::Display;
-
+use std::str::FromStr;
 #[allow(unused_imports)]
 use chrono::{Local, NaiveDate};
+use clap::builder::TypedValueParser;
 use clap::ValueEnum;
+use rusqlite::types::{FromSql, FromSqlError, ValueRef};
 use filtering::FilterByStatus;
 use serde::{Deserialize, Serialize};
 use sorting::{SortByDirection, SortByField};
@@ -29,15 +31,25 @@ impl Display for Frequency {
     }
 }
 
-impl Frequency {
-    pub fn from_str(s: &str) -> Self {
-        match s {
+impl FromStr for Frequency {
+    type Err = ();
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let s = match s {
             "daily" => Frequency::Daily,
             "weekly" => Frequency::Weekly,
-            _ => panic!("Invalid frequency"),
-        }
+            _ => { return Err(()); }
+        };
+        Ok(s)
     }
+}
 
+impl FromSql for Frequency {
+    fn column_result(value: ValueRef) -> Result<Frequency, FromSqlError> {
+        Ok(value.as_str().map(|v| <Frequency as FromStr>::from_str(v).unwrap()).unwrap())
+    }
+}
+
+impl Frequency {
     pub fn as_str(&self) -> &str {
         match self {
             Frequency::Daily => "daily",
@@ -46,10 +58,7 @@ impl Frequency {
     }
 
     pub fn to_string(&self) -> String {
-        match self {
-            Frequency::Daily => "daily".to_string(),
-            Frequency::Weekly => "weekly".to_string(),
-        }
+        self.as_str().to_string()
     }
 }
 
