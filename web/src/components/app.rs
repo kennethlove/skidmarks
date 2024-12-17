@@ -1,4 +1,4 @@
-use crate::components::{DeleteModal, StreakFilters, StreakForm, StreakTable};
+use crate::components::{DeleteModal, StreakFilters, StreakForm, StreakList, StreakTable};
 use crate::{get_saved_state, use_persistent, AppState};
 use dioxus::prelude::*;
 use streak::Streak;
@@ -14,7 +14,7 @@ pub fn App() -> Element {
     let modal_state = use_context_provider(|| modal_state);
 
     let mut classes =
-        "bg-gradient-to-br from-pink-300 to-indigo-300 dark:from-emerald-950 dark:to-purple-900 min-h-full min-h-screen transition duration-150 selection:text-pink-200 selection:bg-purple-500 dark:selection:bg-emerald-200 dark:selection:text-purple-800"
+        "bg-fixed bg-gradient-to-br from-pink-300 to-indigo-300 dark:from-emerald-950 dark:to-purple-900 transition duration-150 selection:text-pink-200 selection:bg-purple-500 dark:selection:bg-teal-200 dark:selection:text-purple-800"
             .to_string();
 
     if *dark_mode.read() {
@@ -28,7 +28,7 @@ pub fn App() -> Element {
         div {
             class: classes,
             div {
-                class: "container mx-auto w-full sm:w-7/8 lg:w-10/12 p-2",
+                class: "container flex flex-col gap-3 mx-auto min-h-screen w-full sm:w-7/8 lg:w-10/12 p-2",
                 div {
                     class: "flex flex-row flex-nowrap shrink md:justify-between gap-2 md:gap-0 items-center relative",
                     h1 {
@@ -50,15 +50,16 @@ pub fn App() -> Element {
                     }
                 }
                 div {
-                    class: "flex flex-col lg:flex-row flex-wrap lg:flex-nowrap gap-3 py-4 lg:justify-center divide-y divide-pink-50 dark:divide-teal-500 lg:divide-y-0 lg:divide-x-1",
-                    StreakForm {}
-                    StreakFilters {}
+                    class: "flex flex-col gap-3",
+                    div {
+                        class: "flex flex-col grow-0 lg:flex-row flex-wrap lg:flex-nowrap gap-3 lg:justify-center divide-y divide-pink-50 dark:divide-teal-500 lg:divide-y-0 lg:divide-x-1",
+                        StreakForm {}
+                        StreakFilters {}
+                    }
                 }
-
-                StreakTable {}
-
+                StreakList {}
                 footer {
-                    class: "mt-4",
+                    class: "",
                     p {
                         class: "text-center text-sm text-pink-50",
                         "Made with 💜 by "
