@@ -28,15 +28,15 @@ pub fn App() -> Element {
         div {
             class: classes,
             div {
-                class: "container mx-auto sm:w-7/8 lg:w-10/12 xs:w-full pt-5",
+                class: "container mx-auto w-full sm:w-7/8 lg:w-10/12 p-2",
                 div {
-                    class: "flex flex-row flex-nowrap justify-between sm:justify-center relative",
+                    class: "flex flex-row flex-nowrap shrink md:justify-between gap-2 md:gap-0 items-center relative",
                     h1 {
                         class: "text-3xl font-bold text-purple-900 dark:text-teal-500",
                         "Skidmarks"
                     }
                     button {
-                        class: "cursor-pointer sm:absolute sm:right-0 sm:top-2",
+                        class: "cursor-pointer absolute right-2 top-2 md:relative md:top-0 md:right-0 md:pt-2",// sm:absolute sm:right-16 sm:top-2",
                         onclick: move |_| {
                             let mut state = storage.get();
                             state.toggle_dark_mode();
@@ -50,7 +50,7 @@ pub fn App() -> Element {
                     }
                 }
                 div {
-                    class: "flex flex-col lg:flex-row flex-wrap lg:flex-nowrap gap-3 py-4 lg:justify-center",
+                    class: "flex flex-col lg:flex-row flex-wrap lg:flex-nowrap gap-3 py-4 lg:justify-center divide-y divide-pink-50 dark:divide-teal-500 lg:divide-y-0 lg:divide-x-1",
                     StreakForm {}
                     StreakFilters {}
                 }

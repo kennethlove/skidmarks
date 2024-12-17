@@ -13,9 +13,9 @@ pub fn StreakForm() -> Element {
 
     rsx! {
         div {
-            class: "lg:w-2/3 w-full",
+            class: "lg:w-2/3 w-full pb-3 lg:pb-0 lg:pr-3",
             form {
-                class: "flex flex-row lg:flex-nowrap gap-3 lg:content-between lg:justify-stretch xs:flex-col",
+                class: "flex flex-row flex-wrap xl:flex-nowrap gap-3 justify-center lg:content-between lg:justify-stretch",
                 onsubmit: move |e| {
                     let mut new_streak: Streak = Streak::default();
                     let task = task_signal.read().clone();
@@ -37,10 +37,10 @@ pub fn StreakForm() -> Element {
                     frequency_signal.set(Frequency::Daily);
                 },
                 label {
-                    class: "grow relative block overflow-hidden rounded-md border border-pink-100 dark:border-purple-100 focus-within:border-purple-500 focus-within:ring-1 focus-within:ring-purple-500 dark:bg-purple-200/75 bg-purple-50/75 focus-within:bg-pink-50 px-3 pt-1.5 transition dark:focus-within:border-purple-100 dark:focus-within:ring-purple-100",
-                    input {
-                        class: "peer h-8 border-none bg-transparent focus:border-transparent focus:outline-none focus:ring-0 p-0 w-full",
-                        r#type: "text",
+                    class: "grow w-full md:w-min relative block overflow-hidden rounded-md border border-pink-100 dark:border-purple-100 focus-within:border-purple-500 focus-within:ring-1 focus-within:ring-purple-500 dark:bg-purple-200/75 bg-purple-50/75 focus-within:bg-pink-50 px-3 pt-1.5 transition dark:focus-within:border-purple-100 dark:focus-within:ring-purple-100",
+                    textarea {
+                        class: "peer border-none bg-transparent focus:border-transparent focus:outline-0 focus:ring-0 p-0 w-full field-sizing-content",
+                        // r#type: "text",
                         name: "task",
                         oninput: move |e| {
                             task_signal.set(e.value().clone());
@@ -50,7 +50,7 @@ pub fn StreakForm() -> Element {
                     }
                 }
                 fieldset {
-                    class: "inline-flex rounded-lg border border-pink-100 bg-purple-50/75 p-1 dark:border-purple-100 dark:bg-purple-200/75 select-none",
+                    class: "inline-flex rounded-lg border border-pink-100 bg-purple-50/75 p-1 dark:border-purple-100 dark:bg-purple-200/75 select-none h-fit",
                     legend {
                         class: "sr-only",
                         "Frequency"
@@ -94,7 +94,7 @@ pub fn StreakForm() -> Element {
                 }
 
                 button {
-                    class: "transition cursor-pointer inline-block rounded-lg px-4 leading-tight text-sm font-medium text-purple-500 dark:text-purple-900 bg-purple-50/75 border border-pink-100 hover:border-purple-500 hover:bg-purple-500 hover:text-pink-100 focus:bg-purple-500 focus:text-pink-100 focus:border-purple-500 focus:outline-none focus:ring dark:bg-purple-200/75 dark:hover:bg-purple-900",
+                    class: "transition cursor-pointer inline-block rounded-lg px-5 py-3 leading-tight text-sm font-medium text-purple-500 dark:text-purple-900 bg-purple-50/75 border border-pink-100 hover:border-purple-500 hover:bg-purple-500 hover:text-pink-100 focus:bg-purple-500 focus:text-pink-100 focus:border-purple-500 focus:outline-none focus:ring dark:bg-purple-200/75 dark:hover:bg-purple-900 h-fit",
                     r#type: "submit",
                     "Add"
                 }

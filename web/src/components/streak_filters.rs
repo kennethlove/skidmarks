@@ -7,7 +7,7 @@ use streak::filtering::FilterByStatus;
 pub fn StreakFilters() -> Element {
     rsx! {
         div {
-            class: "lg:pl-4 self-center",
+            class: "self-center lg:self-start",
             fieldset {
                 class: "inline-flex rounded-lg border border-pink-100 bg-purple-50/75 p-1 dark:bg-purple-200/75 dark:border-purple-100 select-none",
                 legend {
