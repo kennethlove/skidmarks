@@ -2,7 +2,7 @@ pub mod filtering;
 pub mod sorting;
 
 use std::fmt::Display;
-
+use std::str::FromStr;
 #[allow(unused_imports)]
 use chrono::{Local, NaiveDate};
 use clap::ValueEnum;
@@ -29,26 +29,22 @@ impl Display for Frequency {
     }
 }
 
-impl Frequency {
-    pub fn from_str(s: &str) -> Self {
+impl FromStr for Frequency {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "daily" => Frequency::Daily,
-            "weekly" => Frequency::Weekly,
-            _ => panic!("Invalid frequency"),
+            "daily" => Ok(Frequency::Daily),
+            "weekly" => Ok(Frequency::Weekly),
+            _ => Err("Invalid frequency".into()),
         }
     }
+}
 
+impl Frequency {
     pub fn as_str(&self) -> &str {
         match self {
             Frequency::Daily => "daily",
             Frequency::Weekly => "weekly",
-        }
-    }
-
-    pub fn to_string(&self) -> String {
-        match self {
-            Frequency::Daily => "daily".to_string(),
-            Frequency::Weekly => "weekly".to_string(),
         }
     }
 }

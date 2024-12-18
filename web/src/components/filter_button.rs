@@ -24,7 +24,7 @@ pub fn FilterButton(props: FilterButtonProps) -> Element {
                     name: "filter",
                     r#type: "radio",
                     checked: storage.get().filter_by == props.button_status.clone(),
-                    onclick: move |e| {
+                    onclick: move |_e| {
                         let mut state = storage.get();
                         state.filter_by = props.button_status.clone();
                         storage.set(state);

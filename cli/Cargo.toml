@@ -22,6 +22,7 @@ tabled = "0.17.0"
 
 shared = { path = "../shared" }
 streak = { path = "../streak" }
+textwrap = "0.16.1"
 
 [dev-dependencies]
 rstest = "0.23.0"

@@ -1,4 +1,3 @@
-use crate::AppState;
 use dioxus::prelude::*;
 use streak::Streak;
 

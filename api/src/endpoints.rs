@@ -53,7 +53,7 @@ pub async fn list(
     let Query(params) = params.unwrap_or_default();
     if let Some(sort_by) = params.sort_by {
         let (field, direction) = get_sort_order(&sort_by);
-        streaks = db.get_sorted(field, direction);
+        streaks = db.get_sorted(&field, &direction);
     }
 
     if let Some(search) = params.search {

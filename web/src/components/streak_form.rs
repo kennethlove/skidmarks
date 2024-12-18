@@ -1,6 +1,5 @@
 use crate::{use_persistent, AppState};
 use dioxus::prelude::*;
-use std::string::ToString;
 use streak::{Frequency, Streak};
 
 #[component]
@@ -16,7 +15,7 @@ pub fn StreakForm() -> Element {
             class: "lg:w-2/3 w-full pb-3 lg:pb-0 lg:pr-3",
             form {
                 class: "flex flex-row flex-wrap xl:flex-nowrap gap-3 justify-center lg:content-between lg:justify-stretch",
-                onsubmit: move |e| {
+                onsubmit: move |_e| {
                     let mut new_streak: Streak = Streak::default();
                     let task = task_signal.read().clone();
                     if task.is_empty() {
@@ -63,7 +62,7 @@ pub fn StreakForm() -> Element {
                                 name: "frequency",
                                 r#type: "radio",
                                 checked: frequency_signal.read().clone() == Frequency::Daily,
-                                onclick: move |event| {
+                                onclick: move |_event| {
                                     frequency_signal.set(Frequency::Daily)
                                 }
                             }
@@ -81,7 +80,7 @@ pub fn StreakForm() -> Element {
                                 name: "frequency",
                                 r#type: "radio",
                                 checked: frequency_signal.read().clone() == Frequency::Weekly,
-                                onclick: move |event| {
+                                onclick: move |_event| {
                                     frequency_signal.set(Frequency::Weekly)
                                 }
                             }

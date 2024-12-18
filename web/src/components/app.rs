@@ -1,5 +1,5 @@
-use crate::components::{DeleteModal, StreakFilters, StreakForm, StreakList, StreakTable};
-use crate::{get_saved_state, use_persistent, AppState};
+use crate::components::{DeleteModal, StreakFilters, StreakForm, StreakList};
+use crate::{use_persistent, AppState};
 use dioxus::prelude::*;
 use streak::Streak;
 

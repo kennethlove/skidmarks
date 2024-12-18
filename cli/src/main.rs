@@ -196,7 +196,7 @@ pub fn parse() {
                 streak_list = streak_list.into_iter().filter(|s| s.is_waiting()).collect();
             }
 
-            streak_list = sort_streaks(streak_list, sort_by.0, sort_by.1);
+            streak_list = sort_streaks(streak_list, &sort_by.0, &sort_by.1);
             println!("{}", build_table(streak_list));
         }
         Commands::Get { ident } => {

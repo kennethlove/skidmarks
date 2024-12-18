@@ -1,8 +1,8 @@
 use crate::components::{CheckInButton, DeleteButton};
-use crate::{get_saved_state, use_persistent, AppState, UsePersistent};
+use crate::{use_persistent, AppState};
 use dioxus::prelude::*;
 use streak::sorting::{SortByDirection, SortByField};
-use streak::{filter_by_status, sort_streaks, Status, Streak};
+use streak::{Status, Streak};
 
 #[component]
 pub fn TableHeader(sort_by_field: SortByField, text: String) -> Element {
@@ -15,7 +15,7 @@ pub fn TableHeader(sort_by_field: SortByField, text: String) -> Element {
             class: "relative cursor-pointer select-none text-purple-900 dark:text-teal-200",
             scope: "col",
             onclick: move |_| {
-                direction = match storage.get().sort_by_direction {
+                match storage.get().sort_by_direction {
                     SortByDirection::Ascending => SortByDirection::Descending,
                     SortByDirection::Descending => SortByDirection::Ascending,
                 };
@@ -95,9 +95,8 @@ pub fn StreakTable() -> Element {
 
 #[component]
 pub fn StreakTableBody() -> Element {
-    let mut storage = use_persistent("skidmarks", || AppState::default());
+    let storage = use_persistent("skidmarks", || AppState::default());
     let streak_signal: Signal<Vec<Streak>> = use_context();
-    let streaks = storage.get().get_sorted_streaks();
 
     rsx! {
         tbody {
@@ -110,7 +109,7 @@ pub fn StreakTableBody() -> Element {
 
 #[component]
 pub fn StreakTableRow(mut streak: Streak) -> Element {
-    let mut streak_signal = Signal::new(streak.clone());
+    let streak_signal = Signal::new(streak.clone());
 
     let last_checkin = match streak_signal.read().last_checkin {
         Some(checkin) => checkin.to_string(),

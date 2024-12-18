@@ -10,7 +10,7 @@ pub fn CheckInButton(streak: Streak) -> Element {
     rsx! {
         button {
             class: "cursor-pointer select-none hover:text-green-500 focus:text-green-500 focus:outline-none",
-            onclick: move |e| {
+            onclick: move |_e| {
                 let mut state = storage.get();
                 let streak = state.check_in_streak(&streak);
                 state.streaks = state.update_streak(&streak);

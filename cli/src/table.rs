@@ -28,14 +28,14 @@ pub fn build_table(streaks: Vec<Streak>) -> String {
 
     for streak in streaks.iter() {
         let mut wrapped_text = String::new();
-        let wrapped_lines = textwrap::wrap(&streak.task.as_str(), width);
+        let wrapped_lines = textwrap::wrap(streak.task.as_str(), width);
         for line in wrapped_lines {
             wrapped_text.push_str(&format!("{line}\n"));
         }
         wrapped_text = wrapped_text.trim().to_string();
 
         let id = &streak.id.to_string()[0..5];
-        let index = Style::new().bold().paint(format!("{}", id));
+        let index = Style::new().bold().paint(id);
         let streak_name = Style::new().bold().paint(wrapped_text);
         let frequency = Style::new().paint(format!("{:^6}", &streak.frequency));
         let emoji = Style::new().paint(format!("{:^6}", &streak.emoji_status()));

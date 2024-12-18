@@ -413,8 +413,8 @@ fn StreakTableBody() -> Element {
     let sort_field = state.read().sort_by_field.clone();
     let sort_direction = state.read().sort_by_direction.clone();
     let mut streaks = state.read().clone().streaks;
-    streaks = sort_streaks(streaks.clone(), sort_field, sort_direction);
-    streaks = filter_by_status(streaks.clone(), filter_field);
+    streaks = sort_streaks(streaks.clone(), &sort_field, &sort_direction);
+    streaks = filter_by_status(streaks.clone(), &filter_field);
     rsx! {
         tbody {
             for streak in streaks {

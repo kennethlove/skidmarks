@@ -1,5 +1,4 @@
 use crate::components::FilterButton;
-use crate::{use_persistent, AppState};
 use dioxus::prelude::*;
 use streak::filtering::FilterByStatus;
 

@@ -482,8 +482,8 @@ fn get_rows(app: &mut App) -> Vec<Row<'static>> {
     let database = Database::new(&get_database_url());
     let streaks = database
         .unwrap()
-        .get_sorted(app.sort_by_field, app.sort_by_direction);
-    let mut streaks = filter_by_status(streaks, app.filter_by_status);
+        .get_sorted(&app.sort_by_field, &app.sort_by_direction);
+    let mut streaks = filter_by_status(streaks, &app.filter_by_status);
     if !app.search_phrase.is_empty() {
         streaks = streaks
             .into_iter()

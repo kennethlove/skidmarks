@@ -1,4 +1,5 @@
 use std::fmt::Display;
+use std::str::FromStr;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
@@ -26,29 +27,19 @@ impl Display for SortByField {
     }
 }
 
-impl SortByField {
-    pub fn to_string(&self) -> String {
-        match self {
-            SortByField::Task => "task".to_string(),
-            SortByField::Frequency => "frequency".to_string(),
-            SortByField::Status => "status".to_string(),
-            SortByField::LastCheckIn => "last_checkin".to_string(),
-            SortByField::CurrentStreak => "current_streak".to_string(),
-            SortByField::LongestStreak => "longest_streak".to_string(),
-            SortByField::TotalCheckins => "total_checkins".to_string(),
-        }
-    }
+impl FromStr for SortByField {
+    type Err = Box<dyn std::error::Error>;
 
-    pub fn from_str(s: &str) -> Self {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "task" => SortByField::Task,
-            "frequency" => SortByField::Frequency,
-            "status" => SortByField::Status,
-            "last_checkin" => SortByField::LastCheckIn,
-            "current_streak" => SortByField::CurrentStreak,
-            "longest_streak" => SortByField::LongestStreak,
-            "total_checkins" => SortByField::TotalCheckins,
-            _ => SortByField::Task,
+            "task" => Ok(SortByField::Task),
+            "frequency" => Ok(SortByField::Frequency),
+            "status" => Ok(SortByField::Status),
+            "last_checkin" => Ok(SortByField::LastCheckIn),
+            "current_streak" => Ok(SortByField::CurrentStreak),
+            "longest_streak" => Ok(SortByField::LongestStreak),
+            "total_checkins" => Ok(SortByField::TotalCheckins),
+            _ => Err("Invalid SortByField".into()),
         }
     }
 }

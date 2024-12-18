@@ -99,8 +99,11 @@ impl AppState {
 
     fn get_sorted_streaks(&self) -> Vec<Streak> {
         let streaks = self.streaks.clone();
+        dioxus_logger::tracing::info!("{:?}", streaks);
         let streaks = sort_streaks(streaks, &self.sort_by_field, &self.sort_by_direction);
+        dioxus_logger::tracing::info!("{:?}", streaks);
         let streaks = filter_by_status(streaks, &self.filter_by);
+        dioxus_logger::tracing::info!("{:?}", streaks);
         streaks
     }
 

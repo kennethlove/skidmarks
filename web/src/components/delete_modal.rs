@@ -4,7 +4,7 @@ use streak::Streak;
 
 #[component]
 pub fn DeleteModal() -> Element {
-    let mut storage = use_persistent("skidmarks", || AppState::default());
+    let storage = use_persistent("skidmarks", || AppState::default());
 
     let mut streak: Streak = Streak::default();
     let mut modal_signal: Signal<Option<Streak>> = use_context();
@@ -43,7 +43,7 @@ pub fn DeleteModal() -> Element {
                                 button {
                                     r#type: "button",
                                     class: "rounded-t-md cursor-pointer select-none py-2 hover:font-bold focus:font-bold hover:bg-purple-200 focus:bg-purple-200 focus:outline-none dark:hover:text-purple-200 dark:hover:bg-purple-500 dark:focus:bg-purple-900",
-                                    onclick: move |e| {
+                                    onclick: move |_e| {
                                         storage.get().remove_streak(&streak);
                                         modal_signal.set(None);
                                     },
@@ -54,7 +54,7 @@ pub fn DeleteModal() -> Element {
                                 button {
                                     r#type: "button",
                                     class: "rounded-b-md cursor-pointer select-none py-2 hover:font-bold focus:font-bold hover:bg-purple-200 focus:bg-purple-200 focus:outline-none dark:hover:text-purple-200 dark:hover:bg-purple-500 dark:focus:bg-purple-900",
-                                    onclick: move |e| { modal_signal.set(None) },
+                                    onclick: move |_e| { modal_signal.set(None) },
                                     span {
                                         "No"
                                     }

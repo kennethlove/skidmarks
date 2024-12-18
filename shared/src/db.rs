@@ -136,16 +136,16 @@ impl Database {
 
     pub fn get_sorted(
         &self,
-        sort_field: SortByField,
-        sort_direction: SortByDirection,
+        sort_field: &SortByField,
+        sort_direction: &SortByDirection,
     ) -> Vec<Streak> {
         let streaks = self.streaks.clone();
-        sort_streaks(streaks, sort_field, sort_direction)
+        sort_streaks(streaks, &sort_field, &sort_direction)
     }
 
     pub fn get_filtered(&self, filter_field: FilterByStatus) -> Vec<Streak> {
         let streaks = self.streaks.clone();
-        filter_by_status(streaks, filter_field)
+        filter_by_status(streaks, &filter_field)
     }
 
     pub fn get_one(&mut self, id: Uuid) -> Option<Streak> {
@@ -163,8 +163,8 @@ impl Database {
         sort_dir: SortByDirection,
         filter_by: FilterByStatus,
     ) -> Option<Streak> {
-        let streaks = self.get_sorted(sort_field, sort_dir);
-        let streaks = filter_by_status(streaks, filter_by);
+        let streaks = self.get_sorted(&sort_field, &sort_dir);
+        let streaks = filter_by_status(streaks, &filter_by);
         let streak = streaks.iter().nth(index);
         match streak {
             Some(streak) => Some(streak.clone()),
@@ -457,7 +457,7 @@ mod tests {
         let file_path = db_file.to_str().unwrap();
 
         let db = Database::create_from_file(file_path, DATABASE_PRELOAD).unwrap();
-        let result = db.get_sorted(SortByField::Task, SortByDirection::Ascending);
+        let result = db.get_sorted(&SortByField::Task, &SortByDirection::Ascending);
         assert_ne!(db.streaks.clone()[..], result[..]);
 
         temp.close().unwrap();

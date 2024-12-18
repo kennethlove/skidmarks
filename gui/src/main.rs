@@ -401,7 +401,7 @@ impl Streaks {
         let sort_by = self.sort_by.clone();
         let sort_dir = self.sort_dir.clone();
         let filter_by = self.filter_by.clone();
-        let streaks = self.db.get_sorted(sort_by, sort_dir);
+        let streaks = self.db.get_sorted(&sort_by, &sort_dir);
         let filtered_streaks = streaks
             .into_iter()
             .filter(|streak| match filter_by {
