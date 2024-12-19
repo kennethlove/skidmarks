@@ -4,6 +4,16 @@ use dioxus::prelude::*;
 use streak::Streak;
 
 #[component]
+pub fn Header() -> Element {
+    rsx! {
+        h1 {
+            class: "text-3xl font-bold text-purple-900 dark:text-teal-500 sr-only",
+            "Skidmarks"
+        }
+    }
+}
+
+#[component]
 pub fn App() -> Element {
     let mut storage = use_persistent("skidmarks", || AppState::default());
     let streak_signal = use_context_provider(|| Signal::new(storage.get().streaks.clone()));
@@ -31,10 +41,7 @@ pub fn App() -> Element {
                 class: "container flex flex-col gap-3 mx-auto min-h-screen w-full sm:w-7/8 lg:w-10/12 p-2",
                 div {
                     class: "flex flex-row flex-nowrap shrink md:justify-between gap-2 md:gap-0 items-center relative",
-                    h1 {
-                        class: "text-3xl font-bold text-purple-900 dark:text-teal-500",
-                        "Skidmarks"
-                    }
+                    Header {}
                     button {
                         class: "cursor-pointer absolute right-2 top-2 md:relative md:top-0 md:right-0 md:pt-2",// sm:absolute sm:right-16 sm:top-2",
                         onclick: move |_| {

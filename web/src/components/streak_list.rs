@@ -12,14 +12,16 @@ pub fn StreakList() -> Element {
     let streaks = streak_signal.read().clone();
 
     rsx! {
-        ol {
-            class: "grow flex flex-nowrap flex-col md:flex-row md:flex-wrap gap-3 h-full w-full",
-            for streak in &streaks {
-                StreakListItem { streak: streak.clone() }
+        if streaks.is_empty() {
+            h2 {
+                class: "text-3xl text-center text-purple-500 dark:text-teal-500",
+                "No streaks found."
             }
-            if streaks.is_empty() {
-                p {
-                    "None"
+        } else {
+            ol {
+                class: "flex flex-nowrap flex-col md:flex-row md:flex-wrap gap-3 h-full w-full",
+                for streak in &streaks {
+                    StreakListItem { streak: streak.clone() }
                 }
             }
         }
@@ -34,6 +36,7 @@ pub struct StreakListItemProps {
 pub fn StreakListItem(props: StreakListItemProps) -> Element {
     rsx! {
         li {
+            class: "",
             article {
                 class: "min-w-52 bg-purple-100 dark:bg-purple-200 dark:bg-gray-300 rounded p-2 transition shadow-sm hover:shadow-lg drop-shadow-sm hover:drop-shadow-lg dark:selection:text-teal-100 dark:selection:bg-purple-800",
                 div {
