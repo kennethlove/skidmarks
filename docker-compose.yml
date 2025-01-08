@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.app.rule=Host(`skidmarks.minty`)"
+      - "traefik.http.services.app.loadbalancer.server.port=3000"
+    expose:
+      - "3000:80"
+
